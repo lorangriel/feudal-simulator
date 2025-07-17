@@ -1,5 +1,5 @@
 # county-emulator
 
-This project is a small prototype for a feudal county simulation. The main
-implementation now lives in `src/simulator.py` and uses Tkinter to render maps
-and manage game data. Run it with `python src/simulator.py`.
+This project is a small prototype for a feudal county simulation. The code
+is split across multiple modules under `src/`. Run the application with
+`python src/simulator.py`.
