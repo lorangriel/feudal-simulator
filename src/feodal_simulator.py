@@ -1216,11 +1216,26 @@ class FeodalSimulator:
         row_idx += 1
 
         # Number of Subfiefs
-        ttk.Label(editor_frame, text="Antal Underförläningar:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        ttk.Label(editor_frame, text="Antal Underförläningar (barnregioner):").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.IntVar(value=node_data.get("num_subfiefs", 0))
         # Use standard spinbox as ttk doesn't have one? Or just Entry + validation? Use Spinbox for now.
         sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=('Arial', 10))
         sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        # Inline help explaining subfiefs
+        help_text = "En underförläning är en region som lyder under denna. \nÄndra antalet för att skapa eller ta bort."
+        ttk.Label(editor_frame, text=help_text, wraplength=300).grid(row=row_idx, column=0, columnspan=2, sticky="w", padx=5, pady=(0,5))
+        row_idx += 1
+
+        # List current children for quick reference
+        ttk.Label(editor_frame, text="Nuvarande underförläningar:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=3)
+        children_list = tk.Listbox(editor_frame, height=5)
+        for cid in node_data.get("children", []):
+            child = self.world_data.get("nodes", {}).get(str(cid))
+            if child:
+                children_list.insert(tk.END, self.get_display_name_for_node(child, depth + 1))
+        children_list.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
         row_idx += 1
 
         # --- Actions Frame ---
@@ -1241,11 +1256,30 @@ class FeodalSimulator:
                 if target_subfiefs < 0: target_subfiefs = 0 # Ensure non-negative
                 node_data["num_subfiefs"] = target_subfiefs
             except tk.TclError: node_data["num_subfiefs"] = 0
+            current_count = len(node_data.get("children", []))
+            if abs(target_subfiefs - current_count) > 1:
+                if not messagebox.askyesno(
+                        "Bekräfta",
+                        "Du är på väg att ändra antalet underförläningar med fler än en. Är du säker?",
+                        parent=self.root):
+                    return
 
             self.update_subfiefs_for_node(node_data)
             # The view will be refreshed by update_subfiefs_for_node finding this node again
 
         ttk.Button(button_frame, text="Uppdatera Underförläningar", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
+
+        def add_subnode_action():
+            node_data["name"] = name_var.get().strip()
+            node_data["custom_name"] = custom_name_var.get().strip()
+            try: node_data["population"] = pop_var.get()
+            except tk.TclError: node_data["population"] = 0
+            new_count = node_data.get("num_subfiefs", 0) + 1
+            sub_var.set(new_count)
+            node_data["num_subfiefs"] = new_count
+            self.update_subfiefs_for_node(node_data)
+
+        ttk.Button(button_frame, text="Lägg till Underförläning", command=add_subnode_action).pack(side=tk.LEFT, padx=5)
 
         def save_node_action():
             old_name = node_data.get("name", "")
