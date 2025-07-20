@@ -149,6 +149,14 @@ class FeodalSimulator:
         # --- Initial View ---
         self.show_no_world_view() # Show placeholder in right frame
 
+        # Auto-load world file if only one world exists
+        if len(self.all_worlds) == 1:
+            only_world = next(iter(self.all_worlds))
+            try:
+                self.load_world(only_world)
+            except Exception as e:
+                print(f"Failed to auto-load world '{only_world}': {e}")
+
     # --- Status Methods ---
     def add_status_message(self, msg):
         """Adds a message to the status bar."""
@@ -556,6 +564,7 @@ class FeodalSimulator:
         self.root.title(f"Förläningssimulator - {wname}")
         self.populate_tree()
         self.show_no_world_view() # Clear right panel initially
+        self._auto_select_single_root()
         self.add_status_message(f"Värld '{wname}' laddad.")
         # Reset map buttons
         self.hide_map_mode_buttons()
@@ -670,6 +679,19 @@ class FeodalSimulator:
 
             for child_data in child_nodes:
                 self._add_tree_node_recursive(my_iid, child_data)
+
+    def _auto_select_single_root(self):
+        """If there is only one root node, select and open it."""
+        if not self.tree.winfo_exists():
+            return
+        roots = self.tree.get_children("")
+        if len(roots) == 1:
+            root_iid = roots[0]
+            self.tree.selection_set(root_iid)
+            self.tree.focus(root_iid)
+            node_data = self.world_data.get("nodes", {}).get(root_iid)
+            if node_data:
+                self.show_node_view(node_data)
 
 
     def get_display_name_for_node(self, node_data, depth):
