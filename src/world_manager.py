@@ -82,7 +82,7 @@ class WorldManager(WorldInterface):
         elif depth == 2:
             level_name = name or "Hertigdöme"
         elif depth == 3:
-            return f"{custom_name or f'Jarldöme {node_id}'}"
+            return f"{custom_name or f'Jarldöme {node_id}'} (ägande nod)"
         else:
             ruler_str = ""
             if ruler_id and "characters" in self.world_data:
@@ -97,14 +97,15 @@ class WorldManager(WorldInterface):
             if ruler_str:
                 parts.append(f"({ruler_str})")
             if not parts:
-                return f"Resurs {node_id}"
-            return " - ".join(parts)
+                return f"Resurs {node_id} (ägande nod)"
+            return " - ".join(parts) + " (ägande nod)"
 
         display = level_name
         if custom_name and custom_name != level_name:
             display += f" [{custom_name}]"
         if show_id:
             display += f" (ID: {node_id})"
+        display += " (ägande nod)"
         return display
 
     def update_subfiefs_for_node(self, node_data: Dict[str, Any]) -> None:
