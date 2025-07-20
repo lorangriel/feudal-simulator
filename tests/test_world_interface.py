@@ -2,7 +2,7 @@ import pytest
 
 from src.world_manager import WorldManager
 from src.world_interface import WorldInterface
-from src.constants import BORDER_TYPES, MAX_NEIGHBORS
+from src.constants import BORDER_TYPES, MAX_NEIGHBORS, NEIGHBOR_NONE_STR
 import json
 import os
 import tempfile
@@ -85,3 +85,55 @@ def test_validate_world_data_basic():
     assert node2["children"] == []
     assert node2["ruler_id"] is None
     assert world["characters"]["10"]["char_id"] == 10
+
+
+def test_update_neighbors_for_node_bidirectional():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "10": {
+                "node_id": 10,
+                "parent_id": 1,
+                "neighbors": [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS)
+                ],
+            },
+            "20": {
+                "node_id": 20,
+                "parent_id": 1,
+                "neighbors": [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS)
+                ],
+            },
+        },
+        "characters": {},
+        "next_node_id": 20,
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: 3 if nid in (10, 20) else 0
+
+    new_neighbors = [
+        {"id": 20, "border": "v\u00e4g"}
+    ] + [
+        {"id": None, "border": NEIGHBOR_NONE_STR}
+        for _ in range(MAX_NEIGHBORS - 1)
+    ]
+
+    manager.update_neighbors_for_node(10, new_neighbors)
+
+    assert world["nodes"]["10"]["neighbors"][0]["id"] == 20
+    back = None
+    for nb in world["nodes"]["20"]["neighbors"]:
+        if nb.get("id") == 10:
+            back = nb
+            break
+    assert back is not None
+    assert back["border"] == "v\u00e4g"
+
+    empty_neighbors = [
+        {"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)
+    ]
+    manager.update_neighbors_for_node(10, empty_neighbors)
+    assert all(nb.get("id") != 10 for nb in world["nodes"]["20"]["neighbors"])
