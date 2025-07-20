@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Any
+from typing import List, Optional
 
 from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR
 
@@ -70,3 +70,20 @@ class Node:
             neighbors=neighbors,
             res_type=data.get("res_type", "Resurs"),
         )
+
+    def to_dict(self) -> dict:
+        """Convert this Node back into a serialisable dictionary."""
+        return {
+            "node_id": self.node_id,
+            "parent_id": self.parent_id,
+            "name": self.name,
+            "custom_name": self.custom_name,
+            "population": self.population,
+            "ruler_id": self.ruler_id,
+            "num_subfiefs": self.num_subfiefs,
+            "children": list(self.children),
+            "neighbors": [
+                {"id": nb.id, "border": nb.border} for nb in self.neighbors
+            ],
+            "res_type": self.res_type,
+        }

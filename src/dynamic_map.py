@@ -3,8 +3,10 @@ import math
 import random
 import tkinter as tk
 from tkinter import ttk
+from typing import List
 
 from constants import BORDER_COLORS, NEIGHBOR_NONE_STR
+from node import Node
 
 
 class DynamicMapCanvas:
@@ -64,13 +66,13 @@ class DynamicMapCanvas:
         """Draws Jarldoms and connections on the dynamic map."""
         self.canvas.delete("all")
 
-        jarldomes = []
+        jarldomes: List[Node] = []
         if self.world_data and "nodes" in self.world_data:
             for node_id_str, nd in self.world_data["nodes"].items():
                 try:
                     node_id = int(node_id_str)
                     if self.simulator.get_depth_of_node(node_id) == 3:
-                        jarldomes.append(nd)
+                        jarldomes.append(Node.from_dict(nd))
                 except ValueError:
                     continue
 
@@ -85,22 +87,21 @@ class DynamicMapCanvas:
         self.positions = {}
 
         for nd in jarldomes:
-            node_id = nd["node_id"]
+            node_id = nd.node_id
             x = random.randint(padding, map_width - padding)
             y = random.randint(padding, map_height - padding)
             self.positions[node_id] = (x, y)
 
         node_polygons = {}
         for nd in jarldomes:
-            jid = nd["node_id"]
+            jid = nd.node_id
             x, y = self.positions[jid]
 
             neighbor_count = 0
-            if "neighbors" in nd:
-                for nb in nd["neighbors"]:
-                    nb_id = nb.get("id")
-                    if isinstance(nb_id, int) and str(nb_id) in self.world_data.get("nodes", {}):
-                        neighbor_count += 1
+            for nb in nd.neighbors:
+                nb_id = nb.id
+                if isinstance(nb_id, int) and str(nb_id) in self.world_data.get("nodes", {}):
+                    neighbor_count += 1
 
             sides = max(3, min(neighbor_count, 8))
             size = 40
@@ -149,6 +150,7 @@ class DynamicMapCanvas:
                 continue
 
             if self.simulator.get_depth_of_node(node_id) == 3 and "neighbors" in nd:
+                node_obj = Node.from_dict(nd)
                 A_id = node_id
                 if A_id not in node_polygons:
                     continue
@@ -156,14 +158,14 @@ class DynamicMapCanvas:
                 A_cx = node_polygons[A_id]["cx"]
                 A_cy = node_polygons[A_id]["cy"]
 
-                for nb_info in nd.get("neighbors", []):
-                    B_id = nb_info.get("id")
+                for nb_info in node_obj.neighbors:
+                    B_id = nb_info.id
                     if isinstance(B_id, int) and B_id in node_polygons:
                         if B_id != A_id and tuple(sorted((A_id, B_id))) not in drawn_pairs:
                             B_cx = node_polygons[B_id]["cx"]
                             B_cy = node_polygons[B_id]["cy"]
 
-                            border_type = nb_info.get("border", NEIGHBOR_NONE_STR)
+                            border_type = nb_info.border
                             color = BORDER_COLORS.get(border_type, "gray")
                             width = 2
                             if border_type in ["väg", "stor väg", "vattendrag"]:

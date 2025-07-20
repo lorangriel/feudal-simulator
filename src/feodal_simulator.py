@@ -6,8 +6,15 @@ import random
 import math
 from collections import deque
 
-from constants import BORDER_TYPES, BORDER_COLORS, NEIGHBOR_NONE_STR, NEIGHBOR_OTHER_STR, MAX_NEIGHBORS
+from constants import (
+    BORDER_TYPES,
+    BORDER_COLORS,
+    NEIGHBOR_NONE_STR,
+    NEIGHBOR_OTHER_STR,
+    MAX_NEIGHBORS,
+)
 from data_manager import load_worlds_from_file, save_worlds_to_file
+from node import Node
 from utils import roll_dice, generate_swedish_village_name
 from dynamic_map import DynamicMapCanvas
 
@@ -666,13 +673,21 @@ class FeodalSimulator:
 
 
     def get_display_name_for_node(self, node_data, depth):
-        """Determines the display text for a node in the treeview based on its depth and data."""
-        if not isinstance(node_data, dict): return "Invalid Node Data"
-
-        node_id = node_data.get("node_id", "??")
-        name = node_data.get("name", "")
-        custom_name = node_data.get("custom_name", "").strip()
-        res_type = node_data.get("res_type", "") # Default to empty string if missing
+        """Return a readable name for a node at the given depth."""
+        if isinstance(node_data, Node):
+            node_id = node_data.node_id
+            name = node_data.name
+            custom_name = node_data.custom_name.strip()
+            res_type = node_data.res_type
+            ruler_id = node_data.ruler_id
+        elif isinstance(node_data, dict):
+            node_id = node_data.get("node_id", "??")
+            name = node_data.get("name", "")
+            custom_name = node_data.get("custom_name", "").strip()
+            res_type = node_data.get("res_type", "")
+            ruler_id = node_data.get("ruler_id")
+        else:
+            return "Invalid Node Data"
 
         # Depth-based titles (override custom names for these levels, but allow showing custom name)
         level_name = ""
@@ -685,7 +700,6 @@ class FeodalSimulator:
             return f"{custom_name or f'Jarldöme {node_id}'}" # Simple name for Jarldom
         else: # depth >= 4
             # Resource node
-            ruler_id = node_data.get("ruler_id")
             ruler_str = ""
             if ruler_id and self.world_data and "characters" in self.world_data:
                 ruler_data = self.world_data["characters"].get(str(ruler_id))
