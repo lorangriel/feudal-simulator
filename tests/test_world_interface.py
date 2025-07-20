@@ -137,3 +137,35 @@ def test_update_neighbors_for_node_bidirectional():
     ]
     manager.update_neighbors_for_node(10, empty_neighbors)
     assert all(nb.get("id") != 10 for nb in world["nodes"]["20"]["neighbors"])
+
+
+def test_update_neighbors_handles_truncated_lists():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "10": {"node_id": 10, "parent_id": 1, "neighbors": []},
+            "20": {
+                "node_id": 20,
+                "parent_id": 1,
+                "neighbors": [{"id": None, "border": NEIGHBOR_NONE_STR}],
+            },
+        },
+        "characters": {},
+        "next_node_id": 20,
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: 3 if nid in (10, 20) else 0
+
+    new_neighbors = [
+        {"id": 20, "border": "v\u00e4g"}
+    ] + [
+        {"id": None, "border": NEIGHBOR_NONE_STR}
+        for _ in range(MAX_NEIGHBORS - 1)
+    ]
+
+    manager.update_neighbors_for_node(10, new_neighbors)
+
+    assert len(world["nodes"]["10"]["neighbors"]) == MAX_NEIGHBORS
+    assert len(world["nodes"]["20"]["neighbors"]) == MAX_NEIGHBORS
+    assert world["nodes"]["10"]["neighbors"][0]["id"] == 20
+    assert any(nb.get("id") == 10 for nb in world["nodes"]["20"]["neighbors"])
