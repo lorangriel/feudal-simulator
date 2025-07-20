@@ -1458,9 +1458,12 @@ class FeodalSimulator:
                     something_changed = True
 
             if something_changed:
-                node_data["neighbors"] = new_neighbors
+                # Ensure bidirectional links are kept in sync
+                self.world_manager.update_neighbors_for_node(node_id, new_neighbors)
                 self.save_current_world()
-                self.add_status_message(f"Jarldom {node_id}: Grannar uppdaterade.")
+                self.add_status_message(
+                    f"Jarldom {node_id}: Grannar uppdaterade."
+                )
                 self.refresh_tree_item(node_id)
                 if self.static_map_canvas and self.static_map_canvas.winfo_exists():
                     self.draw_static_border_lines()

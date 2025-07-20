@@ -212,3 +212,78 @@ class WorldManager(WorldInterface):
             elif free_slots2 == 0:
                 reason = f"{node2.get('custom_name', f'ID:{node_id2}')} har maximalt antal grannar."
             return False, f"Fel: Kunde inte länka grannar. {reason}"
+
+    # -------------------------------------------
+    # Bidirectional neighbor management
+    # -------------------------------------------
+    def update_neighbors_for_node(self, node_id: int, new_neighbors: List[Dict[str, Any]]) -> None:
+        """Replace ``node_id`` neighbor list with ``new_neighbors`` and ensure
+        links are bidirectional."""
+
+        node = self.world_data.get("nodes", {}).get(str(node_id))
+        if not node:
+            return
+
+        old_neighbors = node.get("neighbors", [])
+        old_ids = {
+            nb.get("id")
+            for nb in old_neighbors
+            if isinstance(nb, dict) and isinstance(nb.get("id"), int)
+        }
+        new_ids = {
+            nb.get("id")
+            for nb in new_neighbors
+            if isinstance(nb, dict) and isinstance(nb.get("id"), int)
+        }
+
+        nodes_dict = self.world_data.get("nodes", {})
+
+        def ensure_slots(n: Dict[str, Any]) -> List[Dict[str, Any]]:
+            neigh = n.get("neighbors")
+            if not isinstance(neigh, list):
+                neigh = []
+            while len(neigh) < MAX_NEIGHBORS:
+                neigh.append({"id": None, "border": NEIGHBOR_NONE_STR})
+            if len(neigh) > MAX_NEIGHBORS:
+                neigh = neigh[:MAX_NEIGHBORS]
+            n["neighbors"] = neigh
+            return neigh
+
+        # Remove stale links from neighbors no longer referenced
+        for rid in old_ids - new_ids:
+            other = nodes_dict.get(str(rid))
+            if not other:
+                continue
+            for nb in ensure_slots(other):
+                if nb.get("id") == node_id:
+                    nb["id"] = None
+                    nb["border"] = NEIGHBOR_NONE_STR
+                    break
+
+        # Add/update reverse links for each new neighbor
+        for entry in new_neighbors:
+            nid = entry.get("id")
+            if not isinstance(nid, int):
+                continue
+            other = nodes_dict.get(str(nid))
+            if not other:
+                continue
+            other_neigh = ensure_slots(other)
+            border_val = entry.get("border", NEIGHBOR_NONE_STR)
+            link_found = False
+            for nb in other_neigh:
+                if nb.get("id") == node_id:
+                    nb["border"] = border_val
+                    link_found = True
+                    break
+            if not link_found:
+                for nb in other_neigh:
+                    if nb.get("id") is None:
+                        nb["id"] = node_id
+                        nb["border"] = border_val
+                        link_found = True
+                        break
+
+        node["neighbors"] = ensure_slots(node)
+        for i in range(min(len(new_neighbors), MAX_NEIGHBORS)):
+            node["neighbors"][i] = new_neighbors[i]
