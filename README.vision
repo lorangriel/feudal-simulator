@@ -1,0 +1,182 @@
+En vision - Punktlista
+======================
+
+A) Strukturell grund
+====================
+
+Du vill kunna skapa många olika typer av förläningar och underresurser:
+
+ - Befolkning
+
+ - Djurhjordar
+
+ - Odlingsmarker
+
+ - Smedjor
+
+ - Andra resurstyper
+
+Dessa bildar tillsammans en lokal ekonomi per förläning.
+
+B) Feodal hierarki
+==================
+
+Förläningar har hierarkisk struktur: kungarike → furstendömen → hertigdömen → jarldömen → lokala resurser.
+
+Noder på högre nivå påverkar underliggande noder.
+
+C) Påverkan mellan förläningar
+==============================
+
+Förläningar kan påverka varandra i viss mån (handel, politik, krig, allianser?).
+
+D) Händelser och väder
+======================
+
+Ett system för händelser och väder ska påverka noder:
+
+Händelser kan ske på olika nivåer (hela riket, ett hertigdöme, en by, eller enskild resurs).
+
+Lokala naturkatastrofer (t.ex. en tornado) påverkar bara ett litet område.
+
+️E) Tidssystem
+=============
+
+Tidsaxel med 4 tidssteg/år.
+
+Simulering av tidens gång: födslar, dödsfall, ekonomisk utveckling.
+
+Noder producerar resurser över tid som kan säljas eller användas.
+
+F) Historik och versionshantering
+=================================
+
+Varje tidssteg sparas som en fullständig historik.
+
+Möjlighet att gå tillbaka i tiden: "Hur såg byn ut för 10 eller 100 år sen?"
+
+Om man ändrar något i det förflutna:
+
+Ett felmeddelande visas: framtiden är nu inkonsistent.
+
+Användaren kan regenerera framtiden från den punkten.
+
+Regenerering kan ge följdfel i flera framtida år → kedjereaktion av kausal påverkan.
+
+G) Saknade funktioner 
+=====================
+
+G.1) Analys
+-----------
+
+För att uppnå din fulla vision saknas just nu:
+
+G.2) Tekniska verktyg
+---------------------
+
+Versionshanteringssystem för världstillstånd (som Git fast för simuleringar).
+
+Tidsaxel-motor med stöd för sparning av 4 steg/år per nod.
+
+Delta-system för att visa skillnader mellan två tidsperioder.
+
+Rollback-mekanik och hantering av inkonsistensfel.
+
+G.3) Simuleringslogik
+---------------------
+
+AI för befolkningstillväxt, död och migration.
+
+Ekonomimotor: Produktion, konsumtion, byte och försäljning av resurser.
+
+Politiska och sociala relationer mellan noder (lojalitet, uppror, etc).
+
+G.4) Händelsemodul
+------------------
+
+Händelsegenerator som:
+
+Skapar väder och andra händelser (t.ex. sjukdomar, uppror, invasioner).
+
+Tilldelar dem geografiskt och hierarkiskt.
+
+Påverkar resurser, byggnader, befolkning osv.
+
+G.5) Gränssnitt & användning
+----------------------------
+
+Grafisk visning av tidsaxeln med navigation och förändringsvisualisering.
+
+Välstrukturerat GUI för redigering av förflutet och simulering av framtiden.
+
+H) Komplett plan - Moduler och funktioner
+=========================================
+
+1. Datamodell och sparsystem
+----------------------------
+
+Objektstruktur för alla noder
+
+Fullständig snapshot per tidssteg
+
+Versionsträd: ändringar i dåtid genererar ny framtid
+
+Kausal kedjehantering och inkonsistensvarningar
+
+2. Tidshantering
+----------------
+
+4 tidssteg/år med datumformat
+
+Händelser, befolkningsändringar och produktion sker per steg
+
+Stega framåt och bakåt
+
+3. Resurs- och ekonomimotor
+---------------------------
+
+Varje nod har:
+
+Produkter och konsumtion
+
+Arbetskraft och kapacitet
+
+Handel mellan noder, brist, överskott
+
+4. Händelse- och vädersystem
+----------------------------
+
+Händelsetabeller per nivå
+
+Vädermodul med geografi och slump
+
+Effekter på resurser, infrastruktur, människor
+
+5. Versionshantering & logik
+----------------------------
+
+Om förändring sker bakåt i tiden:
+
+Systemet flaggar framtida noder som osäkra
+
+Användaren erbjuds att regenerera
+
+Möjlighet att spara gamla versioner parallellt (brancha simuleringar?)
+
+6. Visualisering
+----------------
+
+Tradvy över förläningar
+
+Kartbaserad eller schematisk världskarta
+
+Tidslinje med zoom och klickbar historik
+
+Eventlogg med vad som hände när
+
+7. AI och livssimulering
+------------------------
+
+Befolkningsförändring: födelser, död, migration, åldrande
+
+Lojalitet, moral, påverkan av händelser
