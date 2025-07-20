@@ -1732,7 +1732,11 @@ class FeodalSimulator:
                     self.static_map_canvas.itemconfig(tag, fill="#ccffcc", outline="green")
 
     def highlight_neighbor_candidates(self, start_node_id):
-        """Highlights potential neighbors when starting a link drag."""
+        """Highlights potential neighbors when starting a link drag.
+
+        Nodes that share the same parent as ``start_node_id`` are colored yellow
+        while existing neighbors are highlighted in red.
+        """
         if not self.static_map_canvas or not self.world_data:
             return
         self.reset_hex_highlights()
@@ -1761,7 +1765,10 @@ class FeodalSimulator:
             pos = self.map_static_positions.get(sid)
             if pos:
                 r, c = pos
-                self.static_map_canvas.itemconfig(f"hex_{r}_{c}", fill="#aaffaa", outline="green")
+                # Yellow highlight for nodes sharing the same parent
+                self.static_map_canvas.itemconfig(
+                    f"hex_{r}_{c}", fill="#ffffaa", outline="green"
+                )
 
         for nid in neighbor_ids:
             pos = self.map_static_positions.get(nid)
