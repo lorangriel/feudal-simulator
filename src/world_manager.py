@@ -224,7 +224,19 @@ class WorldManager(WorldInterface):
         if not node:
             return
 
+        # Ensure neighbor lists have the expected length
         old_neighbors = node.get("neighbors", [])
+        if len(old_neighbors) < MAX_NEIGHBORS:
+            old_neighbors.extend(
+                {"id": None, "border": NEIGHBOR_NONE_STR}
+                for _ in range(MAX_NEIGHBORS - len(old_neighbors))
+            )
+            node["neighbors"] = old_neighbors
+        if len(new_neighbors) < MAX_NEIGHBORS:
+            new_neighbors = new_neighbors + [
+                {"id": None, "border": NEIGHBOR_NONE_STR}
+                for _ in range(MAX_NEIGHBORS - len(new_neighbors))
+            ]
         old_ids = {
             nb.get("id")
             for nb in old_neighbors
@@ -243,7 +255,14 @@ class WorldManager(WorldInterface):
             other = nodes_dict.get(str(rid))
             if not other:
                 continue
-            for nb in other.get("neighbors", []):
+            other_neighbors = other.get("neighbors", [])
+            if len(other_neighbors) < MAX_NEIGHBORS:
+                other_neighbors.extend(
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS - len(other_neighbors))
+                )
+                other["neighbors"] = other_neighbors
+            for nb in other_neighbors:
                 if nb.get("id") == node_id:
                     nb["id"] = None
                     nb["border"] = NEIGHBOR_NONE_STR
@@ -259,13 +278,20 @@ class WorldManager(WorldInterface):
                 continue
             border_val = entry.get("border", NEIGHBOR_NONE_STR)
             link_found = False
-            for nb in other.get("neighbors", []):
+            other_neighbors = other.get("neighbors", [])
+            if len(other_neighbors) < MAX_NEIGHBORS:
+                other_neighbors.extend(
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS - len(other_neighbors))
+                )
+                other["neighbors"] = other_neighbors
+            for nb in other_neighbors:
                 if nb.get("id") == node_id:
                     nb["border"] = border_val
                     link_found = True
                     break
             if not link_found:
-                for nb in other.get("neighbors", []):
+                for nb in other_neighbors:
                     if nb.get("id") is None:
                         nb["id"] = node_id
                         nb["border"] = border_val
