@@ -1,6 +1,11 @@
 import pytest
 
 from src.world_manager import WorldManager
+from src.world_interface import WorldInterface
+from src.constants import BORDER_TYPES, MAX_NEIGHBORS
+import json
+import os
+import tempfile
 
 
 def test_init_with_world_data():
@@ -37,3 +42,46 @@ def test_delete_node_and_descendants_removes_subtree():
 def test_delete_node_and_descendants_missing_node():
     manager = WorldManager({"nodes": {}, "characters": {}})
     assert manager.delete_node_and_descendants(99) == 0
+
+
+def test_world_file_helpers(tmp_path):
+    data = {"a": 1}
+    file_path = tmp_path / "worlds.json"
+    # Test save
+    WorldInterface.save_worlds_file(data, file_path)
+    assert file_path.exists()
+    # Test load
+    loaded = WorldInterface.load_worlds_file(file_path)
+    assert loaded == data
+    # Missing file returns empty dict
+    missing = WorldInterface.load_worlds_file(tmp_path / "missing.json")
+    assert missing == {}
+
+
+def test_validate_world_data_basic():
+    world = {
+        "nodes": {
+            "1": {"parent_id": None, "children": [2], "num_subfiefs": 1},
+            "2": {
+                "parent_id": 1,
+                "children": [3],
+                "ruler_id": 99,
+                "neighbors": [{"id": "X", "border": "bogus"}],
+            },
+        },
+        "characters": {"10": {"name": "Hero"}},
+    }
+    manager = WorldManager(world)
+    # Force depths: root=0, jarldom=3
+    manager.get_depth_of_node = lambda nid: 0 if nid == 1 else 3
+    nodes_updated, chars_updated = manager.validate_world_data()
+    assert nodes_updated > 0
+    assert chars_updated > 0
+    node1 = world["nodes"]["1"]
+    node2 = world["nodes"]["2"]
+    assert node1["node_id"] == 1
+    assert node2["neighbors"][0]["border"] in BORDER_TYPES
+    assert len(node2["neighbors"]) == MAX_NEIGHBORS
+    assert node2["children"] == []
+    assert node2["ruler_id"] is None
+    assert world["characters"]["10"]["char_id"] == 10
