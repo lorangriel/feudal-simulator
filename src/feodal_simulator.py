@@ -1408,50 +1408,50 @@ class FeodalSimulator:
             border_combo.pack(side=tk.LEFT, padx=5)
             self.border_combos[i] = border_combo # Store widget if needed
 
-        # --- Save Action ---
+        # --- Save and Back Buttons ---
+        button_frame = ttk.Frame(view_frame)
+        button_frame.pack(pady=10)
+
         def save_neighbors_action():
-            if not self.world_data: return
+            if not self.world_data:
+                return
+            new_neighbors = []
             something_changed = False
-        ttk.Button(action_button_frame, text="Uppdatera Underresurser", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
+            for i in range(MAX_NEIGHBORS):
+                nb_val = self.neighbor_vars[i].get()
+                border_val = self.border_vars[i].get()
+                nb_id = None
+                if nb_val == NEIGHBOR_OTHER_STR:
+                    nb_id = NEIGHBOR_OTHER_STR
+                elif ":" in nb_val:
+                    try:
+                        cand = int(nb_val.split(":")[0])
+                        if cand in valid_neighbor_ids:
+                            nb_id = cand
+                    except ValueError:
+                        nb_id = None
+                if nb_val == NEIGHBOR_NONE_STR or nb_id is None:
+                    nb_id = None
+                    border_val = NEIGHBOR_NONE_STR
+                if border_val not in BORDER_TYPES:
+                    border_val = NEIGHBOR_NONE_STR
+                entry = {"id": nb_id, "border": border_val}
+                new_neighbors.append(entry)
+                if i >= len(node_data.get("neighbors", [])) or node_data["neighbors"][i] != entry:
+                    something_changed = True
 
-        # Save Resource button
-        def save_resource_action():
-            node_data["res_type"] = res_type_var.get()
-            node_data["custom_name"] = custom_name_var.get().strip()
-            selected_ruler_str = ruler_var.get()
-            if selected_ruler_str == "(ingen)":
-                node_data["ruler_id"] = None
-            elif ":" in selected_ruler_str:
-                try:
-                    node_data["ruler_id"] = str(selected_ruler_str.split(":")[0]) # Store ID as string
-                except: node_data["ruler_id"] = None # Handle parse error or "Okänd"
-            else: node_data["ruler_id"] = None # If invalid format
-
-            try: node_data["num_subfiefs"] = sub_var.get()
-            except tk.TclError: node_data["num_subfiefs"] = 0
-
-            # Save subtype-specific data
-            if save_subtype_func:
-                subtype_data = save_subtype_func()
-                status_parts = [f"{k}: '{v}'" for k, v in subtype_data.items()]
+            if something_changed:
+                node_data["neighbors"] = new_neighbors
+                self.save_current_world()
+                self.add_status_message(f"Jarldom {node_id}: Grannar uppdaterade.")
+                self.refresh_tree_item(node_id)
+                if self.static_map_canvas and self.static_map_canvas.winfo_exists():
+                    self.draw_static_border_lines()
             else:
-                status_parts = []
+                self.add_status_message(f"Jarldom {node_id}: Inga ändringar i grannar.")
 
-            self.save_current_world()
-            status = f"Resurs {node_id} ('{node_data.get('custom_name') or node_data.get('res_type')}') uppdaterad."
-            if status_parts:
-                status += f" ({', '.join(status_parts)})"
-            self.add_status_message(status)
-            self.refresh_tree_item(node_id)
-
-        ttk.Button(action_button_frame, text="Spara Resurs", command=save_resource_action).pack(side=tk.LEFT, padx=5)
-
-        # Delete button
-        delete_button = self._create_delete_button(parent_frame, node_data)
-        delete_button.pack(pady=(15, 5))
-
-        # Back button
-        ttk.Button(parent_frame, text="< Stäng Vy", command=self.show_no_world_view).pack(pady=5)
+        ttk.Button(button_frame, text="Spara Grannar", command=save_neighbors_action).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="< Tillbaka", command=lambda n=node_data: self.show_node_view(n)).pack(side=tk.LEFT, padx=5)
 
 
     # --------------------------------------------------
