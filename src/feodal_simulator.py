@@ -17,6 +17,7 @@ from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
 from utils import roll_dice, generate_swedish_village_name
 from dynamic_map import DynamicMapCanvas
+from world_manager import WorldManager
 
 # --------------------------------------------------
 # Main Application Class: FeodalSimulator
@@ -30,6 +31,7 @@ class FeodalSimulator:
         self.all_worlds = load_worlds_from_file()
         self.active_world_name = None
         self.world_data = None # Holds the data for the active world
+        self.world_manager = WorldManager(self.world_data)
 
         # --- Styling ---
         self.style = ttk.Style()
@@ -426,6 +428,7 @@ class FeodalSimulator:
         # Make a deep copy to avoid modifying the master dict inadvertently before saving
         import copy
         self.world_data = copy.deepcopy(self.all_worlds[wname])
+        self.world_manager.set_world_data(self.world_data)
 
         # --- Data Validation and Initialization on Load ---
         if "nodes" not in self.world_data: self.world_data["nodes"] = {}
@@ -696,112 +699,16 @@ class FeodalSimulator:
 
     def get_display_name_for_node(self, node_data, depth):
         """Return a readable name for a node at the given depth."""
-        if isinstance(node_data, Node):
-            node_id = node_data.node_id
-            name = node_data.name
-            custom_name = node_data.custom_name.strip()
-            res_type = node_data.res_type
-            ruler_id = node_data.ruler_id
-        elif isinstance(node_data, dict):
-            node_id = node_data.get("node_id", "??")
-            name = node_data.get("name", "")
-            custom_name = node_data.get("custom_name", "").strip()
-            res_type = node_data.get("res_type", "")
-            ruler_id = node_data.get("ruler_id")
-        else:
-            return "Invalid Node Data"
-
-        # Depth-based titles (override custom names for these levels, but allow showing custom name)
-        level_name = ""
-        show_id = True
-        if depth == 0: level_name = name or 'Kungarike'
-        elif depth == 1: level_name = name or 'Furstendöme'
-        elif depth == 2: level_name = name or 'Hertigdöme'
-        elif depth == 3:
-            # Jarldom: Use only custom_name (or default)
-            return f"{custom_name or f'Jarldöme {node_id}'}" # Simple name for Jarldom
-        else: # depth >= 4
-            # Resource node
-            ruler_str = ""
-            if ruler_id and self.world_data and "characters" in self.world_data:
-                ruler_data = self.world_data["characters"].get(str(ruler_id))
-                if ruler_data:
-                    ruler_str = ruler_data.get("name", f"Härskare {ruler_id}")
-
-            parts = []
-            if res_type and res_type != "Resurs": # Show type unless it's the generic one
-                parts.append(res_type)
-            if custom_name:
-                parts.append(custom_name)
-            if ruler_str:
-                parts.append(f"({ruler_str})") # Wrap ruler in parentheses
-
-            if not parts: # Fallback if nothing else is defined
-                return f"Resurs {node_id}"
-            else:
-                return " - ".join(parts)
-
-        # For levels 0, 1, 2 - combine level name, optional custom name, and ID
-        display = level_name
-        if custom_name and custom_name != level_name:
-            display += f" [{custom_name}]"
-        if show_id:
-            display += f" (ID: {node_id})"
-        return display
+        return self.world_manager.get_display_name_for_node(node_data, depth)
 
 
     def get_depth_of_node(self, node_id):
-        """Calculates the depth of a node in the hierarchy (0 for root). Caches results."""
-        if not hasattr(self, '_depth_cache'):
-            self._depth_cache = {}
-        if node_id in self._depth_cache:
-            return self._depth_cache[node_id]
-
-        nodes_dict = self.world_data.get("nodes", {})
-        depth = 0
-        current_node_id = node_id
-        visited = {current_node_id} # Prevent infinite loops in case of cycles
-
-        while True:
-            current_node_data = nodes_dict.get(str(current_node_id))
-            if not current_node_data:
-                # print(f"Warning: Node {current_node_id} not found while calculating depth for {node_id}.")
-                self._depth_cache[node_id] = -1 # Cache error state
-                return -1 # Indicate error or orphan node
-
-            parent_id = current_node_data.get("parent_id")
-            if parent_id is None:
-                self._depth_cache[node_id] = depth # Cache result
-                return depth # Found the root
-
-            # Check if parent exists before proceeding
-            if str(parent_id) not in nodes_dict:
-                print(f"Warning: Node {current_node_id} has parent_id {parent_id} which does not exist. Treating as depth {depth+1} (orphan).")
-                # Cache this potentially incorrect depth, or an error code? Cache depth.
-                self._depth_cache[node_id] = depth
-                # Fix the node's parent_id? Maybe not here.
-                # node_data["parent_id"] = None # Fix would require modifying dict during iteration
-                return depth # Return current depth as it has no valid parent link
-
-
-            # Move up to the parent
-            depth += 1
-            current_node_id = parent_id
-
-            if current_node_id in visited:
-                print(f"Error: Cycle detected in hierarchy involving node {current_node_id} when calculating depth for {node_id}.")
-                self._depth_cache[node_id] = -99 # Cache cycle error state
-                return -99 # Indicate cycle
-            visited.add(current_node_id)
-
-            if depth > 50: # Safety break for excessively deep hierarchies
-                print(f"Error: Hierarchy depth exceeds 50 for node {node_id}, possible runaway recursion or cycle.")
-                self._depth_cache[node_id] = -100 # Cache excessive depth error
-                return -100
+        """Calculates the depth of a node in the hierarchy (0 for root)."""
+        return self.world_manager.get_depth_of_node(node_id)
 
     def clear_depth_cache(self):
         """Clears the node depth cache, needed when hierarchy changes."""
-        self._depth_cache = {}
+        self.world_manager.clear_depth_cache()
 
 
     def on_tree_double_click(self, event):
@@ -1683,93 +1590,16 @@ class FeodalSimulator:
         """
         open_items, selection = self.store_tree_state()
 
-        current_children_ids = set(node_data.get("children", []))
-        target_count = node_data.get("num_subfiefs", 0)
-        depth = self.get_depth_of_node(node_data["node_id"])
-
-        # --- Add new children ---
-        while len(current_children_ids) < target_count:
-            self.world_data["next_node_id"] += 1
-            new_id = self.world_data["next_node_id"]
-            new_id_str = str(new_id)
-
-            if depth == 0:
-                child_name = "Furstendöme"
-            elif depth == 1:
-                child_name = "Hertigdöme"
-            elif depth == 2:
-                # Jarldöme: res_type="Resurs", random custom_name
-                child_name = "Resurs"
-            elif depth == 3:
-                child_name = "Resurs" # Children of Jarldoms are Resources
-            else:
-                child_name = "Nod"
-
-            new_node = {
-                "node_id": new_id,
-                "parent_id": node_data["node_id"],
-                "name": child_name,
-                "children": [],
-                "num_subfiefs": 0,
-                "ruler_id": None
-            }
-
-            if depth == 2:
-                new_node["res_type"] = "Resurs"
-                new_node["custom_name"] = generate_swedish_village_name()
-            elif depth == 3:
-                new_node["res_type"] = "Resurs"
-                new_node["custom_name"] = ""
-            elif depth >= 4:
-                new_node["res_type"] = "Resurs" # Default for resources
-                new_node["custom_name"] = ""
-
-            self.world_data["nodes"][new_id_str] = new_node
-            node_data.setdefault("children", []).append(new_id)
-            current_children_ids.add(new_id)
-
-        # --- Remove extra children ---
-        children_to_remove = list(current_children_ids)
-        while len(children_to_remove) > target_count:
-            child_id_to_remove = children_to_remove.pop()
-            if child_id_to_remove in node_data.get("children", []):
-                node_data["children"].remove(child_id_to_remove)
-            self.delete_node_and_descendants(child_id_to_remove)
+        self.world_manager.update_subfiefs_for_node(node_data)
 
         self.save_current_world()
-        self.populate_tree() # Refresh the tree
+        self.populate_tree()  # Refresh the tree
         self.restore_tree_state(open_items, selection)
-        self.show_node_view(node_data) # Re-show the editor
+        self.show_node_view(node_data)  # Re-show the editor
 
     def delete_node_and_descendants(self, node_id):
         """Recursively deletes a node and all its children from world_data."""
-        node_id_str = str(node_id)
-        if node_id_str not in self.world_data.get("nodes", {}):
-            return 0 # Node not found
-
-        deleted_count = 1
-        node_to_delete = self.world_data["nodes"][node_id_str]
-
-        # Recursively delete children first
-        children = list(node_to_delete.get("children", [])) # Iterate over a copy
-        for child_id in children:
-            deleted_count += self.delete_node_and_descendants(child_id)
-
-        # Remove from parent's child list
-        parent_id = node_to_delete.get("parent_id")
-        if parent_id is not None:
-            parent_node = self.world_data["nodes"].get(str(parent_id))
-            if parent_node and "children" in parent_node:
-                if node_id in parent_node["children"]:
-                    parent_node["children"].remove(node_id)
-                elif str(node_id) in parent_node["children"]:
-                    parent_node["children"].remove(str(node_id))
-
-        # Finally, delete the node itself
-        if node_id_str in self.world_data["nodes"]:
-            del self.world_data["nodes"][node_id_str]
-
-        return deleted_count
+        return self.world_manager.delete_node_and_descendants(node_id)
 
     # --------------------------------------------------
     # Map Views
@@ -2041,57 +1871,12 @@ class FeodalSimulator:
             self.map_drag_start_coords = None
 
     def attempt_link_neighbors(self, node_id1, node_id2):
-        """Attempts to link two Jarldoms as neighbors if they have free slots and aren't already linked."""
-        node1 = self.world_data["nodes"].get(str(node_id1))
-        node2 = self.world_data["nodes"].get(str(node_id2))
-
-        if not node1 or not node2:
-            self.add_status_message("Fel: En eller båda noder kunde inte hittas.")
-            return
-
-        if self.get_depth_of_node(node_id1) != 3 or self.get_depth_of_node(node_id2) != 3:
-            self.add_status_message("Fel: Kan bara länka Jarldömen (nivå 3).")
-            return
-
-        neighbors1 = node1.get("neighbors", [])
-        neighbors2 = node2.get("neighbors", [])
-
-        # Check if already neighbors
-        if any(nb.get("id") == node_id2 for nb in neighbors1) or any(nb.get("id") == node_id1 for nb in neighbors2):
-            self.add_status_message(f"Fel: {node1.get('custom_name', f'ID:{node_id1}')} och {node2.get('custom_name', f'ID:{node_id2}')} är redan grannar.")
-            return
-
-        # Check for free neighbor slots
-        free_slots1 = sum(1 for nb in neighbors1 if nb.get("id") is None)
-        free_slots2 = sum(1 for nb in neighbors2 if nb.get("id") is None)
-
-        if free_slots1 > 0 and free_slots2 > 0:
-            # Add to the first free slot in each
-            for i, nb in enumerate(neighbors1):
-                if nb.get("id") is None:
-                    neighbors1[i]["id"] = node_id2
-                    neighbors1[i]["border"] = NEIGHBOR_NONE_STR # Default border
-                    break
-            for i, nb in enumerate(neighbors2):
-                if nb.get("id") is None:
-                    neighbors2[i]["id"] = node_id1
-                    neighbors2[i]["border"] = NEIGHBOR_NONE_STR # Default border
-                    break
-
-            node1["neighbors"] = neighbors1
-            node2["neighbors"] = neighbors2
+        """Attempts to link two Jarldoms as neighbors."""
+        success, message = self.world_manager.attempt_link_neighbors(node_id1, node_id2)
+        if success:
             self.save_current_world()
-            self.add_status_message(f"{node1.get('custom_name', f'ID:{node_id1}')} och {node2.get('custom_name', f'ID:{node_id2}')} är nu grannar.")
-            self.draw_static_border_lines() # Update map
-        else:
-            reason = ""
-            if free_slots1 == 0 and free_slots2 == 0:
-                reason = "Båda jarldömmena har maximalt antal grannar."
-            elif free_slots1 == 0:
-                reason = f"{node1.get('custom_name', f'ID:{node_id1}')} har maximalt antal grannar."
-            elif free_slots2 == 0:
-                reason = f"{node2.get('custom_name', f'ID:{node_id2}')} har maximalt antal grannar."
-            self.add_status_message(f"Fel: Kunde inte länka grannar. {reason}")
+            self.draw_static_border_lines()
+        self.add_status_message(message)
 
     def open_dynamic_map_view(self):
         """Opens the dynamic map view."""
