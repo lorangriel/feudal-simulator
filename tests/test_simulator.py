@@ -12,7 +12,7 @@ class DummySimulator(fs.FeodalSimulator):
 def make_simulator(world_data):
     sim = DummySimulator()
     sim.world_data = world_data
-    sim._depth_cache = {}
+    sim.world_manager = fs.WorldManager(world_data)
     # stub methods used in unit tests
     sim.store_tree_state = lambda: (set(), ())
     sim.populate_tree = lambda: None
@@ -103,6 +103,7 @@ def test_attempt_link_neighbors_success():
     sim = make_simulator(world)
     # Provide depth cache function result: treat both as depth 3
     sim.get_depth_of_node = lambda nid: 3
+    sim.world_manager.get_depth_of_node = lambda nid: 3
     messages = []
     sim.add_status_message = lambda msg: messages.append(msg)
     sim.attempt_link_neighbors(10, 20)
