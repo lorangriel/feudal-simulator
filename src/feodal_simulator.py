@@ -1313,19 +1313,36 @@ class FeodalSimulator:
         if self.world_data and "nodes" in self.world_data:
             for jid_str, jnode in self.world_data["nodes"].items():
                 try:
-                        jid = int(jid_str)
-                        # Exclude self, check depth == 3
-                        if jid != node_id and self.get_depth_of_node(jid) == 3:
-                            jname = jnode.get('custom_name', f'Jarldom {jid}')
-                            other_jarldoms_data.append({"id": jid, "name": jname})
-                except ValueError: continue # Skip non-integer keys
+                    jid = int(jid_str)
+                except ValueError:
+                    continue  # Skip non-integer keys
+                # Exclude self, check depth == 3
+                if jid != node_id and self.get_depth_of_node(jid) == 3:
+                    jname = jnode.get("custom_name", f"Jarldom {jid}")
+                    neighbor_count = sum(
+                        1
+                        for nb in jnode.get("neighbors", [])
+                        if nb.get("id") is not None
+                    )
+                    other_jarldoms_data.append(
+                        {
+                            "id": jid,
+                            "name": jname,
+                            "neighbor_count": neighbor_count,
+                        }
+                    )
 
         # Sort by name
         other_jarldoms_data.sort(key=lambda j: j["name"].lower())
 
         # Prepare display list for comboboxes
-        neighbor_choices = [NEIGHBOR_NONE_STR, NEIGHBOR_OTHER_STR] + [f"{j['id']}: {j['name']}" for j in other_jarldoms_data]
-        valid_neighbor_ids = {j['id'] for j in other_jarldoms_data} # Set of valid Jarldom IDs
+        neighbor_choices = [
+            NEIGHBOR_NONE_STR,
+            NEIGHBOR_OTHER_STR,
+        ] + [
+            f"{j['id']}: {j['name']} ({j['neighbor_count']})" for j in other_jarldoms_data
+        ]
+        valid_neighbor_ids = {j['id'] for j in other_jarldoms_data}  # Set of valid Jarldom IDs
 
         # --- Frame for the neighbor rows ---
         neighbors_frame = ttk.Frame(view_frame)
