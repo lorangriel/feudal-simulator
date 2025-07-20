@@ -1697,6 +1697,57 @@ class FeodalSimulator:
                             width = 3
                         self.static_map_canvas.create_line(center_xA, center_yA, center_xB, center_yB, fill=color, width=width, tags=("border_line", f"border_{jid}_{nbid}"))
 
+    def reset_hex_highlights(self):
+        """Resets hex colors on the static map to their default values."""
+        if not self.static_map_canvas:
+            return
+        for r in range(self.static_rows):
+            for c in range(self.static_cols):
+                node_id = self.static_grid_occupied[r][c]
+                tag = f"hex_{r}_{c}"
+                if node_id is None:
+                    self.static_map_canvas.itemconfig(tag, fill="#dddddd", outline="gray")
+                else:
+                    self.static_map_canvas.itemconfig(tag, fill="#ccffcc", outline="green")
+
+    def highlight_neighbor_candidates(self, start_node_id):
+        """Highlights potential neighbors when starting a link drag."""
+        if not self.static_map_canvas or not self.world_data:
+            return
+        self.reset_hex_highlights()
+        start_node = self.world_data.get("nodes", {}).get(str(start_node_id))
+        if not start_node:
+            return
+        parent_id = start_node.get("parent_id")
+
+        neighbor_ids = set()
+        for nb in start_node.get("neighbors", []):
+            nb_id = nb.get("id")
+            if isinstance(nb_id, int):
+                neighbor_ids.add(nb_id)
+
+        sibling_ids = set()
+        if parent_id is not None:
+            for nid_str, nd in self.world_data.get("nodes", {}).items():
+                try:
+                    nid = int(nid_str)
+                except ValueError:
+                    continue
+                if nid != start_node_id and nd.get("parent_id") == parent_id and self.get_depth_of_node(nid) == 3:
+                    sibling_ids.add(nid)
+
+        for sid in sibling_ids:
+            pos = self.map_static_positions.get(sid)
+            if pos:
+                r, c = pos
+                self.static_map_canvas.itemconfig(f"hex_{r}_{c}", fill="#aaffaa", outline="green")
+
+        for nid in neighbor_ids:
+            pos = self.map_static_positions.get(nid)
+            if pos:
+                r, c = pos
+                self.static_map_canvas.itemconfig(f"hex_{r}_{c}", fill="#ffcccc", outline="red")
+
     def on_static_map_button_press(self, event):
         """Handles mouse button press on the static map for drag start."""
         item = self.static_map_canvas.find_closest(event.x, event.y)[0]
@@ -1706,10 +1757,13 @@ class FeodalSimulator:
             try:
                 self.map_drag_start_node_id = int(node_tag.split("_")[1])
                 self.map_drag_start_coords = (event.x, event.y)
+                self.highlight_neighbor_candidates(self.map_drag_start_node_id)
             except ValueError:
                 self.map_drag_start_node_id = None
+                self.reset_hex_highlights()
         else:
             self.map_drag_start_node_id = None
+            self.reset_hex_highlights()
 
     def on_static_map_mouse_motion(self, event):
         """Handles mouse motion during a drag operation on the static map."""
@@ -1744,6 +1798,7 @@ class FeodalSimulator:
                 self.map_drag_line = None
             self.map_drag_start_node_id = None
             self.map_drag_start_coords = None
+            self.reset_hex_highlights()
 
     def attempt_link_neighbors(self, node_id1, node_id2):
         """Attempts to link two Jarldoms as neighbors."""
