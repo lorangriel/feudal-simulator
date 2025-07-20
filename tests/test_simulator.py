@@ -53,17 +53,17 @@ def test_get_display_name_for_node():
     sim = make_simulator(world)
     # depth 1 with custom name
     node = {"node_id": 2, "parent_id": 1, "name": "Furstendöme", "custom_name": "Uppland"}
-    assert sim.get_display_name_for_node(node, 1) == "Furstendöme [Uppland] (ID: 2)"
+    assert sim.get_display_name_for_node(node, 1) == "Furstendöme [Uppland] (ID: 2) (ägande nod)"
     # depth 3 jarldom
     node_j = {"node_id": 3, "custom_name": "Gotland"}
-    assert sim.get_display_name_for_node(node_j, 3) == "Gotland"
+    assert sim.get_display_name_for_node(node_j, 3) == "Gotland (ägande nod)"
     # depth 4 resource with ruler
     node_r = {"node_id": 4, "res_type": "Bageri", "custom_name": "", "ruler_id": 10}
     sim.world_data["characters"]["10"] = {"name": "Duke"}
-    assert sim.get_display_name_for_node(node_r, 4) == "Bageri - (Duke)"
+    assert sim.get_display_name_for_node(node_r, 4) == "Bageri - (Duke) (ägande nod)"
     # depth 4 with minimal data
     node_r2 = {"node_id": 5}
-    assert sim.get_display_name_for_node(node_r2, 4) == "Resurs 5"
+    assert sim.get_display_name_for_node(node_r2, 4) == "Resurs 5 (ägande nod)"
 
 
 def test_update_subfiefs_for_node_add_and_remove():
