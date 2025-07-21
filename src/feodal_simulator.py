@@ -962,6 +962,8 @@ class FeodalSimulator:
             display_name = self.get_display_name_for_node(node_data, depth)
 
             confirm_msg = f"Är du säker på att du vill radera '{display_name}' (ID: {node_id})?"
+            if node_data.get("edited"):
+                confirm_msg += "\n\nVARNING: Noden har redigerats."
             num_children = len(node_data.get("children", []))
             # Estimate total descendants for better warning
             descendant_count = self.count_descendants(node_id)
@@ -1089,6 +1091,7 @@ class FeodalSimulator:
                     return
 
             self.update_subfiefs_for_node(node_data)
+            node_data["edited"] = True
             # The view will be refreshed by update_subfiefs_for_node finding this node again
 
         ttk.Button(button_frame, text="Uppdatera Underförläningar", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
@@ -1102,6 +1105,7 @@ class FeodalSimulator:
             sub_var.set(new_count)
             node_data["num_subfiefs"] = new_count
             self.update_subfiefs_for_node(node_data)
+            node_data["edited"] = True
 
         ttk.Button(button_frame, text="Lägg till Underförläning", command=add_subnode_action).pack(side=tk.LEFT, padx=5)
 
@@ -1130,6 +1134,7 @@ class FeodalSimulator:
 
             if changes_made:
                 self.save_current_world()
+                node_data["edited"] = True
                 status = f"Nod {node_id} uppdaterad: " + ", ".join(status_details)
                 self.add_status_message(status)
                 self.refresh_tree_item(node_id) # Update tree display name
@@ -1242,6 +1247,7 @@ class FeodalSimulator:
             node_data["res_type"] = "Resurs" # Ensure internal type is correct
 
             self.update_subfiefs_for_node(node_data)
+            node_data["edited"] = True
             # View refreshed by update function finding this node again
 
         ttk.Button(action_button_frame, text="Uppdatera Underresurser", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
@@ -1272,6 +1278,7 @@ class FeodalSimulator:
 
             if changes_made:
                 self.save_current_world()
+                node_data["edited"] = True
                 status = f"Jarldöme {node_id} uppdaterad: " + ", ".join(status_details)
                 self.add_status_message(status)
                 self.refresh_tree_item(node_id) # Update tree display name
@@ -1539,6 +1546,7 @@ class FeodalSimulator:
 
             if changes:
                 self.save_current_world()
+                node_data["edited"] = True
                 status = f"Resurs {node_id} uppdaterad: " + ", ".join(details)
                 self.add_status_message(status)
                 self.refresh_tree_item(node_id)
@@ -1723,6 +1731,7 @@ class FeodalSimulator:
                 # Ensure bidirectional links are kept in sync
                 self.world_manager.update_neighbors_for_node(node_id, new_neighbors)
                 self.save_current_world()
+                node_data["edited"] = True
                 self.add_status_message(
                     f"Jarldom {node_id}: Grannar uppdaterade."
                 )
@@ -1748,11 +1757,34 @@ class FeodalSimulator:
         open_items, selection = self.store_tree_state()
 
         self.world_manager.update_subfiefs_for_node(node_data)
+        node_data["edited"] = True
 
         self.save_current_world()
         self.populate_tree()  # Refresh the tree
         self.restore_tree_state(open_items, selection)
         self.show_node_view(node_data)  # Re-show the editor
+
+    def count_descendants(self, node_id):
+        """Return the total number of descendant nodes for the given node."""
+        if not self.world_data or "nodes" not in self.world_data:
+            return 0
+
+        visited = set()
+
+        def _recurse(nid):
+            if nid in visited:
+                return 0
+            visited.add(nid)
+            node = self.world_data["nodes"].get(str(nid))
+            if not node:
+                return 0
+            count = 0
+            for cid in node.get("children", []):
+                count += 1
+                count += _recurse(cid)
+            return count
+
+        return _recurse(node_id)
 
     def delete_node_and_descendants(self, node_id):
         """Recursively deletes a node and all its children from world_data."""

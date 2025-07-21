@@ -34,6 +34,7 @@ def test_node_from_dict_normalizes_fields():
     assert node.thralls == 0
     assert node.burghers == 0
     assert node.craftsmen == []
+    assert node.edited is False
 
 
 def test_node_settlement_roundtrip():
@@ -72,3 +73,4 @@ def test_node_settlement_roundtrip():
         {"type": "Smed", "count": 3},
         {"type": "Bagare", "count": 1},
     ]
+    assert back["edited"] is False

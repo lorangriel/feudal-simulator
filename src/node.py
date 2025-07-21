@@ -31,6 +31,7 @@ class Node:
     thralls: int = 0
     burghers: int = 0
     craftsmen: List[dict] = field(default_factory=list)
+    edited: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> "Node":
@@ -100,6 +101,7 @@ class Node:
             thralls=thralls,
             burghers=burghers,
             craftsmen=craftsmen,
+            edited=bool(data.get("edited", False)),
         )
 
     def to_dict(self) -> dict:
@@ -126,4 +128,5 @@ class Node:
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
             ],
+            "edited": self.edited,
         }
