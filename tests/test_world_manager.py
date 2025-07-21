@@ -47,3 +47,41 @@ def test_aggregate_resources_simple():
     assert totals["soldiers"]["B\u00e5gskytt"] == 3
     assert totals["soldiers"]["Fotsoldat"] == 3
     assert totals["animals"]["Oxe"] == 1
+
+
+def test_calculate_total_resources_recursive():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2, 3],
+                "free_peasants": 3,
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [4],
+                "soldiers": [{"type": "Archer", "count": 2}],
+                "population": 5,
+            },
+            "3": {"node_id": 3, "parent_id": 1, "children": [], "population": 4},
+            "4": {
+                "node_id": 4,
+                "parent_id": 2,
+                "children": [],
+                "free_peasants": 1,
+                "burghers": 1,
+                "soldiers": [{"type": "Archer", "count": 1}],
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    totals = manager.calculate_total_resources(1)
+
+    assert totals["population"] == 14
+    assert totals["soldiers"]["Archer"] == 3
+    assert world["nodes"]["2"]["total_resources"]["population"] == 7
+    assert world["nodes"]["4"]["total_resources"]["population"] == 2
