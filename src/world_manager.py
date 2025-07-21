@@ -258,9 +258,14 @@ class WorldManager(WorldInterface):
         target_count = node_data.get("num_subfiefs", 0)
         depth = self.get_depth_of_node(node_data["node_id"])
 
+        next_id = max(
+            self.world_data.get("next_node_id", 1),
+            max((int(nid) for nid in self.world_data.get("nodes", {})), default=0) + 1,
+        )
+
         while len(current_children_ids) < target_count:
-            self.world_data["next_node_id"] += 1
-            new_id = self.world_data["next_node_id"]
+            new_id = next_id
+            next_id += 1
             new_id_str = str(new_id)
 
             if depth == 0:
@@ -268,11 +273,9 @@ class WorldManager(WorldInterface):
             elif depth == 1:
                 child_name = "Hertigdöme"
             elif depth == 2:
-                child_name = "Resurs"
-            elif depth == 3:
-                child_name = "Resurs"
+                child_name = "Jarldöme"
             else:
-                child_name = "Nod"
+                child_name = "Resurs"
 
             new_node: Dict[str, Any] = {
                 "node_id": new_id,
@@ -292,6 +295,8 @@ class WorldManager(WorldInterface):
             self.world_data["nodes"][new_id_str] = new_node
             node_data.setdefault("children", []).append(new_id)
             current_children_ids.add(new_id)
+
+        self.world_data["next_node_id"] = next_id
 
         children_to_remove = list(current_children_ids)
         while len(children_to_remove) > target_count:
