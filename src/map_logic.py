@@ -39,13 +39,14 @@ class StaticMapLogic:
             if get_depth_of_node(nid) == 3:
                 jarldomes[nid] = nd
 
-        adjacency: Dict[int, List[int]] = {}
+        adjacency: Dict[int, List[Tuple[int, int]]] = {}
         for jid, nd in jarldomes.items():
-            neighbors: List[int] = []
-            for nb in nd.get("neighbors", []):
+            neighbors: List[Tuple[int, int]] = []
+            for idx, nb in enumerate(nd.get("neighbors", [])):
                 nbid = nb.get("id")
                 if isinstance(nbid, int) and nbid in jarldomes:
-                    neighbors.append(nbid)
+                    # Store neighbor id with its slot index (1-6)
+                    neighbors.append((nbid, idx + 1))
             adjacency[jid] = neighbors
 
         self.map_static_positions = {}
@@ -54,53 +55,107 @@ class StaticMapLogic:
         ]
         visited: set[int] = set()
 
-        def get_hex_neighbors(r: int, c: int) -> List[Tuple[int, int]]:
-            neighbors = []
-            if c % 2 == 0:
-                offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1)]
-            else:
-                offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, 1), (1, 1)]
-            for dr, dc in offsets:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                    neighbors.append((nr, nc))
-            return neighbors
 
-        def bfs_component(start_jid: int, start_r: int, start_c: int) -> None:
-            queue = deque([(start_jid, start_r, start_c)])
-            self.map_static_positions[start_jid] = (start_r, start_c)
-            self.static_grid_occupied[start_r][start_c] = start_jid
+        def bfs_component(start_jid: int) -> None:
+            """Place all nodes in a connected component starting from ``start_jid``.
+
+            The component is first explored in an unbounded coordinate system so
+            that neighbors to the west or north don't get clamped by the grid
+            edges. After the relative positions are determined, the entire
+            component is shifted to the first available location that fits inside
+            the grid."""
+
+            queue = deque([(start_jid, 0, 0)])
+            relative: Dict[int, Tuple[int, int]] = {start_jid: (0, 0)}
             visited.add(start_jid)
+
             while queue:
                 current_jid, r, c = queue.popleft()
-                for neighbor_jid in adjacency.get(current_jid, []):
-                    if neighbor_jid not in visited:
-                        for nr, nc in get_hex_neighbors(r, c):
-                            if self.static_grid_occupied[nr][nc] is None:
-                                self.map_static_positions[neighbor_jid] = (nr, nc)
-                                self.static_grid_occupied[nr][nc] = neighbor_jid
-                                visited.add(neighbor_jid)
-                                queue.append((neighbor_jid, nr, nc))
+                for neighbor_jid, slot in adjacency.get(current_jid, []):
+                    if neighbor_jid in relative:
+                        continue
+                    dr, dc = self.direction_offset(slot, c)
+                    nr, nc = r + dr, c + dc
+                    relative[neighbor_jid] = (nr, nc)
+                    visited.add(neighbor_jid)
+                    queue.append((neighbor_jid, nr, nc))
+
+            min_r = min(r for r, _ in relative.values())
+            max_r = max(r for r, _ in relative.values())
+            min_c = min(c for _, c in relative.values())
+            max_c = max(c for _, c in relative.values())
+            height = max_r - min_r + 1
+            width = max_c - min_c + 1
+
+            placed = False
+            for base_r in range(self.rows - height + 1):
+                if placed:
+                    break
+                for base_c in range(self.cols - width + 1):
+                    ok = True
+                    for r, c in relative.values():
+                        ar = base_r + (r - min_r)
+                        ac = base_c + (c - min_c)
+                        if self.static_grid_occupied[ar][ac] is not None:
+                            ok = False
+                            break
+                    if ok:
+                        for jid, (r, c) in relative.items():
+                            ar = base_r + (r - min_r)
+                            ac = base_c + (c - min_c)
+                            self.map_static_positions[jid] = (ar, ac)
+                            self.static_grid_occupied[ar][ac] = jid
+                        placed = True
+                        break
+
+            if not placed:
+                # Fallback: place nodes sequentially wherever space permits
+                for jid, _ in relative.items():
+                    for r in range(self.rows):
+                        for c in range(self.cols):
+                            if self.static_grid_occupied[r][c] is None:
+                                self.map_static_positions[jid] = (r, c)
+                                self.static_grid_occupied[r][c] = jid
                                 break
 
         for jid in list(jarldomes.keys()):
             if jid not in visited:
-                found_start = False
-                for r in range(self.rows):
-                    for c in range(self.cols):
-                        if self.static_grid_occupied[r][c] is None:
-                            bfs_component(jid, r, c)
-                            found_start = True
-                            break
-                    if found_start:
-                        break
-                if not found_start:
-                    # out of space - ignore placement
-                    pass
+                bfs_component(jid)
 
     # --------------------------------------------------
     # Helper calculations
     # --------------------------------------------------
+
+    def direction_offset(self, direction: int, c: int) -> Tuple[int, int]:
+        """Return ``(dr, dc)`` for moving from a column ``c`` in ``direction``.
+
+        Directions use the convention: 1=N, 2=NE, 3=SE, 4=S, 5=SW, 6=NW.
+        Offsets depend on column parity for the slanted sides of the hex grid.
+        """
+        if direction == 1:
+            return -1, 0
+        if direction == 4:
+            return 1, 0
+        if c % 2 == 0:
+            if direction == 2:
+                return -1, 1
+            if direction == 3:
+                return 0, 1
+            if direction == 5:
+                return 0, -1
+            if direction == 6:
+                return -1, -1
+        else:
+            if direction == 2:
+                return 0, 1
+            if direction == 3:
+                return 1, 1
+            if direction == 5:
+                return 1, -1
+            if direction == 6:
+                return 0, -1
+        return 0, 0
+
     def hex_center(self, r: int, c: int) -> Tuple[float, float]:
         row_step = self.hex_size * math.sqrt(3) + self.spacing
         col_step = self.hex_size * 1.5 + self.spacing

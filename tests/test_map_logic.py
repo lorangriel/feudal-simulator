@@ -58,3 +58,28 @@ def test_placement_and_border_lines():
     assert math.isclose(y1, start[1])
     assert math.isclose(x2, end[0])
     assert math.isclose(y2, end[1])
+
+
+def make_world_west():
+    empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
+    n10 = empty.copy()
+    n20 = empty.copy()
+    n10[5] = {"id": 20, "border": NEIGHBOR_NONE_STR}
+    n20[2] = {"id": 10, "border": NEIGHBOR_NONE_STR}
+    return {
+        "nodes": {
+            "10": {"node_id": 10, "neighbors": n10},
+            "20": {"node_id": 20, "neighbors": n20},
+        },
+        "characters": {},
+    }
+
+
+def test_component_shift_for_western_neighbor():
+    world = make_world_west()
+    logic = StaticMapLogic(world, rows=4, cols=4, hex_size=30, spacing=15)
+    logic.place_jarldomes_bfs(lambda _nid: 3)
+
+    pos10 = logic.map_static_positions[10]
+    pos20 = logic.map_static_positions[20]
+    assert logic.direction_index(*pos10, *pos20) == 6
