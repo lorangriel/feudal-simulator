@@ -69,6 +69,12 @@ class Node:
         unfree_peasants = int(data.get("unfree_peasants", 0) or 0)
         thralls = int(data.get("thralls", 0) or 0)
         burghers = int(data.get("burghers", 0) or 0)
+        base_pop = int(data.get("population", 0) or 0)
+        computed_pop = free_peasants + unfree_peasants + thralls + burghers
+        if computed_pop:
+            population = computed_pop
+        else:
+            population = base_pop
         craftsmen_raw = data.get("craftsmen", [])
         craftsmen: List[dict] = []
         if isinstance(craftsmen_raw, list):
@@ -88,7 +94,7 @@ class Node:
             parent_id=parent_id,
             name=data.get("name", ""),
             custom_name=data.get("custom_name", ""),
-            population=int(data.get("population", 0)),
+            population=population,
             ruler_id=ruler_id,
             num_subfiefs=int(data.get("num_subfiefs", 0)),
             children=children,
@@ -109,7 +115,7 @@ class Node:
             "parent_id": self.parent_id,
             "name": self.name,
             "custom_name": self.custom_name,
-            "population": self.population,
+            "population": self.calculate_population(),
             "ruler_id": self.ruler_id,
             "num_subfiefs": self.num_subfiefs,
             "children": list(self.children),
@@ -127,3 +133,13 @@ class Node:
                 for c in self.craftsmen
             ],
         }
+
+    def calculate_population(self) -> int:
+        """Return the total population for this node based on categories."""
+        total = (
+            self.free_peasants
+            + self.unfree_peasants
+            + self.thralls
+            + self.burghers
+        )
+        return total if total else self.population

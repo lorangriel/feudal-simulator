@@ -165,6 +165,24 @@ class FeodalSimulator:
             except Exception as e:
                 print(f"Failed to auto-load world '{only_world}': {e}")
 
+    @staticmethod
+    def calculate_population_from_fields(data: dict) -> int:
+        """Compute total population from category fields."""
+        try:
+            free_p = int(data.get("free_peasants", 0) or 0)
+            unfree_p = int(data.get("unfree_peasants", 0) or 0)
+            thralls = int(data.get("thralls", 0) or 0)
+            burghers = int(data.get("burghers", 0) or 0)
+        except ValueError:
+            free_p = unfree_p = thralls = burghers = 0
+        total = free_p + unfree_p + thralls + burghers
+        if total:
+            return total
+        try:
+            return int(data.get("population", 0) or 0)
+        except ValueError:
+            return 0
+
     # --- Status Methods ---
     def add_status_message(self, msg):
         """Adds a message to the status bar."""
@@ -1034,7 +1052,8 @@ class FeodalSimulator:
 
         # Population
         ttk.Label(editor_frame, text="Befolkning:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        pop_var = tk.IntVar(value=node_data.get("population", 0))
+        calculated_pop = self.calculate_population_from_fields(node_data)
+        pop_var = tk.IntVar(value=calculated_pop)
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
@@ -1204,7 +1223,8 @@ class FeodalSimulator:
 
         # Population
         ttk.Label(editor_frame, text="Befolkning:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        pop_var = tk.IntVar(value=node_data.get("population", 0))
+        calculated_pop = self.calculate_population_from_fields(node_data)
+        pop_var = tk.IntVar(value=calculated_pop)
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
@@ -1329,7 +1349,8 @@ class FeodalSimulator:
         row_idx += 1
 
         ttk.Label(editor_frame, text="Befolkning:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        pop_var = tk.IntVar(value=node_data.get("population", 0))
+        calculated_pop = self.calculate_population_from_fields(node_data)
+        pop_var = tk.IntVar(value=calculated_pop)
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
@@ -1428,9 +1449,9 @@ class FeodalSimulator:
             node_data["custom_name"] = custom_var.get().strip()
             node_data["res_type"] = res_var.get().strip()
             try:
-                node_data["population"] = pop_var.get()
+                manual_pop = pop_var.get()
             except tk.TclError:
-                node_data["population"] = 0
+                manual_pop = 0
             node_data["settlement_type"] = settlement_type_var.get().strip()
             try:
                 node_data["free_peasants"] = free_var.get()
@@ -1453,6 +1474,9 @@ class FeodalSimulator:
                 for r in craftsman_rows
                 if r["type_var"].get()
             ]
+            temp_data = dict(node_data)
+            temp_data["population"] = manual_pop
+            node_data["population"] = self.calculate_population_from_fields(temp_data)
             try:
                 target = sub_var.get()
                 if target < 0:
@@ -1477,9 +1501,9 @@ class FeodalSimulator:
 
             new_custom = custom_var.get().strip()
             try:
-                new_pop = pop_var.get()
+                manual_pop = pop_var.get()
             except tk.TclError:
-                new_pop = 0
+                manual_pop = 0
             new_type = res_var.get().strip()
             new_settlement_type = settlement_type_var.get().strip()
             try:
@@ -1503,6 +1527,14 @@ class FeodalSimulator:
                 for r in craftsman_rows
                 if r["type_var"].get()
             ]
+
+            new_pop = self.calculate_population_from_fields({
+                "population": manual_pop,
+                "free_peasants": new_free,
+                "unfree_peasants": new_unfree,
+                "thralls": new_thralls,
+                "burghers": new_burghers,
+            })
 
             changes = False
             details = []
