@@ -17,6 +17,7 @@ from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
 from utils import roll_dice, generate_swedish_village_name
 from dynamic_map import DynamicMapCanvas
+from map_logic import StaticMapLogic
 from world_manager import WorldManager
 
 # --------------------------------------------------
@@ -131,6 +132,7 @@ class FeodalSimulator:
         # --- Map related attributes (initialized later) ---
         self.dynamic_map_view = None
         self.static_map_canvas = None
+        self.map_logic = None
         self.static_scale = 1.0
         self.map_static_positions = {} # node_id -> (r, c) in hex grid
         self.map_hex_centers = {} # node_id -> (cx, cy) on canvas
@@ -1533,6 +1535,15 @@ class FeodalSimulator:
         ysc.grid(row=0, column=1, sticky="ns")
         self.static_map_canvas.config(xscrollcommand=xsc.set, yscrollcommand=ysc.set)
 
+        # Map logic
+        self.map_logic = StaticMapLogic(
+            self.world_data,
+            30,
+            30,
+            hex_size=30,
+            spacing=self.hex_spacing,
+        )
+
         # Bottom button bar
         btn_fr = ttk.Frame(self.right_frame, style="Tool.TFrame")
         btn_fr.pack(fill="x", pady=5)
@@ -1565,104 +1576,30 @@ class FeodalSimulator:
         self.static_map_canvas.scale("all", 0, 0, factor, factor)
 
     def place_jarldomes_bfs(self):
-        """Places Jarldoms on the static hex grid using Breadth-First Search based on neighbors."""
-        self.static_rows = 30
-        self.static_cols = 30
-        jarldomes = {}
-        for node_id_str, nd in self.world_data["nodes"].items():
-            try:
-                if self.get_depth_of_node(int(node_id_str)) == 3:
-                    jarldomes[int(node_id_str)] = nd
-            except ValueError: pass
-
-        adjacency = {}
-        for jid, nd in jarldomes.items():
-            neighbors = []
-            if "neighbors" in nd:
-                for nb in nd["neighbors"]:
-                    nbid = nb.get("id")
-                    if isinstance(nbid, int) and nbid in jarldomes:
-                        neighbors.append(nbid)
-            adjacency[jid] = neighbors
-
-        self.map_static_positions = {} # node_id -> (row, col)
-        self.static_grid_occupied = [[None] * self.static_cols for _ in range(self.static_rows)]
-        visited = set()
-        center_r = self.static_rows // 2
-        center_c = self.static_cols // 2
-        r_step = 0
-
-        def get_hex_neighbors(r, c):
-            """Returns a list of valid hex neighbor coordinates (row, col)."""
-            neighbors = []
-            if c % 2 == 0: # Even column
-                offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1)]
-            else: # Odd column
-                offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, 1), (1, 1)]
-
-            for dr, dc in offsets:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.static_rows and 0 <= nc < self.static_cols:
-                    neighbors.append((nr, nc))
-            return neighbors
-
-        def bfs_component(start_jid, start_r, start_c):
-            """Places a connected component of Jarldoms using BFS."""
-            queue = deque([(start_jid, start_r, start_c)])
-            self.map_static_positions[start_jid] = (start_r, start_c)
-            self.static_grid_occupied[start_r][start_c] = start_jid
-            visited.add(start_jid)
-
-            while queue:
-                current_jid, r, c = queue.popleft()
-                for neighbor_jid in adjacency.get(current_jid, []):
-                    if neighbor_jid not in visited:
-                        for nr, nc in get_hex_neighbors(r, c):
-                            if self.static_grid_occupied[nr][nc] is None:
-                                self.map_static_positions[neighbor_jid] = (nr, nc)
-                                self.static_grid_occupied[nr][nc] = neighbor_jid
-                                visited.add(neighbor_jid)
-                                queue.append((neighbor_jid, nr, nc))
-                                break # Place one neighbor and move to the next
-                        else:
-                            pass # Neighbor already placed
-
-        all_jids = list(jarldomes.keys())
-        for jid in all_jids:
-            if jid not in visited:
-                # Find the first empty cell to start a new component
-                found_start = False
-                for r in range(self.static_rows):
-                    for c in range(self.static_cols):
-                        if self.static_grid_occupied[r][c] is None:
-                            bfs_component(jid, r, c)
-                            found_start = True
-                            break
-                    if found_start:
-                        break
-                if not found_start:
-                    self.add_status_message(f"Varning: Kunde inte placera jarldöme {jid} på kartan.")
+        """Places Jarldoms on the grid using :class:`StaticMapLogic`."""
+        if not self.map_logic:
+            self.map_logic = StaticMapLogic(
+                self.world_data,
+                self.static_rows,
+                self.static_cols,
+                hex_size=30,
+                spacing=self.hex_spacing,
+            )
+        self.map_logic.place_jarldomes_bfs(self.get_depth_of_node)
+        self.map_static_positions = self.map_logic.map_static_positions
+        self.static_grid_occupied = self.map_logic.static_grid_occupied
+        self.static_rows = self.map_logic.rows
+        self.static_cols = self.map_logic.cols
 
     def draw_static_hexgrid(self):
         """Draws the hex grid and places Jarldom names."""
         if not self.static_map_canvas: return
         self.static_map_canvas.delete("all")
         hex_size = 30
-        spacing = self.hex_spacing
-        x_offset = 50
-        y_offset = 50
-
-        row_step = hex_size * math.sqrt(3) + spacing
-        col_step = hex_size * 1.5 + spacing
-
+        
         for r in range(self.static_rows):
             for c in range(self.static_cols):
-                center_x = x_offset + c * col_step
-                center_y = (
-                    y_offset
-                    + r * row_step
-                    + (row_step / 2 if c % 2 else 0)
-                )
+                center_x, center_y = self.map_logic.hex_center(r, c)
                 points = []
                 for i in range(6):
                     angle_deg = 60 * i - 30
@@ -1700,36 +1637,19 @@ class FeodalSimulator:
 
     def draw_static_border_lines(self):
         """Draws border lines between neighboring Jarldoms on the static map."""
-        if not self.static_map_canvas: return
-        hex_size = 30
-        spacing = self.hex_spacing
-        x_offset = 50
-        y_offset = 50
+        if not self.static_map_canvas:
+            return
 
-        row_step = hex_size * math.sqrt(3) + spacing
-        col_step = hex_size * 1.5 + spacing
-
-        for r in range(self.static_rows):
-            for c in range(self.static_cols):
-                jid = self.static_grid_occupied[r][c]
-                if jid is None: continue
-                nodeA = self.world_data["nodes"].get(str(jid))
-                if not nodeA or "neighbors" not in nodeA: continue
-
-                center_xA = x_offset + c * col_step
-                center_yA = y_offset + r * row_step + (row_step / 2 if c % 2 else 0)
-
-                for nb_info in nodeA["neighbors"]:
-                    nbid = nb_info.get("id")
-                    if isinstance(nbid, int) and nbid > jid and nbid in self.map_static_positions:
-                        rr2, cc2 = self.map_static_positions[nbid]
-                        center_xB = x_offset + cc2 * col_step
-                        center_yB = y_offset + rr2 * row_step + (row_step / 2 if cc2 % 2 else 0)
-                        color = BORDER_COLORS.get(nb_info.get("border", NEIGHBOR_NONE_STR), "gray")
-                        width = 2
-                        if color in ["black", "brown", "blue"]:
-                            width = 3
-                        self.static_map_canvas.create_line(center_xA, center_yA, center_xB, center_yB, fill=color, width=width, tags=("border_line", f"border_{jid}_{nbid}"))
+        for x1, y1, x2, y2, color, width in self.map_logic.border_lines():
+            self.static_map_canvas.create_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill=color,
+                width=width,
+                tags="border_line",
+            )
 
     def reset_hex_highlights(self):
         """Resets hex colors on the static map to their default values."""
