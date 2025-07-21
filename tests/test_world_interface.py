@@ -87,6 +87,26 @@ def test_validate_world_data_basic():
     assert world["characters"]["10"]["char_id"] == 10
 
 
+def test_validate_world_data_vildmark_defaults():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "res_type": "Vildmark",
+            }
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 4
+    nodes_updated, _ = manager.validate_world_data()
+    assert nodes_updated > 0
+    node = world["nodes"]["1"]
+    assert "tunnland" in node
+    assert "population" not in node
+
+
 def test_update_neighbors_for_node_bidirectional():
     world = {
         "nodes": {

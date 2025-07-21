@@ -30,6 +30,7 @@ class Node:
     unfree_peasants: int = 0
     thralls: int = 0
     burghers: int = 0
+    tunnland: int = 0  # Area for wilderness resources measured in tunnland
     craftsmen: List[dict] = field(default_factory=list)
     soldiers: List[dict] = field(default_factory=list)
     characters: List[dict] = field(default_factory=list)
@@ -73,9 +74,13 @@ class Node:
         unfree_peasants = int(data.get("unfree_peasants", 0) or 0)
         thralls = int(data.get("thralls", 0) or 0)
         burghers = int(data.get("burghers", 0) or 0)
+        tunnland = int(data.get("tunnland", 0) or 0)
         base_pop = int(data.get("population", 0) or 0)
         computed_pop = free_peasants + unfree_peasants + thralls + burghers
-        if computed_pop:
+        res_type = data.get("res_type", "Resurs")
+        if res_type == "Vildmark":
+            population = 0
+        elif computed_pop:
             population = computed_pop
         else:
             population = base_pop
@@ -132,12 +137,13 @@ class Node:
             num_subfiefs=int(data.get("num_subfiefs", 0)),
             children=children,
             neighbors=neighbors,
-            res_type=data.get("res_type", "Resurs"),
+            res_type=res_type,
             settlement_type=settlement_type,
             free_peasants=free_peasants,
             unfree_peasants=unfree_peasants,
             thralls=thralls,
             burghers=burghers,
+            tunnland=tunnland,
             craftsmen=craftsmen,
             soldiers=soldiers,
             characters=characters,
@@ -165,6 +171,7 @@ class Node:
             "unfree_peasants": self.unfree_peasants,
             "thralls": self.thralls,
             "burghers": self.burghers,
+            "tunnland": self.tunnland,
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
