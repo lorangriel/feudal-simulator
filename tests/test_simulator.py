@@ -46,24 +46,29 @@ def test_get_depth_of_node_and_cycles():
 
 def test_get_display_name_for_node():
     world = {
-        "nodes": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "name": "Kungarike"},
+            "2": {"node_id": 2, "parent_id": 1, "name": "Furstendöme", "custom_name": "Uppland"},
+            "3": {"node_id": 3, "parent_id": 2, "custom_name": "Gotland"},
+            "4": {"node_id": 4, "parent_id": 3, "res_type": "Bageri", "custom_name": "", "ruler_id": 10},
+            "5": {"node_id": 5, "parent_id": 3},
+        },
         "characters": {"10": {"name": "Duke"}},
-        "next_node_id": 2,
+        "next_node_id": 6,
     }
     sim = make_simulator(world)
     # depth 1 with custom name
-    node = {"node_id": 2, "parent_id": 1, "name": "Furstendöme", "custom_name": "Uppland"}
-    assert sim.get_display_name_for_node(node, 1) == "Furstendöme [Uppland] (ID: 2) (ägande nod)"
+    node = world["nodes"]["2"]
+    assert sim.get_display_name_for_node(node, 1) == "Furstendöme [Uppland] (ID: 2) (Kungarike)"
     # depth 3 jarldom
-    node_j = {"node_id": 3, "custom_name": "Gotland"}
-    assert sim.get_display_name_for_node(node_j, 3) == "Gotland (ägande nod)"
+    node_j = world["nodes"]["3"]
+    assert sim.get_display_name_for_node(node_j, 3) == "Gotland (Uppland)"
     # depth 4 resource with ruler
-    node_r = {"node_id": 4, "res_type": "Bageri", "custom_name": "", "ruler_id": 10}
-    sim.world_data["characters"]["10"] = {"name": "Duke"}
-    assert sim.get_display_name_for_node(node_r, 4) == "Bageri - (Duke) (ägande nod)"
+    node_r = world["nodes"]["4"]
+    assert sim.get_display_name_for_node(node_r, 4) == "Bageri - (Duke) (Gotland)"
     # depth 4 with minimal data
-    node_r2 = {"node_id": 5}
-    assert sim.get_display_name_for_node(node_r2, 4) == "Resurs 5 (ägande nod)"
+    node_r2 = world["nodes"]["5"]
+    assert sim.get_display_name_for_node(node_r2, 4) == "Resurs 5 (Gotland)"
 
 
 def test_update_subfiefs_for_node_add_and_remove():

@@ -75,6 +75,17 @@ class WorldManager(WorldInterface):
 
         level_name = ""
         show_id = True
+        parent_name: str | None = None
+        parent_id = None
+        if isinstance(node_data, Node):
+            parent_id = node_data.parent_id
+        else:
+            parent_id = node_data.get("parent_id")
+        if parent_id is not None:
+            parent = self.world_data.get("nodes", {}).get(str(parent_id))
+            if parent:
+                parent_custom = str(parent.get("custom_name", "")).strip()
+                parent_name = parent_custom or parent.get("name") or f"Nod {parent_id}"
         if depth == 0:
             level_name = name or "Kungarike"
         elif depth == 1:
@@ -82,7 +93,8 @@ class WorldManager(WorldInterface):
         elif depth == 2:
             level_name = name or "Hertigdöme"
         elif depth == 3:
-            return f"{custom_name or f'Jarldöme {node_id}'} (ägande nod)"
+            owner_suffix = f" ({parent_name})" if parent_name else ""
+            return f"{custom_name or f'Jarldöme {node_id}'}{owner_suffix}"
         else:
             ruler_str = ""
             if ruler_id and "characters" in self.world_data:
@@ -97,15 +109,18 @@ class WorldManager(WorldInterface):
             if ruler_str:
                 parts.append(f"({ruler_str})")
             if not parts:
-                return f"Resurs {node_id} (ägande nod)"
-            return " - ".join(parts) + " (ägande nod)"
+                owner_suffix = f" ({parent_name})" if parent_name else ""
+                return f"Resurs {node_id}{owner_suffix}"
+            owner_suffix = f" ({parent_name})" if parent_name else ""
+            return " - ".join(parts) + owner_suffix
 
         display = level_name
         if custom_name and custom_name != level_name:
             display += f" [{custom_name}]"
         if show_id:
             display += f" (ID: {node_id})"
-        display += " (ägande nod)"
+        if parent_name:
+            display += f" ({parent_name})"
         return display
 
     def update_subfiefs_for_node(self, node_data: Dict[str, Any]) -> None:
