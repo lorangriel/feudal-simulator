@@ -1,5 +1,7 @@
 """Utility functions used by the simulator."""
 import random
+import tkinter as tk
+from tkinter import ttk
 
 
 def roll_dice(expr: str, debug=False):
@@ -93,3 +95,37 @@ def generate_swedish_village_name():
         "hem", "lösa", "köping", "berga", "lunda", "måla", "ryd", "rum", "sta", "landa",
     ]
     return random.choice(FORLEDER) + random.choice(EFTERLEDER)
+
+
+class ScrollableFrame(ttk.Frame):
+    """A frame that adds a vertical scrollbar when content overflows."""
+
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
+        self.vscroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vscroll.set)
+
+        self.content = ttk.Frame(self.canvas)
+        self.content.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+
+        self.canvas.pack(side=tk.LEFT, fill="both", expand=True)
+        self.vscroll.pack(side=tk.RIGHT, fill="y")
+        self._update_scrollbar()
+
+    def _on_frame_configure(self, event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._update_scrollbar()
+
+    def _on_canvas_configure(self, event=None):
+        self._update_scrollbar()
+
+    def _update_scrollbar(self):
+        if self.content.winfo_height() > self.canvas.winfo_height():
+            if not self.vscroll.winfo_ismapped():
+                self.vscroll.pack(side=tk.RIGHT, fill="y")
+        else:
+            if self.vscroll.winfo_ismapped():
+                self.vscroll.pack_forget()
