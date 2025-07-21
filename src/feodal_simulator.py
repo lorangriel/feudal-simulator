@@ -12,6 +12,7 @@ from constants import (
     NEIGHBOR_NONE_STR,
     NEIGHBOR_OTHER_STR,
     MAX_NEIGHBORS,
+    JARLDOM_RESOURCE_TYPES,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -1296,6 +1297,114 @@ class FeodalSimulator:
         delete_button = self._create_delete_button(delete_back_frame, node_data)
         delete_button.pack(side=tk.LEFT, padx=10)
 
+        ttk.Button(delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view).pack(side=tk.LEFT, padx=10)
+
+
+    def _show_resource_editor(self, parent_frame, node_data, depth):
+        """Editor for resource nodes at depth >=4."""
+        node_id = node_data["node_id"]
+
+        # Ensure res_type exists
+        if "res_type" not in node_data or not node_data["res_type"]:
+            node_data["res_type"] = JARLDOM_RESOURCE_TYPES[0]
+
+        editor_frame = ttk.Frame(parent_frame)
+        editor_frame.pack(fill="both", expand=True)
+        editor_frame.grid_columnconfigure(1, weight=1)
+
+        row_idx = 0
+
+        ttk.Label(editor_frame, text="Resurstyp:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        res_var = tk.StringVar(value=node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0]))
+        res_combo = ttk.Combobox(editor_frame, textvariable=res_var, values=JARLDOM_RESOURCE_TYPES, state="readonly")
+        res_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Eget Namn:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        custom_var = tk.StringVar(value=node_data.get("custom_name", ""))
+        custom_entry = ttk.Entry(editor_frame, textvariable=custom_var, width=40)
+        custom_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Befolkning:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        pop_var = tk.IntVar(value=node_data.get("population", 0))
+        pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
+        pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        sub_var = tk.IntVar(value=node_data.get("num_subfiefs", 0))
+        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
+        sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        ttk.Separator(editor_frame, orient=tk.HORIZONTAL).grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=(15, 10))
+        row_idx += 1
+        action_frame = ttk.Frame(editor_frame)
+        action_frame.grid(row=row_idx, column=0, columnspan=2, pady=5)
+        row_idx += 1
+
+        def update_subfiefs_action():
+            node_data["custom_name"] = custom_var.get().strip()
+            node_data["res_type"] = res_var.get().strip()
+            try:
+                node_data["population"] = pop_var.get()
+            except tk.TclError:
+                node_data["population"] = 0
+            try:
+                target = sub_var.get()
+                if target < 0:
+                    target = 0
+                node_data["num_subfiefs"] = target
+            except tk.TclError:
+                node_data["num_subfiefs"] = 0
+            self.update_subfiefs_for_node(node_data)
+
+        ttk.Button(action_frame, text="Uppdatera Underresurser", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
+
+        def save_node_action():
+            old_custom = node_data.get("custom_name", "")
+            old_pop = node_data.get("population", 0)
+            old_type = node_data.get("res_type", "")
+
+            new_custom = custom_var.get().strip()
+            try:
+                new_pop = pop_var.get()
+            except tk.TclError:
+                new_pop = 0
+            new_type = res_var.get().strip()
+
+            changes = False
+            details = []
+            if old_custom != new_custom:
+                node_data["custom_name"] = new_custom
+                changes = True
+                details.append(f"Namn: '{old_custom}' -> '{new_custom}'")
+            if old_pop != new_pop:
+                node_data["population"] = new_pop
+                changes = True
+                details.append(f"Befolkning: {old_pop} -> {new_pop}")
+            if old_type != new_type:
+                node_data["res_type"] = new_type
+                changes = True
+                details.append(f"Typ: '{old_type}' -> '{new_type}'")
+
+            if changes:
+                self.save_current_world()
+                status = f"Resurs {node_id} uppdaterad: " + ", ".join(details)
+                self.add_status_message(status)
+                self.refresh_tree_item(node_id)
+            else:
+                self.add_status_message(f"Resurs {node_id}: Inga ändringar att spara.")
+
+        ttk.Button(action_frame, text="Spara Resurs", command=save_node_action).pack(side=tk.LEFT, padx=5)
+
+        delete_back_frame = ttk.Frame(editor_frame)
+        delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
+        row_idx += 1
+
+        del_button = self._create_delete_button(delete_back_frame, node_data)
+        del_button.pack(side=tk.LEFT, padx=10)
         ttk.Button(delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view).pack(side=tk.LEFT, padx=10)
 
 
