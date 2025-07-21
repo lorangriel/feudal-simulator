@@ -107,9 +107,14 @@ class WorldInterface(ABC):
             if "children" not in node:
                 node["children"] = []
                 updated = True
-            if "population" not in node:
-                node["population"] = 0
-                updated = True
+            if node.get("res_type") == "Vildmark":
+                if "tunnland" not in node:
+                    node["tunnland"] = 0
+                    updated = True
+            else:
+                if "population" not in node:
+                    node["population"] = 0
+                    updated = True
 
             node["children"] = [int(c) for c in node.get("children", []) if str(c).isdigit()]
 

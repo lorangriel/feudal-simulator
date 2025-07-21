@@ -109,3 +109,20 @@ def test_node_extra_resource_roundtrip():
     assert back["characters"] == [{"type": "Officer", "ruler_id": 5}]
     assert back["animals"] == [{"type": "Oxe", "count": 3}]
     assert back["buildings"] == [{"type": "Smedja", "count": 1}]
+
+
+def test_node_vildmark_tunnland_roundtrip():
+    raw = {
+        "node_id": 40,
+        "parent_id": 1,
+        "res_type": "Vildmark",
+        "tunnland": 7,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.tunnland == 7
+    assert node.population == 0
+
+    back = node.to_dict()
+    assert back["tunnland"] == 7
+    assert back["population"] == 0
