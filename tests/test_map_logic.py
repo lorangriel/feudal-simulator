@@ -116,3 +116,27 @@ def test_border_lines_for_diagonal_neighbor():
     assert math.isclose(y1, start[1])
     assert math.isclose(x2, end[0])
     assert math.isclose(y2, end[1])
+
+def make_world_unidirectional():
+    """10 has SW neighbor 20 but 20 lacks reciprocal entry."""
+    empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
+    n10 = empty.copy()
+    n20 = empty.copy()
+    n10[5] = {"id": 20, "border": NEIGHBOR_NONE_STR}
+    return {
+        "nodes": {
+            "10": {"node_id": 10, "neighbors": n10},
+            "20": {"node_id": 20, "neighbors": n20},
+        },
+        "characters": {},
+    }
+
+
+def test_border_lines_unidirectional_neighbor():
+    world = make_world_unidirectional()
+    logic = StaticMapLogic(world, rows=3, cols=3, hex_size=30, spacing=15)
+    logic.place_jarldomes_bfs(lambda _nid: 3)
+
+    lines = logic.border_lines()
+    assert len(lines) == 1
+
