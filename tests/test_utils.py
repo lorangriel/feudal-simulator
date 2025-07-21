@@ -34,17 +34,5 @@ def test_roll_dice_unlimited_exploding(monkeypatch):
 def test_generate_swedish_village_name_components():
     random.seed(0)
     name = utils.generate_swedish_village_name()
-    prefixes = [
-        "Björk", "Gran", "Lind", "Sjö", "Berg", "Älv", "Hav", "Hög", "Löv", "Ek",
-        "Sten", "Sol", "Vind", "Ask", "Rönn", "Klipp", "Dal", "Sand", "Ler", "Moss",
-        "Olof", "Erik", "Karl", "Ingrid", "Tor", "Frej", "Ulf", "Sig", "Arne", "Hilda",
-        "Sven", "Astrid", "Björn", "Helga", "Sten", "Siv", "Ragnar", "Estrid", "Håkan",
-        "Gunnar", "Liv", "Gertrud", "Bo", "Stig", "Svea", "Axel", "Alma",
-    ]
-    suffixes = [
-        "by", "torp", "hult", "ås", "rud", "forsa", "vik", "näs", "tuna", "stad",
-        "holm", "änge", "gård", "hed", "dal", "strand", "lid", "sjö", "träsk", "mark",
-        "hem", "lösa", "köping", "berga", "lunda", "måla", "ryd", "rum", "sta", "landa",
-    ]
-    assert any(name.startswith(p) for p in prefixes)
-    assert any(name.endswith(s) for s in suffixes)
+    assert isinstance(name, str)
+    assert name == "Hildatorp"
