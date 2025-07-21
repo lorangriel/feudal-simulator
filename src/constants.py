@@ -25,6 +25,15 @@ RES_TYPES = [
     "Kvarn - vatten", "Kvarn - vind", "Bageri", "Smedja", "Garveri",
 ]
 
+# Resource categories used for Jarldom-level holdings
+JARLDOM_RESOURCE_TYPES = [
+    "Gods",
+    "Bosättning",
+    "Vildmark",
+    "Flod",
+    "Hav",
+]
+
 # Categorized for easier handling in UI
 AREAL_TYPES = {"Jaktmark", "Odlingsmark", "Betesmark", "Fiskevatten"}
 SOLDIER_TYPES = {
