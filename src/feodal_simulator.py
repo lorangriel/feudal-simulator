@@ -1067,11 +1067,32 @@ class FeodalSimulator:
         row_idx += 1
 
         # Population
-        ttk.Label(editor_frame, text="Befolkning:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        # Population / Area (for Vildmark)
+        pop_label = ttk.Label(editor_frame, text="Befolkning:")
+        pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         calculated_pop = self.calculate_population_from_fields(node_data)
         pop_var = tk.IntVar(value=calculated_pop)
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+
+        area_label = ttk.Label(editor_frame, text="Tunnland:")
+        area_var = tk.IntVar(value=node_data.get("tunnland", 0))
+        area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=10)
+
+        def refresh_population_area(*args):
+            if res_var.get() == "Vildmark":
+                pop_label.grid_remove()
+                pop_entry.grid_remove()
+                area_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+                area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+            else:
+                area_label.grid_remove()
+                area_entry.grid_remove()
+                pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+                pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+
+        res_var.trace_add("write", refresh_population_area)
+        refresh_population_area()
         row_idx += 1
 
         # Number of Subfiefs
@@ -1144,6 +1165,7 @@ class FeodalSimulator:
             old_name = node_data.get("name", "")
             old_custom_name = node_data.get("custom_name", "")
             old_pop = node_data.get("population", 0)
+            old_area = node_data.get("tunnland", 0)
 
             new_name = name_var.get().strip()
             new_custom_name = custom_name_var.get().strip()
@@ -1491,10 +1513,6 @@ class FeodalSimulator:
         def update_subfiefs_action():
             node_data["custom_name"] = custom_var.get().strip()
             node_data["res_type"] = res_var.get().strip()
-            try:
-                manual_pop = pop_var.get()
-            except tk.TclError:
-                manual_pop = 0
             node_data["settlement_type"] = settlement_type_var.get().strip()
             try:
                 node_data["free_peasants"] = free_var.get()
@@ -1518,7 +1536,18 @@ class FeodalSimulator:
                 if r["type_var"].get()
             ]
             temp_data = dict(node_data)
-            temp_data["population"] = manual_pop
+            if res_var.get() == "Vildmark":
+                try:
+                    node_data["tunnland"] = area_var.get()
+                except tk.TclError:
+                    node_data["tunnland"] = 0
+                temp_data["population"] = 0
+            else:
+                try:
+                    manual_pop = pop_var.get()
+                except tk.TclError:
+                    manual_pop = 0
+                temp_data["population"] = manual_pop
             node_data["population"] = self.calculate_population_from_fields(temp_data)
             try:
                 target = sub_var.get()
@@ -1547,6 +1576,10 @@ class FeodalSimulator:
                 manual_pop = pop_var.get()
             except tk.TclError:
                 manual_pop = 0
+            try:
+                manual_area = area_var.get()
+            except tk.TclError:
+                manual_area = 0
             new_type = res_var.get().strip()
             new_settlement_type = settlement_type_var.get().strip()
             try:
@@ -1571,13 +1604,16 @@ class FeodalSimulator:
                 if r["type_var"].get()
             ]
 
-            new_pop = self.calculate_population_from_fields({
-                "population": manual_pop,
-                "free_peasants": new_free,
-                "unfree_peasants": new_unfree,
-                "thralls": new_thralls,
-                "burghers": new_burghers,
-            })
+            if new_type == "Vildmark":
+                new_pop = 0
+            else:
+                new_pop = self.calculate_population_from_fields({
+                    "population": manual_pop,
+                    "free_peasants": new_free,
+                    "unfree_peasants": new_unfree,
+                    "thralls": new_thralls,
+                    "burghers": new_burghers,
+                })
 
             changes = False
             details = []
@@ -1585,10 +1621,16 @@ class FeodalSimulator:
                 node_data["custom_name"] = new_custom
                 changes = True
                 details.append(f"Namn: '{old_custom}' -> '{new_custom}'")
-            if old_pop != new_pop:
-                node_data["population"] = new_pop
-                changes = True
-                details.append(f"Befolkning: {old_pop} -> {new_pop}")
+            if old_type == "Vildmark":
+                if old_area != manual_area:
+                    node_data["tunnland"] = manual_area
+                    changes = True
+                    details.append(f"Tunnland: {old_area} -> {manual_area}")
+            else:
+                if old_pop != new_pop:
+                    node_data["population"] = new_pop
+                    changes = True
+                    details.append(f"Befolkning: {old_pop} -> {new_pop}")
             if old_type != new_type:
                 node_data["res_type"] = new_type
                 changes = True
@@ -1632,6 +1674,10 @@ class FeodalSimulator:
             except tk.TclError:
                 manual_pop = 0
             try:
+                manual_area = area_var.get()
+            except tk.TclError:
+                manual_area = 0
+            try:
                 current_sub = sub_var.get()
             except tk.TclError:
                 current_sub = 0
@@ -1657,18 +1703,22 @@ class FeodalSimulator:
                 if r["type_var"].get()
             ]
 
-            new_pop = self.calculate_population_from_fields({
-                "population": manual_pop,
-                "free_peasants": new_free,
-                "unfree_peasants": new_unfree,
-                "thralls": new_thralls,
-                "burghers": new_burghers,
-            })
+            if res_var.get() == "Vildmark":
+                new_pop = 0
+            else:
+                new_pop = self.calculate_population_from_fields({
+                    "population": manual_pop,
+                    "free_peasants": new_free,
+                    "unfree_peasants": new_unfree,
+                    "thralls": new_thralls,
+                    "burghers": new_burghers,
+                })
 
             return (
                 res_var.get().strip() != node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0])
                 or custom_var.get().strip() != node_data.get("custom_name", "")
-                or new_pop != node_data.get("population", 0)
+                or (res_var.get() != "Vildmark" and new_pop != node_data.get("population", 0))
+                or (res_var.get() == "Vildmark" and manual_area != node_data.get("tunnland", 0))
                 or settlement_type_var.get().strip() != node_data.get("settlement_type", "By")
                 or new_free != int(node_data.get("free_peasants", 0))
                 or new_unfree != int(node_data.get("unfree_peasants", 0))
