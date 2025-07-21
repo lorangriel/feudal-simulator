@@ -72,6 +72,87 @@ class WorldManager(WorldInterface):
         recurse(node_id)
         return totals
 
+    def calculate_total_resources(self, node_id: int) -> Dict[str, Any]:
+        """Recursively sum resources for ``node_id`` and store on each node."""
+
+        nodes = self.world_data.get("nodes", {})
+
+        def add_count(target: Dict[str, int], key: str, amount: int = 1) -> None:
+            if not key:
+                return
+            target[key] = target.get(key, 0) + amount
+
+        node = nodes.get(str(node_id))
+        if not node:
+            return {
+                "population": 0,
+                "soldiers": {},
+                "characters": {},
+                "animals": {},
+                "buildings": {},
+            }
+
+        totals = {
+            "population": 0,
+            "soldiers": {},
+            "characters": {},
+            "animals": {},
+            "buildings": {},
+        }
+
+        # Node's own population
+        try:
+            pop = (
+                int(node.get("free_peasants", 0) or 0)
+                + int(node.get("unfree_peasants", 0) or 0)
+                + int(node.get("thralls", 0) or 0)
+                + int(node.get("burghers", 0) or 0)
+            )
+        except (ValueError, TypeError):
+            pop = 0
+        if not pop:
+            try:
+                pop = int(node.get("population", 0) or 0)
+            except (ValueError, TypeError):
+                pop = 0
+        totals["population"] += pop
+
+        for entry in node.get("soldiers", []):
+            t = entry.get("type")
+            try:
+                c = int(entry.get("count", 0))
+            except (ValueError, TypeError):
+                c = 0
+            add_count(totals["soldiers"], t, c)
+        for entry in node.get("characters", []):
+            t = entry.get("type")
+            add_count(totals["characters"], t, 1)
+        for entry in node.get("animals", []):
+            t = entry.get("type")
+            try:
+                c = int(entry.get("count", 0))
+            except (ValueError, TypeError):
+                c = 0
+            add_count(totals["animals"], t, c)
+        for entry in node.get("buildings", []):
+            t = entry.get("type")
+            try:
+                c = int(entry.get("count", 0))
+            except (ValueError, TypeError):
+                c = 0
+            add_count(totals["buildings"], t, c)
+
+        for child_id in node.get("children", []):
+            child_totals = self.calculate_total_resources(child_id)
+            totals["population"] += child_totals.get("population", 0)
+            for key in ("soldiers", "characters", "animals", "buildings"):
+                child_dict = child_totals.get(key, {})
+                for res, amt in child_dict.items():
+                    add_count(totals[key], res, amt)
+
+        node["total_resources"] = copy.deepcopy(totals)
+        return totals
+
     # -------------------------------------------
     # WorldInterface implementation
     # -------------------------------------------
