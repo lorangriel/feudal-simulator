@@ -85,3 +85,21 @@ def test_calculate_total_resources_recursive():
     assert totals["soldiers"]["Archer"] == 3
     assert world["nodes"]["2"]["total_resources"]["population"] == 7
     assert world["nodes"]["4"]["total_resources"]["population"] == 2
+
+
+def test_count_descendants_simple_hierarchy():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2, 3]},
+            "2": {"node_id": 2, "parent_id": 1, "children": [4]},
+            "3": {"node_id": 3, "parent_id": 1, "children": []},
+            "4": {"node_id": 4, "parent_id": 2, "children": []},
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+
+    assert manager.count_descendants(1) == 3
+    assert manager.count_descendants(2) == 1
+    assert manager.count_descendants(3) == 0

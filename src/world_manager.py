@@ -320,6 +320,26 @@ class WorldManager(WorldInterface):
             del self.world_data["nodes"][node_id_str]
         return deleted_count
 
+    def count_descendants(self, node_id: int) -> int:
+        """Return the total number of descendant nodes for ``node_id``."""
+        nodes = self.world_data.get("nodes", {})
+        visited: set[int] = set()
+
+        def recurse(nid: int) -> int:
+            if nid in visited:
+                return 0
+            visited.add(nid)
+            node = nodes.get(str(nid))
+            if not node:
+                return 0
+            total = 0
+            for child in node.get("children", []):
+                total += 1
+                total += recurse(child)
+            return total
+
+        return recurse(node_id)
+
     def attempt_link_neighbors(
         self,
         node_id1: int,

@@ -998,7 +998,7 @@ class FeodalSimulator:
                 confirm_msg += "\n\nObservera: Noden har osparade ändringar." 
             num_children = len(node_data.get("children", []))
             # Estimate total descendants for better warning
-            descendant_count = self.count_descendants(node_id)
+            descendant_count = self.world_manager.count_descendants(node_id)
 
             if descendant_count > 0:
                 confirm_msg += f"\n\nVARNING: Detta kommer även att radera {descendant_count} underliggande förläning(ar)!"
