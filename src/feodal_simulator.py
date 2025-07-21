@@ -1876,7 +1876,18 @@ class FeodalSimulator:
 
     def attempt_link_neighbors(self, node_id1, node_id2):
         """Attempts to link two Jarldoms as neighbors."""
-        success, message = self.world_manager.attempt_link_neighbors(node_id1, node_id2)
+        slot = None
+        if (
+            getattr(self, "map_logic", None)
+            and node_id1 in getattr(self, "map_static_positions", {})
+            and node_id2 in getattr(self, "map_static_positions", {})
+        ):
+            r1, c1 = self.map_static_positions[node_id1]
+            r2, c2 = self.map_static_positions[node_id2]
+            slot = self.map_logic.direction_index(r1, c1, r2, c2)
+        success, message = self.world_manager.attempt_link_neighbors(
+            node_id1, node_id2, slot1=slot
+        )
         if success:
             self.save_current_world()
             self.draw_static_border_lines()
