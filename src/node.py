@@ -31,6 +31,10 @@ class Node:
     thralls: int = 0
     burghers: int = 0
     craftsmen: List[dict] = field(default_factory=list)
+    soldiers: List[dict] = field(default_factory=list)
+    characters: List[dict] = field(default_factory=list)
+    animals: List[dict] = field(default_factory=list)
+    buildings: List[dict] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "Node":
@@ -89,6 +93,35 @@ class Node:
                     count_int = 1
                 craftsmen.append({"type": str(ctype), "count": max(1, min(count_int, 9))})
 
+        def parse_list_of_dict(key: str, count_field: bool = False) -> List[dict]:
+            items_raw = data.get(key, [])
+            items: List[dict] = []
+            if isinstance(items_raw, list):
+                for entry in items_raw:
+                    if not isinstance(entry, dict):
+                        continue
+                    tval = entry.get("type", "")
+                    if count_field:
+                        count = entry.get("count", 1)
+                        try:
+                            cnt = int(count)
+                        except (ValueError, TypeError):
+                            cnt = 1
+                        items.append({"type": str(tval), "count": max(0, cnt)})
+                    else:
+                        rid = entry.get("ruler_id")
+                        if isinstance(rid, str) and rid.isdigit():
+                            rid = int(rid)
+                        elif rid is not None and not isinstance(rid, int):
+                            rid = None
+                        items.append({"type": str(tval), "ruler_id": rid})
+            return items
+
+        soldiers = parse_list_of_dict("soldiers", count_field=True)
+        characters = parse_list_of_dict("characters", count_field=False)
+        animals = parse_list_of_dict("animals", count_field=True)
+        buildings = parse_list_of_dict("buildings", count_field=True)
+
         return cls(
             node_id=node_id,
             parent_id=parent_id,
@@ -106,6 +139,10 @@ class Node:
             thralls=thralls,
             burghers=burghers,
             craftsmen=craftsmen,
+            soldiers=soldiers,
+            characters=characters,
+            animals=animals,
+            buildings=buildings,
         )
 
     def to_dict(self) -> dict:
@@ -131,6 +168,22 @@ class Node:
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
+            ],
+            "soldiers": [
+                {"type": s.get("type", ""), "count": s.get("count", 1)}
+                for s in self.soldiers
+            ],
+            "characters": [
+                {"type": c.get("type", ""), "ruler_id": c.get("ruler_id")}
+                for c in self.characters
+            ],
+            "animals": [
+                {"type": a.get("type", ""), "count": a.get("count", 1)}
+                for a in self.animals
+            ],
+            "buildings": [
+                {"type": b.get("type", ""), "count": b.get("count", 1)}
+                for b in self.buildings
             ],
         }
 

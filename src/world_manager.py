@@ -23,6 +23,55 @@ class WorldManager(WorldInterface):
     def clear_depth_cache(self) -> None:
         self._depth_cache = {}
 
+    def aggregate_resources(self, node_id: int) -> Dict[str, Dict[str, int]]:
+        """Return aggregated resource counts for ``node_id`` and descendants."""
+
+        totals = {"soldiers": {}, "characters": {}, "animals": {}, "buildings": {}}
+        nodes = self.world_data.get("nodes", {})
+
+        def add_count(target: Dict[str, int], key: str, amount: int = 1) -> None:
+            if not key:
+                return
+            target[key] = target.get(key, 0) + amount
+
+        def recurse(nid: int) -> None:
+            node = nodes.get(str(nid))
+            if not node:
+                return
+            for entry in node.get("soldiers", []):
+                t = entry.get("type")
+                c = entry.get("count", 0)
+                try:
+                    c = int(c)
+                except (ValueError, TypeError):
+                    c = 0
+                add_count(totals["soldiers"], t, c)
+            for entry in node.get("characters", []):
+                t = entry.get("type")
+                add_count(totals["characters"], t, 1)
+            for entry in node.get("animals", []):
+                t = entry.get("type")
+                c = entry.get("count", 0)
+                try:
+                    c = int(c)
+                except (ValueError, TypeError):
+                    c = 0
+                add_count(totals["animals"], t, c)
+            for entry in node.get("buildings", []):
+                t = entry.get("type")
+                c = entry.get("count", 0)
+                try:
+                    c = int(c)
+                except (ValueError, TypeError):
+                    c = 0
+                add_count(totals["buildings"], t, c)
+
+            for child in node.get("children", []):
+                recurse(child)
+
+        recurse(node_id)
+        return totals
+
     # -------------------------------------------
     # WorldInterface implementation
     # -------------------------------------------

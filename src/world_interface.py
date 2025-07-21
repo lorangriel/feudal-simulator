@@ -149,6 +149,10 @@ class WorldInterface(ABC):
                 if "res_type" not in node:
                     node["res_type"] = "Resurs"
                     updated = True
+                for key in ("soldiers", "characters", "animals", "buildings"):
+                    if key not in node or not isinstance(node[key], list):
+                        node[key] = []
+                        updated = True
 
             if updated:
                 nodes_updated += 1
