@@ -13,6 +13,8 @@ from constants import (
     NEIGHBOR_OTHER_STR,
     MAX_NEIGHBORS,
     JARLDOM_RESOURCE_TYPES,
+    SETTLEMENT_TYPES,
+    CRAFTSMAN_TYPES,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -1338,6 +1340,84 @@ class FeodalSimulator:
         sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        settlement_frame = ttk.Frame(editor_frame)
+        settlement_frame.grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=5)
+        row_idx += 1
+
+        settlement_type_var = tk.StringVar(value=node_data.get("settlement_type", "By"))
+        free_var = tk.IntVar(value=node_data.get("free_peasants", 0))
+        unfree_var = tk.IntVar(value=node_data.get("unfree_peasants", 0))
+        thrall_var = tk.IntVar(value=node_data.get("thralls", 0))
+        burgher_var = tk.IntVar(value=node_data.get("burghers", 0))
+
+        craftsman_rows: list[dict] = []
+
+        def create_craftsman_row(c_type: str = "", c_count: int = 1, blank: bool = False):
+            if len(craftsman_rows) >= 9:
+                return
+            row = {}
+            frame = ttk.Frame(craft_frame)
+            type_var = tk.StringVar(value=c_type)
+            count_var = tk.StringVar(value=str(c_count))
+            type_combo = ttk.Combobox(frame, textvariable=type_var, values=CRAFTSMAN_TYPES, state="readonly", width=15)
+            count_combo = ttk.Combobox(frame, textvariable=count_var, values=[str(i) for i in range(1,10)], state="readonly", width=3)
+            del_btn = ttk.Button(frame, text="Radera", command=lambda r=row: remove_craftsman_row(r))
+            type_combo.pack(side=tk.LEFT, padx=5)
+            count_combo.pack(side=tk.LEFT, padx=5)
+            del_btn.pack(side=tk.LEFT, padx=5)
+            frame.pack(fill="x", pady=2)
+            row.update({"frame": frame, "type_var": type_var, "count_var": count_var, "blank": blank})
+            craftsman_rows.append(row)
+            def on_type_change(*args, r=row):
+                if r.get("blank") and r["type_var"].get():
+                    r["blank"] = False
+                    add_blank_row_if_needed()
+            type_var.trace_add("write", on_type_change)
+
+        def remove_craftsman_row(row):
+            if row in craftsman_rows:
+                row["frame"].destroy()
+                craftsman_rows.remove(row)
+                add_blank_row_if_needed()
+
+        def add_blank_row_if_needed():
+            if len(craftsman_rows) < 9 and not any(r.get("blank") for r in craftsman_rows):
+                create_craftsman_row(blank=True)
+
+        ttk.Label(settlement_frame, text="Bosättningstyp:").grid(row=0, column=0, sticky="w", padx=5, pady=3)
+        type_combo = ttk.Combobox(settlement_frame, textvariable=settlement_type_var, values=list(SETTLEMENT_TYPES), state="readonly")
+        type_combo.grid(row=0, column=1, sticky="w", padx=5, pady=3)
+
+        row_fields = [
+            ("Friabönder:", free_var),
+            ("Ofria bönder:", unfree_var),
+            ("Trälar:", thrall_var),
+            ("Borgare:", burgher_var),
+        ]
+        for idx, (label, var) in enumerate(row_fields, start=1):
+            ttk.Label(settlement_frame, text=label).grid(row=idx, column=0, sticky="w", padx=5, pady=3)
+            ttk.Entry(settlement_frame, textvariable=var, width=10).grid(row=idx, column=1, sticky="w", padx=5, pady=3)
+
+        ttk.Label(settlement_frame, text="Hantverkare:").grid(row=5, column=0, sticky="nw", padx=5, pady=(10, 3))
+        craft_frame = ttk.Frame(settlement_frame)
+        craft_frame.grid(row=5, column=1, sticky="w", pady=(10, 3))
+
+        for c in node_data.get("craftsmen", []):
+            ctype = c.get("type", "")
+            count = c.get("count", 1)
+            create_craftsman_row(ctype, count)
+
+        add_blank_row_if_needed()
+
+        def refresh_settlement_visibility(*args):
+            if res_var.get() == "Bosättning":
+                settlement_frame.grid()
+            else:
+                settlement_frame.grid_remove()
+
+        res_var.trace_add("write", refresh_settlement_visibility)
+        refresh_settlement_visibility()
+
         ttk.Separator(editor_frame, orient=tk.HORIZONTAL).grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=(15, 10))
         row_idx += 1
         action_frame = ttk.Frame(editor_frame)
@@ -1351,6 +1431,28 @@ class FeodalSimulator:
                 node_data["population"] = pop_var.get()
             except tk.TclError:
                 node_data["population"] = 0
+            node_data["settlement_type"] = settlement_type_var.get().strip()
+            try:
+                node_data["free_peasants"] = free_var.get()
+            except tk.TclError:
+                node_data["free_peasants"] = 0
+            try:
+                node_data["unfree_peasants"] = unfree_var.get()
+            except tk.TclError:
+                node_data["unfree_peasants"] = 0
+            try:
+                node_data["thralls"] = thrall_var.get()
+            except tk.TclError:
+                node_data["thralls"] = 0
+            try:
+                node_data["burghers"] = burgher_var.get()
+            except tk.TclError:
+                node_data["burghers"] = 0
+            node_data["craftsmen"] = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
+                for r in craftsman_rows
+                if r["type_var"].get()
+            ]
             try:
                 target = sub_var.get()
                 if target < 0:
@@ -1366,6 +1468,12 @@ class FeodalSimulator:
             old_custom = node_data.get("custom_name", "")
             old_pop = node_data.get("population", 0)
             old_type = node_data.get("res_type", "")
+            old_settlement_type = node_data.get("settlement_type", "By")
+            old_free = int(node_data.get("free_peasants", 0))
+            old_unfree = int(node_data.get("unfree_peasants", 0))
+            old_thralls = int(node_data.get("thralls", 0))
+            old_burghers = int(node_data.get("burghers", 0))
+            old_craftsmen = node_data.get("craftsmen", [])
 
             new_custom = custom_var.get().strip()
             try:
@@ -1373,6 +1481,28 @@ class FeodalSimulator:
             except tk.TclError:
                 new_pop = 0
             new_type = res_var.get().strip()
+            new_settlement_type = settlement_type_var.get().strip()
+            try:
+                new_free = free_var.get()
+            except tk.TclError:
+                new_free = 0
+            try:
+                new_unfree = unfree_var.get()
+            except tk.TclError:
+                new_unfree = 0
+            try:
+                new_thralls = thrall_var.get()
+            except tk.TclError:
+                new_thralls = 0
+            try:
+                new_burghers = burgher_var.get()
+            except tk.TclError:
+                new_burghers = 0
+            new_craftsmen = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
+                for r in craftsman_rows
+                if r["type_var"].get()
+            ]
 
             changes = False
             details = []
@@ -1388,6 +1518,24 @@ class FeodalSimulator:
                 node_data["res_type"] = new_type
                 changes = True
                 details.append(f"Typ: '{old_type}' -> '{new_type}'")
+            if old_settlement_type != new_settlement_type:
+                node_data["settlement_type"] = new_settlement_type
+                changes = True
+            if old_free != new_free:
+                node_data["free_peasants"] = new_free
+                changes = True
+            if old_unfree != new_unfree:
+                node_data["unfree_peasants"] = new_unfree
+                changes = True
+            if old_thralls != new_thralls:
+                node_data["thralls"] = new_thralls
+                changes = True
+            if old_burghers != new_burghers:
+                node_data["burghers"] = new_burghers
+                changes = True
+            if old_craftsmen != new_craftsmen:
+                node_data["craftsmen"] = new_craftsmen
+                changes = True
 
             if changes:
                 self.save_current_world()

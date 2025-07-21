@@ -49,6 +49,19 @@ ANIMAL_TYPES = {"Stridshästar", "Ridhästar", "Packhästar", "Draghästar", "Ox
 MISC_COUNT_TYPES = {"Jägare", "Båtar"}
 BUILDING_TYPES = {"Kvarn - vatten", "Kvarn - vind", "Bageri", "Smedja", "Garveri"}
 
+# Example list of possible craftsman professions for settlement UI
+CRAFTSMAN_TYPES = [
+    "Smed",
+    "Snickare",
+    "Bagare",
+    "Skräddare",
+    "Bryggare",
+    "Skomakare",
+    "Korgmakare",
+    "Timmerman",
+    "Målare",
+]
+
 # Border types for neighbors
 BORDER_TYPES = [
     "<Ingen>", "liten väg", "väg", "stor väg", "vildmark", "träsk", "berg", "vattendrag"
