@@ -18,7 +18,7 @@ from constants import (
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
-from utils import roll_dice, generate_swedish_village_name
+from utils import roll_dice, generate_swedish_village_name, ScrollableFrame
 from dynamic_map import DynamicMapCanvas
 from map_logic import StaticMapLogic
 from world_manager import WorldManager
@@ -918,7 +918,6 @@ class FeodalSimulator:
         # --- Main container frame with padding ---
         view_frame = ttk.Frame(self.right_frame, padding="10 10 10 10")
         view_frame.pack(fill="both", expand=True)
-        # Allow content to expand
         view_frame.grid_rowconfigure(1, weight=1)
         view_frame.grid_columnconfigure(0, weight=1)
 
@@ -929,9 +928,10 @@ class FeodalSimulator:
         title_label.pack(side=tk.LEFT)
         ttk.Label(title_frame, text=f" (ID: {node_id}, Djup: {depth})", font=("Arial", 10)).pack(side=tk.LEFT, anchor="s", padx=5)
 
-        # --- Frame for the actual editor content ---
-        editor_content_frame = ttk.Frame(view_frame)
-        editor_content_frame.pack(fill="both", expand=True)
+        # --- Scrollable area for editor content ---
+        scroll_frame = ScrollableFrame(view_frame)
+        scroll_frame.pack(fill="both", expand=True)
+        editor_content_frame = scroll_frame.content
 
 
         # --- Call specific editor based on depth ---
@@ -1563,8 +1563,9 @@ class FeodalSimulator:
         custom_name = node_data.get("custom_name", f"Jarldom {node_id}")
 
         # --- Main container frame ---
-        view_frame = ttk.Frame(self.right_frame, padding="10 10 10 10")
-        view_frame.pack(fill="both", expand=True)
+        scroll_view = ScrollableFrame(self.right_frame, padding="10 10 10 10")
+        scroll_view.pack(fill="both", expand=True)
+        view_frame = scroll_view.content
 
         ttk.Label(view_frame, text=f"Redigera Grannar för: {custom_name}", font=("Arial", 14)).pack(pady=(0, 15))
 
