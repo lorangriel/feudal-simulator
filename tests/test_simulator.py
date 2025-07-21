@@ -24,6 +24,23 @@ def make_simulator(world_data):
     return sim
 
 
+class LoadStubSimulator(DummySimulator):
+    def __init__(self):
+        super().__init__()
+        self.all_worlds = {}
+        self.root = type("R", (), {"title": lambda self, *_args: None})()
+        self.tree = type("T", (), {"winfo_exists": lambda self: False})()
+        self.show_no_world_view = lambda *a, **k: None
+        self._auto_select_single_root = lambda *a, **k: None
+        self.hide_map_mode_buttons = lambda *a, **k: None
+        self.add_status_message = lambda *a, **k: None
+
+    def load_world(self, wname):
+        self.active_world_name = wname
+        self.world_data = self.all_worlds[wname]
+        self.world_manager = fs.WorldManager(self.world_data)
+
+
 def test_get_depth_of_node_and_cycles():
     world = {
         "nodes": {
@@ -115,3 +132,20 @@ def test_attempt_link_neighbors_success():
     assert world["nodes"]["10"]["neighbors"][0]["id"] == 20
     assert world["nodes"]["20"]["neighbors"][0]["id"] == 10
     assert any("nu grannar" in m for m in messages)
+
+
+def test_create_drunok_world_builds_structure(monkeypatch):
+    sim = LoadStubSimulator()
+    monkeypatch.setattr(fs.messagebox, "askyesno", lambda *a, **k: True)
+    sim.create_drunok_world()
+    assert "Drunok" in sim.all_worlds
+    world = sim.all_worlds["Drunok"]
+    root = world["nodes"]["1"]
+    assert root["custom_name"] == "Drunok"
+    wm = fs.WorldManager(world)
+    princ = sum(1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 1)
+    duchies = sum(1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 2)
+    jarls = sum(1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 3)
+    assert princ == 4
+    assert duchies == 15
+    assert jarls >= 200

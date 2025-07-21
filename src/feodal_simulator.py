@@ -397,6 +397,7 @@ class FeodalSimulator:
         ttk.Button(button_frame, text="Ladda vald", command=do_load).grid(row=0, column=1, padx=5, pady=2)
         ttk.Button(button_frame, text="Kopiera vald", command=do_copy).grid(row=1, column=0, padx=5, pady=2)
         ttk.Button(button_frame, text="Radera vald", command=do_delete, style="Danger.TButton").grid(row=1, column=1, padx=5, pady=2)
+        ttk.Button(button_frame, text="Skapa Drunok", command=self.create_drunok_world).grid(row=2, column=0, columnspan=2, pady=(10,2))
 
 
         # Back Button
@@ -442,6 +443,78 @@ class FeodalSimulator:
         # Optionally load the new world immediately
         self.load_world(wname)
         self.add_status_message(f"Värld '{wname}' skapad och laddad.")
+
+    def create_drunok_world(self):
+        """Create the predefined world 'Drunok' with fixed hierarchy."""
+        wname = "Drunok"
+        if wname in self.all_worlds:
+            if not messagebox.askyesno(
+                "Överskriv?",
+                f"Världen '{wname}' finns redan. Vill du ersätta den?",
+                parent=self.root,
+            ):
+                return
+
+        new_data = {"nodes": {}, "next_node_id": 1, "characters": {}}
+
+        def add_node(parent_id, name, custom_name="", num_subfiefs=0):
+            nid = new_data["next_node_id"]
+            new_data["nodes"][str(nid)] = {
+                "node_id": nid,
+                "parent_id": parent_id,
+                "name": name,
+                "custom_name": custom_name,
+                "population": 0,
+                "ruler_id": None,
+                "num_subfiefs": num_subfiefs,
+                "children": [],
+            }
+            new_data["next_node_id"] += 1
+            if parent_id is not None:
+                new_data["nodes"][str(parent_id)]["children"].append(nid)
+            return nid
+
+        root_id = add_node(None, "Kungarike", wname)
+
+        structure = {
+            "Kintikla": [
+                ("Lugdum", 12),
+                ("Rhonum", 15),
+                ("Dimveden", 8),
+                ("Altona", 9),
+            ],
+            "Val Pavane": [
+                ("Iltariet", 50),
+                ("Durum", 22),
+                ("Angird", 24),
+                ("Talarra", 26),
+            ],
+            "Pavara": [
+                ("Val Timan", 7),
+                ("Arlons Kronomarker", 19),
+                ("Ramdors fallna marker", 2),
+            ],
+            "Valo": [
+                ("Val Ordos", 14),
+                ("Valdus", 8),
+                ("Nanar", 8),
+                ("Namira", 8),
+            ],
+        }
+
+        world_manager = WorldManager(new_data)
+
+        for principality, duchies in structure.items():
+            fid = add_node(root_id, "Furstendöme", principality)
+            for duchy_name, jarldom_count in duchies:
+                did = add_node(fid, "Hertigdöme", duchy_name, jarldom_count)
+                world_manager.update_subfiefs_for_node(new_data["nodes"][str(did)])
+
+        self.all_worlds[wname] = new_data
+        save_worlds_to_file(self.all_worlds)
+
+        self.load_world(wname)
+        self.add_status_message("Förinställd värld 'Drunok' skapad och laddad.")
 
     def load_world(self, wname):
         """Loads the specified world and populates the tree."""
