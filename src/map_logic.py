@@ -7,7 +7,7 @@ from collections import deque
 import math
 from typing import Dict, List, Tuple
 
-from constants import BORDER_COLORS, NEIGHBOR_NONE_STR
+from constants import BORDER_COLORS, NEIGHBOR_NONE_STR, MAX_NEIGHBORS
 
 
 class StaticMapLogic:
@@ -110,6 +110,33 @@ class StaticMapLogic:
         cy = y_offset + r * row_step + (row_step / 2 if c % 2 else 0)
         return cx, cy
 
+    def hex_side_center(self, r: int, c: int, direction: int) -> Tuple[float, float]:
+        """Return the midpoint of the given hex side.
+
+        ``direction`` should be 1-6 with 1=N and increasing clockwise.
+        """
+        cx, cy = self.hex_center(r, c)
+        # Angles for the midpoints of each side in screen coordinates
+        angles = {
+            1: 270,  # North
+            2: 330,  # North-East
+            3: 30,   # South-East
+            4: 90,   # South
+            5: 150,  # South-West
+            6: 210,  # North-West
+        }
+        angle_rad = math.radians(angles.get(direction, 0))
+        x = cx + self.hex_size * math.cos(angle_rad)
+        y = cy + self.hex_size * math.sin(angle_rad)
+        return x, y
+
+    def direction_index(self, r1: int, c1: int, r2: int, c2: int) -> int:
+        """Return direction index (1-6) from (r1, c1) to (r2, c2)."""
+        cx1, cy1 = self.hex_center(r1, c1)
+        cx2, cy2 = self.hex_center(r2, c2)
+        angle = math.degrees(math.atan2(cy1 - cy2, cx2 - cx1))
+        return int(round(((90 - angle) % 360) / 60)) + 1
+
     def border_lines(self) -> List[Tuple[float, float, float, float, str, int]]:
         """Return list of lines between neighbors."""
         lines: List[Tuple[float, float, float, float, str, int]] = []
@@ -121,13 +148,21 @@ class StaticMapLogic:
                 node = self.world_data.get("nodes", {}).get(str(jid))
                 if not node:
                     continue
-                cx_a, cy_a = self.hex_center(r, c)
-                for nb in node.get("neighbors", []):
+                for idx, nb in enumerate(node.get("neighbors", [])):
                     nbid = nb.get("id")
-                    if isinstance(nbid, int) and nbid > jid and nbid in self.map_static_positions:
+                    if (
+                        isinstance(nbid, int)
+                        and nbid > jid
+                        and nbid in self.map_static_positions
+                        and idx < MAX_NEIGHBORS
+                    ):
                         r2, c2 = self.map_static_positions[nbid]
-                        cx_b, cy_b = self.hex_center(r2, c2)
-                        color = BORDER_COLORS.get(nb.get("border", NEIGHBOR_NONE_STR), "gray")
+                        start_x, start_y = self.hex_side_center(r, c, idx + 1)
+                        opposite = ((idx + 3) % MAX_NEIGHBORS) + 1
+                        end_x, end_y = self.hex_side_center(r2, c2, opposite)
+                        color = BORDER_COLORS.get(
+                            nb.get("border", NEIGHBOR_NONE_STR), "gray"
+                        )
                         width = 3 if color in ["black", "brown", "blue"] else 2
-                        lines.append((cx_a, cy_a, cx_b, cy_b, color, width))
+                        lines.append((start_x, start_y, end_x, end_y, color, width))
         return lines

@@ -1,13 +1,19 @@
 import math
 from src.map_logic import StaticMapLogic
+from src.constants import NEIGHBOR_NONE_STR, MAX_NEIGHBORS
 
 
 def make_world():
+    empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
+    n10 = empty.copy()
+    n20 = empty.copy()
+    n10[3] = {"id": 20, "border": "v\u00e4g"}
+    n20[0] = {"id": 10, "border": "v\u00e4g"}
     return {
         "nodes": {
-            "10": {"node_id": 10, "neighbors": [{"id": 20, "border": "v\u00e4g"}]},
-            "20": {"node_id": 20, "neighbors": [{"id": 10, "border": "v\u00e4g"}]},
-            "30": {"node_id": 30, "neighbors": []},
+            "10": {"node_id": 10, "neighbors": n10},
+            "20": {"node_id": 20, "neighbors": n20},
+            "30": {"node_id": 30, "neighbors": empty.copy()},
         },
         "characters": {},
     }
@@ -46,9 +52,9 @@ def test_placement_and_border_lines():
     assert color == "peru"
     assert width == 2
 
-    cx10, cy10 = logic.hex_center(*logic.map_static_positions[10])
-    cx20, cy20 = logic.hex_center(*logic.map_static_positions[20])
-    assert math.isclose(x1, cx10)
-    assert math.isclose(y1, cy10)
-    assert math.isclose(x2, cx20)
-    assert math.isclose(y2, cy20)
+    start = logic.hex_side_center(*logic.map_static_positions[10], 4)
+    end = logic.hex_side_center(*logic.map_static_positions[20], 1)
+    assert math.isclose(x1, start[0])
+    assert math.isclose(y1, start[1])
+    assert math.isclose(x2, end[0])
+    assert math.isclose(y2, end[1])

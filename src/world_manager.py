@@ -190,7 +190,13 @@ class WorldManager(WorldInterface):
             del self.world_data["nodes"][node_id_str]
         return deleted_count
 
-    def attempt_link_neighbors(self, node_id1: int, node_id2: int) -> tuple[bool, str]:
+    def attempt_link_neighbors(
+        self,
+        node_id1: int,
+        node_id2: int,
+        slot1: int | None = None,
+        slot2: int | None = None,
+    ) -> tuple[bool, str]:
         node1 = self.world_data["nodes"].get(str(node_id1))
         node2 = self.world_data["nodes"].get(str(node_id2))
         if not node1 or not node2:
@@ -199,35 +205,62 @@ class WorldManager(WorldInterface):
             return False, "Fel: Kan bara länka Jarldömen (nivå 3)."
         neighbors1 = node1.get("neighbors", [])
         neighbors2 = node2.get("neighbors", [])
+        if len(neighbors1) < MAX_NEIGHBORS:
+            neighbors1.extend(
+                {"id": None, "border": NEIGHBOR_NONE_STR}
+                for _ in range(MAX_NEIGHBORS - len(neighbors1))
+            )
+            node1["neighbors"] = neighbors1
+        if len(neighbors2) < MAX_NEIGHBORS:
+            neighbors2.extend(
+                {"id": None, "border": NEIGHBOR_NONE_STR}
+                for _ in range(MAX_NEIGHBORS - len(neighbors2))
+            )
+            node2["neighbors"] = neighbors2
         if any(nb.get("id") == node_id2 for nb in neighbors1) or any(nb.get("id") == node_id1 for nb in neighbors2):
             msg = f"Fel: {node1.get('custom_name', f'ID:{node_id1}')} och {node2.get('custom_name', f'ID:{node_id2}')} är redan grannar."
             return False, msg
-        free_slots1 = sum(1 for nb in neighbors1 if nb.get("id") is None)
-        free_slots2 = sum(1 for nb in neighbors2 if nb.get("id") is None)
-        if free_slots1 > 0 and free_slots2 > 0:
-            for i, nb in enumerate(neighbors1):
+        def find_free_slot(neighbors: list) -> int | None:
+            for i, nb in enumerate(neighbors):
                 if nb.get("id") is None:
-                    neighbors1[i]["id"] = node_id2
-                    neighbors1[i]["border"] = NEIGHBOR_NONE_STR
-                    break
-            for i, nb in enumerate(neighbors2):
-                if nb.get("id") is None:
-                    neighbors2[i]["id"] = node_id1
-                    neighbors2[i]["border"] = NEIGHBOR_NONE_STR
-                    break
-            node1["neighbors"] = neighbors1
-            node2["neighbors"] = neighbors2
-            msg = f"{node1.get('custom_name', f'ID:{node_id1}')} och {node2.get('custom_name', f'ID:{node_id2}')} är nu grannar."
-            return True, msg
+                    return i
+            return None
+
+        if slot1 is not None:
+            if not (1 <= slot1 <= MAX_NEIGHBORS):
+                return False, "Fel: Ogiltig plats för grannar."
+            idx1 = slot1 - 1
+            if neighbors1[idx1].get("id") is not None:
+                return False, "Fel: Angiven plats är upptagen."
         else:
-            reason = ""
-            if free_slots1 == 0 and free_slots2 == 0:
-                reason = "Båda jarldömmena har maximalt antal grannar."
-            elif free_slots1 == 0:
-                reason = f"{node1.get('custom_name', f'ID:{node_id1}')} har maximalt antal grannar."
-            elif free_slots2 == 0:
-                reason = f"{node2.get('custom_name', f'ID:{node_id2}')} har maximalt antal grannar."
-            return False, f"Fel: Kunde inte länka grannar. {reason}"
+            fs1 = find_free_slot(neighbors1)
+            if fs1 is None:
+                return False, "Fel: Inga lediga platser för första jarldömet."
+            idx1 = fs1
+
+        if slot2 is None and slot1 is not None:
+            slot2 = ((slot1 + 2) % MAX_NEIGHBORS) + 1
+
+        if slot2 is not None:
+            if not (1 <= slot2 <= MAX_NEIGHBORS):
+                return False, "Fel: Ogiltig plats för grannar."
+            idx2 = slot2 - 1
+            if neighbors2[idx2].get("id") is not None:
+                return False, "Fel: Angiven plats är upptagen."
+        else:
+            fs2 = find_free_slot(neighbors2)
+            if fs2 is None:
+                return False, "Fel: Inga lediga platser för andra jarldömet."
+            idx2 = fs2
+
+        neighbors1[idx1]["id"] = node_id2
+        neighbors1[idx1]["border"] = NEIGHBOR_NONE_STR
+        neighbors2[idx2]["id"] = node_id1
+        neighbors2[idx2]["border"] = NEIGHBOR_NONE_STR
+        node1["neighbors"] = neighbors1
+        node2["neighbors"] = neighbors2
+        msg = f"{node1.get('custom_name', f'ID:{node_id1}')} och {node2.get('custom_name', f'ID:{node_id2}')} är nu grannar."
+        return True, msg
 
     # -------------------------------------------
     # Bidirectional neighbor management
@@ -282,10 +315,9 @@ class WorldManager(WorldInterface):
                 if nb.get("id") == node_id:
                     nb["id"] = None
                     nb["border"] = NEIGHBOR_NONE_STR
-                    break
 
-        # Add/update reverse links for each new neighbor
-        for entry in new_neighbors:
+        # Add/update reverse links for each new neighbor using directional slots
+        for idx, entry in enumerate(new_neighbors):
             nid = entry.get("id")
             if not isinstance(nid, int):
                 continue
@@ -293,7 +325,6 @@ class WorldManager(WorldInterface):
             if not other:
                 continue
             border_val = entry.get("border", NEIGHBOR_NONE_STR)
-            link_found = False
             other_neighbors = other.get("neighbors", [])
             if len(other_neighbors) < MAX_NEIGHBORS:
                 other_neighbors.extend(
@@ -301,17 +332,12 @@ class WorldManager(WorldInterface):
                     for _ in range(MAX_NEIGHBORS - len(other_neighbors))
                 )
                 other["neighbors"] = other_neighbors
+            opp_idx = (idx + 3) % MAX_NEIGHBORS
             for nb in other_neighbors:
                 if nb.get("id") == node_id:
-                    nb["border"] = border_val
-                    link_found = True
-                    break
-            if not link_found:
-                for nb in other_neighbors:
-                    if nb.get("id") is None:
-                        nb["id"] = node_id
-                        nb["border"] = border_val
-                        link_found = True
-                        break
+                    nb["id"] = None
+                    nb["border"] = NEIGHBOR_NONE_STR
+            other_neighbors[opp_idx]["id"] = node_id
+            other_neighbors[opp_idx]["border"] = border_val
 
         node["neighbors"] = new_neighbors
