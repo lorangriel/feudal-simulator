@@ -72,3 +72,18 @@ def test_node_settlement_roundtrip():
         {"type": "Smed", "count": 3},
         {"type": "Bagare", "count": 1},
     ]
+
+
+def test_node_population_calculated_from_categories():
+    raw = {
+        "node_id": 8,
+        "parent_id": 1,
+        "free_peasants": 3,
+        "unfree_peasants": 2,
+        "thralls": 1,
+        "burghers": 4,
+    }
+    node = Node.from_dict(raw)
+    assert node.population == 10
+    data = node.to_dict()
+    assert data["population"] == 10
