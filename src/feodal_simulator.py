@@ -140,6 +140,7 @@ class FeodalSimulator:
         self.static_rows = 35 # Slightly larger grid
         self.static_cols = 35
         self.hex_size = 35 # Default hex size
+        self.hex_spacing = 15  # Space between hexagons on static map
         self.hex_size_unconnected_factor = 0.7 # Factor for unconnected hexes
         # For map drag-and-drop
         self.map_drag_start_node_id = None
@@ -1647,13 +1648,21 @@ class FeodalSimulator:
         if not self.static_map_canvas: return
         self.static_map_canvas.delete("all")
         hex_size = 30
+        spacing = self.hex_spacing
         x_offset = 50
         y_offset = 50
 
+        row_step = hex_size * math.sqrt(3) + spacing
+        col_step = hex_size * 1.5 + spacing
+
         for r in range(self.static_rows):
             for c in range(self.static_cols):
-                center_x = x_offset + c * (hex_size * 1.5)
-                center_y = y_offset + r * (hex_size * math.sqrt(3)) + (hex_size * math.sqrt(3) / 2 if c % 2 else 0)
+                center_x = x_offset + c * col_step
+                center_y = (
+                    y_offset
+                    + r * row_step
+                    + (row_step / 2 if c % 2 else 0)
+                )
                 points = []
                 for i in range(6):
                     angle_deg = 60 * i - 30
@@ -1693,8 +1702,12 @@ class FeodalSimulator:
         """Draws border lines between neighboring Jarldoms on the static map."""
         if not self.static_map_canvas: return
         hex_size = 30
+        spacing = self.hex_spacing
         x_offset = 50
         y_offset = 50
+
+        row_step = hex_size * math.sqrt(3) + spacing
+        col_step = hex_size * 1.5 + spacing
 
         for r in range(self.static_rows):
             for c in range(self.static_cols):
@@ -1703,15 +1716,15 @@ class FeodalSimulator:
                 nodeA = self.world_data["nodes"].get(str(jid))
                 if not nodeA or "neighbors" not in nodeA: continue
 
-                center_xA = x_offset + c * (hex_size * 1.5)
-                center_yA = y_offset + r * (hex_size * math.sqrt(3)) + (hex_size * math.sqrt(3) / 2 if c % 2 else 0)
+                center_xA = x_offset + c * col_step
+                center_yA = y_offset + r * row_step + (row_step / 2 if c % 2 else 0)
 
                 for nb_info in nodeA["neighbors"]:
                     nbid = nb_info.get("id")
                     if isinstance(nbid, int) and nbid > jid and nbid in self.map_static_positions:
                         rr2, cc2 = self.map_static_positions[nbid]
-                        center_xB = x_offset + cc2 * (hex_size * 1.5)
-                        center_yB = y_offset + rr2 * (hex_size * math.sqrt(3)) + (hex_size * math.sqrt(3) / 2 if cc2 % 2 else 0)
+                        center_xB = x_offset + cc2 * col_step
+                        center_yB = y_offset + rr2 * row_step + (row_step / 2 if cc2 % 2 else 0)
                         color = BORDER_COLORS.get(nb_info.get("border", NEIGHBOR_NONE_STR), "gray")
                         width = 2
                         if color in ["black", "brown", "blue"]:
