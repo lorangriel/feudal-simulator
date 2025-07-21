@@ -1602,7 +1602,11 @@ class FeodalSimulator:
                 center_x, center_y = self.map_logic.hex_center(r, c)
                 points = []
                 for i in range(6):
-                    angle_deg = 60 * i - 30
+                    # Rotate hexagons so that their flat surfaces face
+                    # north and south.  Using ``60 * i`` aligns the top and
+                    # bottom edges horizontally, matching the flat-top grid
+                    # layout defined in :class:`StaticMapLogic`.
+                    angle_deg = 60 * i
                     angle_rad = math.radians(angle_deg)
                     px = center_x + hex_size * math.cos(angle_rad)
                     py = center_y + hex_size * math.sin(angle_rad)
