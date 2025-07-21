@@ -39,13 +39,14 @@ class StaticMapLogic:
             if get_depth_of_node(nid) == 3:
                 jarldomes[nid] = nd
 
-        adjacency: Dict[int, List[int]] = {}
+        adjacency: Dict[int, List[Tuple[int, int]]] = {}
         for jid, nd in jarldomes.items():
-            neighbors: List[int] = []
-            for nb in nd.get("neighbors", []):
+            neighbors: List[Tuple[int, int]] = []
+            for idx, nb in enumerate(nd.get("neighbors", [])):
                 nbid = nb.get("id")
                 if isinstance(nbid, int) and nbid in jarldomes:
-                    neighbors.append(nbid)
+                    # Store neighbor id with its slot index (1-6)
+                    neighbors.append((nbid, idx + 1))
             adjacency[jid] = neighbors
 
         self.map_static_positions = {}
@@ -73,15 +74,29 @@ class StaticMapLogic:
             visited.add(start_jid)
             while queue:
                 current_jid, r, c = queue.popleft()
-                for neighbor_jid in adjacency.get(current_jid, []):
-                    if neighbor_jid not in visited:
-                        for nr, nc in get_hex_neighbors(r, c):
-                            if self.static_grid_occupied[nr][nc] is None:
-                                self.map_static_positions[neighbor_jid] = (nr, nc)
-                                self.static_grid_occupied[nr][nc] = neighbor_jid
-                                visited.add(neighbor_jid)
-                                queue.append((neighbor_jid, nr, nc))
-                                break
+                for neighbor_jid, slot in adjacency.get(current_jid, []):
+                    if neighbor_jid in visited:
+                        continue
+                    dr, dc = self.direction_offset(slot, c)
+                    nr, nc = r + dr, c + dc
+                    if (
+                        0 <= nr < self.rows
+                        and 0 <= nc < self.cols
+                        and self.static_grid_occupied[nr][nc] is None
+                    ):
+                        self.map_static_positions[neighbor_jid] = (nr, nc)
+                        self.static_grid_occupied[nr][nc] = neighbor_jid
+                        visited.add(neighbor_jid)
+                        queue.append((neighbor_jid, nr, nc))
+                        continue
+                    # Fallback: place in first available adjacent hex
+                    for fr, fc in get_hex_neighbors(r, c):
+                        if self.static_grid_occupied[fr][fc] is None:
+                            self.map_static_positions[neighbor_jid] = (fr, fc)
+                            self.static_grid_occupied[fr][fc] = neighbor_jid
+                            visited.add(neighbor_jid)
+                            queue.append((neighbor_jid, fr, fc))
+                            break
 
         for jid in list(jarldomes.keys()):
             if jid not in visited:
@@ -101,6 +116,37 @@ class StaticMapLogic:
     # --------------------------------------------------
     # Helper calculations
     # --------------------------------------------------
+
+    def direction_offset(self, direction: int, c: int) -> Tuple[int, int]:
+        """Return ``(dr, dc)`` for moving from a column ``c`` in ``direction``.
+
+        Directions use the convention: 1=N, 2=NE, 3=SE, 4=S, 5=SW, 6=NW.
+        Offsets depend on column parity for the slanted sides of the hex grid.
+        """
+        if direction == 1:
+            return -1, 0
+        if direction == 4:
+            return 1, 0
+        if c % 2 == 0:
+            if direction == 2:
+                return -1, 1
+            if direction == 3:
+                return 0, 1
+            if direction == 5:
+                return 0, -1
+            if direction == 6:
+                return -1, -1
+        else:
+            if direction == 2:
+                return 0, 1
+            if direction == 3:
+                return 1, 1
+            if direction == 5:
+                return 1, -1
+            if direction == 6:
+                return 0, -1
+        return 0, 0
+
     def hex_center(self, r: int, c: int) -> Tuple[float, float]:
         row_step = self.hex_size * math.sqrt(3) + self.spacing
         col_step = self.hex_size * 1.5 + self.spacing
