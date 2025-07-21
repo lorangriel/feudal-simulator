@@ -17,3 +17,33 @@ def test_attempt_link_neighbors_directional():
     assert ok
     assert world["nodes"]["10"]["neighbors"][1]["id"] == 20
     assert world["nodes"]["20"]["neighbors"][4]["id"] == 10
+
+
+def test_aggregate_resources_simple():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2, 3]},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "soldiers": [{"type": "B\u00e5gskytt", "count": 2}],
+                "animals": [{"type": "Oxe", "count": 1}],
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "children": [],
+                "soldiers": [
+                    {"type": "B\u00e5gskytt", "count": 1},
+                    {"type": "Fotsoldat", "count": 3},
+                ],
+            },
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    totals = manager.aggregate_resources(1)
+    assert totals["soldiers"]["B\u00e5gskytt"] == 3
+    assert totals["soldiers"]["Fotsoldat"] == 3
+    assert totals["animals"]["Oxe"] == 1

@@ -87,3 +87,25 @@ def test_node_population_calculated_from_categories():
     assert node.population == 10
     data = node.to_dict()
     assert data["population"] == 10
+
+
+def test_node_extra_resource_roundtrip():
+    raw = {
+        "node_id": 20,
+        "parent_id": 1,
+        "soldiers": [{"type": "B\u00e5gskytt", "count": "2"}],
+        "characters": [{"type": "Officer", "ruler_id": "5"}],
+        "animals": [{"type": "Oxe", "count": 3}],
+        "buildings": [{"type": "Smedja", "count": "1"}],
+    }
+    node = Node.from_dict(raw)
+    assert node.soldiers == [{"type": "B\u00e5gskytt", "count": 2}]
+    assert node.characters == [{"type": "Officer", "ruler_id": 5}]
+    assert node.animals == [{"type": "Oxe", "count": 3}]
+    assert node.buildings == [{"type": "Smedja", "count": 1}]
+
+    back = node.to_dict()
+    assert back["soldiers"] == [{"type": "B\u00e5gskytt", "count": 2}]
+    assert back["characters"] == [{"type": "Officer", "ruler_id": 5}]
+    assert back["animals"] == [{"type": "Oxe", "count": 3}]
+    assert back["buildings"] == [{"type": "Smedja", "count": 1}]
