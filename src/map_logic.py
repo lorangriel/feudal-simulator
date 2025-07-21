@@ -55,63 +55,72 @@ class StaticMapLogic:
         ]
         visited: set[int] = set()
 
-        def get_hex_neighbors(r: int, c: int) -> List[Tuple[int, int]]:
-            neighbors = []
-            if c % 2 == 0:
-                offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1)]
-            else:
-                offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, 1), (1, 1)]
-            for dr, dc in offsets:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                    neighbors.append((nr, nc))
-            return neighbors
 
-        def bfs_component(start_jid: int, start_r: int, start_c: int) -> None:
-            queue = deque([(start_jid, start_r, start_c)])
-            self.map_static_positions[start_jid] = (start_r, start_c)
-            self.static_grid_occupied[start_r][start_c] = start_jid
+        def bfs_component(start_jid: int) -> None:
+            """Place all nodes in a connected component starting from ``start_jid``.
+
+            The component is first explored in an unbounded coordinate system so
+            that neighbors to the west or north don't get clamped by the grid
+            edges. After the relative positions are determined, the entire
+            component is shifted to the first available location that fits inside
+            the grid."""
+
+            queue = deque([(start_jid, 0, 0)])
+            relative: Dict[int, Tuple[int, int]] = {start_jid: (0, 0)}
             visited.add(start_jid)
+
             while queue:
                 current_jid, r, c = queue.popleft()
                 for neighbor_jid, slot in adjacency.get(current_jid, []):
-                    if neighbor_jid in visited:
+                    if neighbor_jid in relative:
                         continue
                     dr, dc = self.direction_offset(slot, c)
                     nr, nc = r + dr, c + dc
-                    if (
-                        0 <= nr < self.rows
-                        and 0 <= nc < self.cols
-                        and self.static_grid_occupied[nr][nc] is None
-                    ):
-                        self.map_static_positions[neighbor_jid] = (nr, nc)
-                        self.static_grid_occupied[nr][nc] = neighbor_jid
-                        visited.add(neighbor_jid)
-                        queue.append((neighbor_jid, nr, nc))
-                        continue
-                    # Fallback: place in first available adjacent hex
-                    for fr, fc in get_hex_neighbors(r, c):
-                        if self.static_grid_occupied[fr][fc] is None:
-                            self.map_static_positions[neighbor_jid] = (fr, fc)
-                            self.static_grid_occupied[fr][fc] = neighbor_jid
-                            visited.add(neighbor_jid)
-                            queue.append((neighbor_jid, fr, fc))
+                    relative[neighbor_jid] = (nr, nc)
+                    visited.add(neighbor_jid)
+                    queue.append((neighbor_jid, nr, nc))
+
+            min_r = min(r for r, _ in relative.values())
+            max_r = max(r for r, _ in relative.values())
+            min_c = min(c for _, c in relative.values())
+            max_c = max(c for _, c in relative.values())
+            height = max_r - min_r + 1
+            width = max_c - min_c + 1
+
+            placed = False
+            for base_r in range(self.rows - height + 1):
+                if placed:
+                    break
+                for base_c in range(self.cols - width + 1):
+                    ok = True
+                    for r, c in relative.values():
+                        ar = base_r + (r - min_r)
+                        ac = base_c + (c - min_c)
+                        if self.static_grid_occupied[ar][ac] is not None:
+                            ok = False
                             break
+                    if ok:
+                        for jid, (r, c) in relative.items():
+                            ar = base_r + (r - min_r)
+                            ac = base_c + (c - min_c)
+                            self.map_static_positions[jid] = (ar, ac)
+                            self.static_grid_occupied[ar][ac] = jid
+                        placed = True
+                        break
+
+            if not placed:
+                # Fallback: place nodes sequentially wherever space permits
+                for jid, _ in relative.items():
+                    for r in range(self.rows):
+                        for c in range(self.cols):
+                            if self.static_grid_occupied[r][c] is None:
+                                self.map_static_positions[jid] = (r, c)
+                                self.static_grid_occupied[r][c] = jid
+                                break
 
         for jid in list(jarldomes.keys()):
             if jid not in visited:
-                found_start = False
-                for r in range(self.rows):
-                    for c in range(self.cols):
-                        if self.static_grid_occupied[r][c] is None:
-                            bfs_component(jid, r, c)
-                            found_start = True
-                            break
-                    if found_start:
-                        break
-                if not found_start:
-                    # out of space - ignore placement
-                    pass
+                bfs_component(jid)
 
     # --------------------------------------------------
     # Helper calculations
