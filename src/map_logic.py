@@ -195,29 +195,52 @@ class StaticMapLogic:
     def border_lines(self) -> List[Tuple[float, float, float, float, str, int]]:
         """Return list of lines between neighbors."""
         lines: List[Tuple[float, float, float, float, str, int]] = []
+        drawn_pairs: set[tuple[int, int]] = set()
+        nodes_dict = self.world_data.get("nodes", {})
         for r in range(self.rows):
             for c in range(self.cols):
                 jid = self.static_grid_occupied[r][c]
                 if jid is None:
                     continue
-                node = self.world_data.get("nodes", {}).get(str(jid))
+                node = nodes_dict.get(str(jid))
                 if not node:
                     continue
                 for idx, nb in enumerate(node.get("neighbors", [])):
                     nbid = nb.get("id")
                     if (
                         isinstance(nbid, int)
-                        and nbid > jid
                         and nbid in self.map_static_positions
                         and idx < MAX_NEIGHBORS
                     ):
-                        r2, c2 = self.map_static_positions[nbid]
-                        start_x, start_y = self.hex_side_center(r, c, idx + 1)
-                        # Compute the opposite side of the neighbor hex.
-                        # ``idx`` is zero-based while ``hex_side_center`` expects
-                        # 1-6, so we convert accordingly.
-                        opposite = ((idx + MAX_NEIGHBORS // 2) % MAX_NEIGHBORS) + 1
-                        end_x, end_y = self.hex_side_center(r2, c2, opposite)
+                        pair = tuple(sorted((jid, nbid)))
+                        if pair in drawn_pairs:
+                            continue
+                        drawn_pairs.add(pair)
+
+                        # Determine which node should be treated as the start
+                        if jid <= nbid:
+                            start_r, start_c = r, c
+                            start_idx = idx + 1
+                            end_r, end_c = self.map_static_positions[nbid]
+                            end_idx = ((idx + MAX_NEIGHBORS // 2) % MAX_NEIGHBORS) + 1
+                        else:
+                            other = nodes_dict.get(str(nbid))
+                            rev_idx = None
+                            if other:
+                                for i, ent in enumerate(other.get("neighbors", [])):
+                                    if ent.get("id") == jid:
+                                        rev_idx = i
+                                        break
+                            if rev_idx is None:
+                                rev_idx = (idx + MAX_NEIGHBORS // 2) % MAX_NEIGHBORS
+                            start_r, start_c = self.map_static_positions[nbid]
+                            start_idx = rev_idx + 1
+                            end_r, end_c = r, c
+                            end_idx = ((rev_idx + MAX_NEIGHBORS // 2) % MAX_NEIGHBORS) + 1
+
+                        start_x, start_y = self.hex_side_center(start_r, start_c, start_idx)
+                        end_x, end_y = self.hex_side_center(end_r, end_c, end_idx)
+
                         color = BORDER_COLORS.get(
                             nb.get("border", NEIGHBOR_NONE_STR), "gray"
                         )
