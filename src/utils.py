@@ -80,21 +80,52 @@ def roll_dice(expr: str, debug=False):
     return total, ""
 
 
-def generate_swedish_village_name():
-    """Generates a plausible Swedish-style place name."""
-    FORLEDER = [
-        "Björk", "Gran", "Lind", "Sjö", "Berg", "Älv", "Hav", "Hög", "Löv", "Ek",
-        "Sten", "Sol", "Vind", "Ask", "Rönn", "Klipp", "Dal", "Sand", "Ler", "Moss",
-        "Olof", "Erik", "Karl", "Ingrid", "Tor", "Frej", "Ulf", "Sig", "Arne", "Hilda",
-        "Sven", "Astrid", "Björn", "Helga", "Sten", "Siv", "Ragnar", "Estrid", "Håkan",
-        "Gunnar", "Liv", "Gertrud", "Bo", "Stig", "Svea", "Axel", "Alma",
+def generate_swedish_village_name() -> str:
+    """Generate a Swedish-sounding village name."""
+
+    VANLIGA_FORLEDER = [
+        "Björk", "Gran", "Lind", "Sjö", "Berg", "Älv", "Ek", "Tor", "Frej", "Ulf",
+        "Sten", "Karl", "Erik", "Sig", "Ingrid", "Vik", "Olof", "Hög", "Räv", "Löv",
+        "Orm", "Brunn", "Åker", "Arne", "Hilda", "Mjölk", "Fur", "Gull",
     ]
-    EFTERLEDER = [
-        "by", "torp", "hult", "ås", "rud", "forsa", "vik", "näs", "tuna", "stad",
-        "holm", "änge", "gård", "hed", "dal", "strand", "lid", "sjö", "träsk", "mark",
-        "hem", "lösa", "köping", "berga", "lunda", "måla", "ryd", "rum", "sta", "landa",
+
+    OVANLIGA_FORLEDER = [
+        "Troll", "Djupt", "Varg", "Vinter", "Silv", "Koppar", "Rim", "Lejon", "Gammel", "Hav",
     ]
-    return random.choice(FORLEDER) + random.choice(EFTERLEDER)
+
+    VANLIGA_EFTERLEDER = [
+        "by", "torp", "hult", "ås", "rud", "vik", "näs", "tuna", "stad", "holm",
+        "änge", "gård", "hed", "dal", "strand", "lid", "sjö", "träsk", "berga", "bro",
+        "lunda", "klev", "backa", "ängen", "slätten", "forsen", "näset", "löten",
+    ]
+
+    OVANLIGA_EFTERLEDER = [
+        "myra", "höjden", "torpet", "kärret", "udden", "klinten", "kulla", "skogen", "berget", "mark",
+    ]
+
+    PREFIX = [
+        "Stora", "Lilla", "Norra", "Södra", "Övre", "Nedre", "Gamla", "Nya",
+    ]
+
+    def weighted_choice(vanliga, ovanliga, ovanlig_sannolikhet: float = 0.3):
+        if random.random() < ovanlig_sannolikhet:
+            return random.choice(ovanliga)
+        return random.choice(vanliga)
+
+    forled = weighted_choice(VANLIGA_FORLEDER, OVANLIGA_FORLEDER)
+    efterled = weighted_choice(VANLIGA_EFTERLEDER, OVANLIGA_EFTERLEDER)
+
+    if forled[-1] not in "aeiouyåäö" and random.random() < 0.35:
+        mellanljud = random.choice(["e", "a", "i"])
+        namn = forled + mellanljud + efterled
+    else:
+        namn = forled + efterled
+
+    if random.random() < 0.08:
+        prefix = random.choice(PREFIX)
+        namn = f"{prefix} {namn}"
+
+    return namn
 
 
 class ScrollableFrame(ttk.Frame):
