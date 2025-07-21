@@ -5,6 +5,7 @@ from tkinter import ttk, simpledialog, messagebox
 import random
 import math
 from collections import deque
+from typing import Callable
 
 from constants import (
     BORDER_TYPES,
@@ -967,8 +968,21 @@ class FeodalSimulator:
         # back_button.pack(side=tk.BOTTOM, pady=(10, 0)) # Example placement
 
 
-    def _create_delete_button(self, parent_frame, node_data):
-        """Creates the delete button common to all node editors."""
+    def _create_delete_button(self, parent_frame, node_data, is_modified=None):
+        """Creates the delete button common to all node editors.
+
+        Parameters
+        ----------
+        parent_frame : ttk.Frame
+            The frame where the button should be placed.
+        node_data : dict
+            Dictionary representing the node to delete.
+        is_modified : Callable[[], bool] | None
+            Optional callback that returns ``True`` if the editor has
+            unsaved changes. If provided, the user will be warned before
+            deletion if changes are detected.
+        """
+
         def do_delete():
             if not isinstance(node_data, dict) or 'node_id' not in node_data:
                 messagebox.showerror("Fel", "Kan inte radera, ogiltig noddata.", parent=self.root)
@@ -980,13 +994,15 @@ class FeodalSimulator:
             display_name = self.get_display_name_for_node(node_data, depth)
 
             confirm_msg = f"Är du säker på att du vill radera '{display_name}' (ID: {node_id})?"
+            if callable(is_modified) and is_modified():
+                confirm_msg += "\n\nObservera: Noden har osparade ändringar." 
             num_children = len(node_data.get("children", []))
             # Estimate total descendants for better warning
             descendant_count = self.count_descendants(node_id)
 
             if descendant_count > 0:
                 confirm_msg += f"\n\nVARNING: Detta kommer även att radera {descendant_count} underliggande förläning(ar)!"
-            elif num_children > 0: # Fallback if descendant count fails
+            elif num_children > 0:  # Fallback if descendant count fails
                 confirm_msg += f"\n\nVARNING: Detta kommer även att radera {num_children} direkta underförläning(ar)!"
 
 
@@ -1163,7 +1179,19 @@ class FeodalSimulator:
         delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
         row_idx += 1
 
-        delete_button = self._create_delete_button(delete_back_frame, node_data)
+        def unsaved_changes() -> bool:
+            try:
+                current_pop = pop_var.get()
+            except tk.TclError:
+                current_pop = 0
+            return (
+                name_var.get().strip() != node_data.get("name", "")
+                or custom_name_var.get().strip() != node_data.get("custom_name", "")
+                or current_pop != node_data.get("population", 0)
+                or sub_var.get() != node_data.get("num_subfiefs", 0)
+            )
+
+        delete_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
         delete_button.pack(side=tk.LEFT, padx=10)
 
         ttk.Button(delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view).pack(side=tk.LEFT, padx=10)
@@ -1316,7 +1344,22 @@ class FeodalSimulator:
         delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
         row_idx += 1
 
-        delete_button = self._create_delete_button(delete_back_frame, node_data)
+        def unsaved_changes() -> bool:
+            try:
+                current_pop = pop_var.get()
+            except tk.TclError:
+                current_pop = 0
+            try:
+                current_sub = sub_var.get()
+            except tk.TclError:
+                current_sub = 0
+            return (
+                custom_name_var.get().strip() != node_data.get("custom_name", "")
+                or current_pop != node_data.get("population", 0)
+                or current_sub != node_data.get("num_subfiefs", 0)
+            )
+
+        delete_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
         delete_button.pack(side=tk.LEFT, padx=10)
 
         ttk.Button(delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view).pack(side=tk.LEFT, padx=10)
@@ -1583,7 +1626,59 @@ class FeodalSimulator:
         delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
         row_idx += 1
 
-        del_button = self._create_delete_button(delete_back_frame, node_data)
+        def unsaved_changes() -> bool:
+            try:
+                manual_pop = pop_var.get()
+            except tk.TclError:
+                manual_pop = 0
+            try:
+                current_sub = sub_var.get()
+            except tk.TclError:
+                current_sub = 0
+            try:
+                new_free = free_var.get()
+            except tk.TclError:
+                new_free = 0
+            try:
+                new_unfree = unfree_var.get()
+            except tk.TclError:
+                new_unfree = 0
+            try:
+                new_thralls = thrall_var.get()
+            except tk.TclError:
+                new_thralls = 0
+            try:
+                new_burghers = burgher_var.get()
+            except tk.TclError:
+                new_burghers = 0
+            new_craftsmen = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
+                for r in craftsman_rows
+                if r["type_var"].get()
+            ]
+
+            new_pop = self.calculate_population_from_fields({
+                "population": manual_pop,
+                "free_peasants": new_free,
+                "unfree_peasants": new_unfree,
+                "thralls": new_thralls,
+                "burghers": new_burghers,
+            })
+
+            return (
+                res_var.get().strip() != node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0])
+                or custom_var.get().strip() != node_data.get("custom_name", "")
+                or new_pop != node_data.get("population", 0)
+                or settlement_type_var.get().strip() != node_data.get("settlement_type", "By")
+                or new_free != int(node_data.get("free_peasants", 0))
+                or new_unfree != int(node_data.get("unfree_peasants", 0))
+                or new_thralls != int(node_data.get("thralls", 0))
+                or new_burghers != int(node_data.get("burghers", 0))
+                or new_craftsmen != node_data.get("craftsmen", [])
+                or current_sub != node_data.get("num_subfiefs", 0)
+            )
+
+        del_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
         del_button.pack(side=tk.LEFT, padx=10)
         ttk.Button(delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view).pack(side=tk.LEFT, padx=10)
 
