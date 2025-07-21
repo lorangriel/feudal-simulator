@@ -213,7 +213,10 @@ class StaticMapLogic:
                     ):
                         r2, c2 = self.map_static_positions[nbid]
                         start_x, start_y = self.hex_side_center(r, c, idx + 1)
-                        opposite = ((idx + 3) % MAX_NEIGHBORS) + 1
+                        # Compute the opposite side of the neighbor hex.
+                        # ``idx`` is zero-based while ``hex_side_center`` expects
+                        # 1-6, so we convert accordingly.
+                        opposite = ((idx + MAX_NEIGHBORS // 2) % MAX_NEIGHBORS) + 1
                         end_x, end_y = self.hex_side_center(r2, c2, opposite)
                         color = BORDER_COLORS.get(
                             nb.get("border", NEIGHBOR_NONE_STR), "gray"
