@@ -185,3 +185,27 @@ def test_population_totals_after_subfief_changes():
     assert str(new_id) not in world["nodes"]
     assert world["nodes"]["2"]["population"] == 5
     assert world["nodes"]["1"]["population"] == 5
+
+
+def test_population_totals_refresh_after_edit():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {"node_id": 2, "parent_id": 1, "children": [], "free_peasants": 3},
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: {1: 0, 2: 1}[nid]
+
+    manager.update_population_totals()
+    assert world["nodes"]["2"]["population"] == 3
+    assert world["nodes"]["1"]["population"] == 3
+
+    # Modify settlement data on node 2
+    world["nodes"]["2"]["free_peasants"] = 5
+
+    manager.update_population_totals()
+    assert world["nodes"]["2"]["population"] == 5
+    assert world["nodes"]["1"]["population"] == 5
