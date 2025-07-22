@@ -16,6 +16,7 @@ from constants import (
     JARLDOM_RESOURCE_TYPES,
     SETTLEMENT_TYPES,
     CRAFTSMAN_TYPES,
+    SOLDIER_TYPES,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -1667,19 +1668,90 @@ class FeodalSimulator:
         craft_frame = ttk.Frame(settlement_frame)
         craft_frame.grid(row=5, column=1, sticky="w", pady=(10, 3))
 
+        ttk.Label(editor_frame, text="Soldater:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
+        soldier_frame = ttk.Frame(editor_frame)
+        soldier_frame.grid(row=row_idx, column=1, sticky="w", pady=(10, 3))
+        row_idx += 1
+
+        soldier_rows: list[dict] = []
+
+        def update_soldier_options() -> None:
+            selected = {r["type_var"].get() for r in soldier_rows if r["type_var"].get()}
+            for r in soldier_rows:
+                combo = r.get("type_combo")
+                if not combo:
+                    continue
+                current = r["type_var"].get()
+                choices = [t for t in SOLDIER_TYPES if t not in selected or t == current]
+                combo.config(values=choices)
+
+        def create_soldier_row(s_type: str = "", s_count: int = 0, blank: bool = False):
+            row = {}
+            frame = ttk.Frame(soldier_frame)
+            type_var = tk.StringVar(value=s_type)
+            count_var = tk.StringVar(value=str(s_count))
+            type_combo = ttk.Combobox(frame, textvariable=type_var, state="readonly", width=15)
+            count_entry = ttk.Entry(frame, textvariable=count_var, width=6)
+            del_btn = ttk.Button(frame, text="Radera", command=lambda r=row: remove_soldier_row(r))
+            type_combo.pack(side=tk.LEFT, padx=5)
+            count_entry.pack(side=tk.LEFT, padx=5)
+            del_btn.pack(side=tk.LEFT, padx=5)
+            frame.pack(fill="x", pady=2)
+            row.update({"frame": frame, "type_var": type_var, "count_var": count_var, "type_combo": type_combo, "blank": blank})
+            soldier_rows.append(row)
+
+            def on_type_change(*_args, r=row):
+                selected = r["type_var"].get()
+                if selected:
+                    for other in soldier_rows:
+                        if other is not r and other["type_var"].get() == selected:
+                            r["type_var"].set("")
+                            return
+                if r.get("blank") and r["type_var"].get():
+                    r["blank"] = False
+                    add_blank_soldier_row_if_needed()
+                update_soldier_options()
+
+            type_var.trace_add("write", on_type_change)
+            update_soldier_options()
+
+        def remove_soldier_row(row):
+            if row in soldier_rows:
+                row["frame"].destroy()
+                soldier_rows.remove(row)
+                add_blank_soldier_row_if_needed()
+                update_soldier_options()
+
+        def add_blank_soldier_row_if_needed():
+            if not any(r.get("blank") for r in soldier_rows):
+                create_soldier_row(blank=True)
+            update_soldier_options()
+
         for c in node_data.get("craftsmen", []):
             ctype = c.get("type", "")
             count = c.get("count", 1)
             create_craftsman_row(ctype, count)
 
+        for s in node_data.get("soldiers", []):
+            stype = s.get("type", "")
+            scount = s.get("count", 0)
+            create_soldier_row(stype, scount)
+
         add_blank_row_if_needed()
         update_craftsman_options()
+        add_blank_soldier_row_if_needed()
+        update_soldier_options()
 
         def refresh_settlement_visibility(*args):
             if res_var.get() == "Bosättning":
                 settlement_frame.grid()
             else:
                 settlement_frame.grid_remove()
+
+            if res_var.get() == "Soldater":
+                soldier_frame.grid()
+            else:
+                soldier_frame.grid_remove()
 
         res_var.trace_add("write", refresh_settlement_visibility)
         refresh_settlement_visibility()
@@ -1713,6 +1785,11 @@ class FeodalSimulator:
             node_data["craftsmen"] = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
+                if r["type_var"].get()
+            ]
+            node_data["soldiers"] = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in soldier_rows
                 if r["type_var"].get()
             ]
             temp_data = dict(node_data)
@@ -1750,6 +1827,8 @@ class FeodalSimulator:
             old_thralls = int(node_data.get("thralls", 0))
             old_burghers = int(node_data.get("burghers", 0))
             old_craftsmen = node_data.get("craftsmen", [])
+            old_soldiers = node_data.get("soldiers", [])
+            old_area = node_data.get("tunnland", 0)
 
             new_custom = custom_var.get().strip()
             try:
@@ -1781,6 +1860,11 @@ class FeodalSimulator:
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
+                if r["type_var"].get()
+            ]
+            new_soldiers = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in soldier_rows
                 if r["type_var"].get()
             ]
 
@@ -1832,6 +1916,9 @@ class FeodalSimulator:
                 changes = True
             if old_craftsmen != new_craftsmen:
                 node_data["craftsmen"] = new_craftsmen
+                changes = True
+            if old_soldiers != new_soldiers:
+                node_data["soldiers"] = new_soldiers
                 changes = True
 
             if changes:
@@ -1906,6 +1993,7 @@ class FeodalSimulator:
                 or new_thralls != int(node_data.get("thralls", 0))
                 or new_burghers != int(node_data.get("burghers", 0))
                 or new_craftsmen != node_data.get("craftsmen", [])
+                or new_soldiers != node_data.get("soldiers", [])
                 or current_sub != node_data.get("num_subfiefs", 0)
             )
 
