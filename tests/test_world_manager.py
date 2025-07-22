@@ -125,3 +125,41 @@ def test_update_population_totals_bottom_up():
     assert world["nodes"]["3"]["population"] == 6
     assert world["nodes"]["2"]["population"] == 7
     assert world["nodes"]["1"]["population"] == 7
+
+
+def test_population_totals_after_subfief_changes():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {"node_id": 2, "parent_id": 1, "children": [3], "num_subfiefs": 1},
+            "3": {"node_id": 3, "parent_id": 2, "children": [], "population": 5},
+        },
+        "next_node_id": 4,
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: {1: 0, 2: 1, 3: 2, 4: 2}.get(nid, 2)
+
+    manager.update_population_totals()
+    assert world["nodes"]["2"]["population"] == 5
+    assert world["nodes"]["1"]["population"] == 5
+
+    node2 = world["nodes"]["2"]
+    node2["num_subfiefs"] = 2
+    manager.update_subfiefs_for_node(node2)
+    new_id = node2["children"][-1]
+    world["nodes"][str(new_id)]["population"] = 3
+
+    manager.update_population_totals()
+    assert world["nodes"][str(new_id)]["population"] == 3
+    assert world["nodes"]["2"]["population"] == 8
+    assert world["nodes"]["1"]["population"] == 8
+
+    node2["num_subfiefs"] = 1
+    manager.update_subfiefs_for_node(node2)
+
+    manager.update_population_totals()
+    assert str(new_id) not in world["nodes"]
+    assert world["nodes"]["2"]["population"] == 5
+    assert world["nodes"]["1"]["population"] == 5

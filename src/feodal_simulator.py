@@ -2096,6 +2096,8 @@ class FeodalSimulator:
         open_items, selection = self.store_tree_state()
 
         self.world_manager.update_subfiefs_for_node(node_data)
+        self.world_manager.clear_depth_cache()
+        self.world_manager.update_population_totals()
 
         self.save_current_world()
         self.populate_tree()  # Refresh the tree
@@ -2104,7 +2106,10 @@ class FeodalSimulator:
 
     def delete_node_and_descendants(self, node_id):
         """Recursively deletes a node and all its children from world_data."""
-        return self.world_manager.delete_node_and_descendants(node_id)
+        deleted = self.world_manager.delete_node_and_descendants(node_id)
+        self.world_manager.clear_depth_cache()
+        self.world_manager.update_population_totals()
+        return deleted
 
     # --------------------------------------------------
     # Map Views
