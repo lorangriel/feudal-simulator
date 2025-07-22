@@ -928,6 +928,45 @@ class FeodalSimulator:
         skills_entry = ttk.Entry(form_frame, textvariable=skills_var, width=40)
         skills_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
 
+        ttk.Label(form_frame, text="Typ:").grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        type_var = tk.StringVar(value=char_data.get("type", "") if char_data else "")
+        type_combo = ttk.Combobox(form_frame, textvariable=type_var, values=list(CHARACTER_TYPES), state="readonly", width=30)
+        type_combo.grid(row=4, column=1, padx=5, pady=5, sticky="w")
+
+        ttk.Label(form_frame, text="Jarld\u00f6me:").grid(row=5, column=0, padx=5, pady=5, sticky="w")
+        ruler_var = tk.StringVar()
+        jarldom_options = []
+        if self.world_data and "nodes" in self.world_data:
+            jarldoms = []
+            for nid_str, n in self.world_data["nodes"].items():
+                try:
+                    nid = int(nid_str)
+                except ValueError:
+                    continue
+                if self.get_depth_of_node(nid) == 3:
+                    name = n.get("custom_name", f"Jarld\u00f6me {nid}")
+                    jarldoms.append((nid, name))
+            jarldoms.sort(key=lambda j: j[1].lower())
+            jarldom_options = [f"{jid}: {name}" for jid, name in jarldoms]
+        if char_data and char_data.get("ruler_of") is not None:
+            rid = char_data["ruler_of"]
+            for opt in jarldom_options:
+                if opt.startswith(f"{rid}:"):
+                    ruler_var.set(opt)
+                    break
+        ruler_combo = ttk.Combobox(form_frame, textvariable=ruler_var, values=jarldom_options, state="readonly", width=40)
+        ruler_combo.grid(row=5, column=1, padx=5, pady=5, sticky="w")
+
+        def refresh_ruler_visibility(*_):
+            if type_var.get() == "H\u00e4rskare":
+                ruler_combo.grid()
+            else:
+                ruler_combo.grid_remove()
+                ruler_var.set("")
+
+        type_var.trace_add("write", refresh_ruler_visibility)
+        refresh_ruler_visibility()
+
 
         # Make the entry column expand
         form_frame.grid_columnconfigure(1, weight=1)
@@ -955,6 +994,13 @@ class FeodalSimulator:
             description = desc_text.get("1.0", tk.END).strip()
             # Simple skill parsing - split by comma, remove whitespace
             skills = [s.strip() for s in skills_var.get().split(',') if s.strip()]
+            type_val = type_var.get().strip()
+            ruler_of = None
+            if type_val == "Härskare" and ruler_var.get():
+                try:
+                    ruler_of = int(ruler_var.get().split(":")[0])
+                except ValueError:
+                    ruler_of = None
 
             if is_new:
                 # Find next available character ID (ensure thread-safety if ever needed)
@@ -971,12 +1017,20 @@ class FeodalSimulator:
                     "name": name,
                     "wealth": wealth,
                     "description": description,
-                    "skills": skills
+                    "skills": skills,
+                    "type": type_val,
+                    "ruler_of": ruler_of,
                 }
                 self.world_data.setdefault("characters", {})[new_id_str] = new_char_data
                 self.add_status_message(
                     f"Skapade ny karaktär: '{name}' (ID: {new_id})."
                 )
+
+                if ruler_of is not None:
+                    jnode = self.world_data.get("nodes", {}).get(str(ruler_of))
+                    if jnode is not None:
+                        jnode["ruler_id"] = new_id_str
+                        self.refresh_tree_item(ruler_of)
 
                 # If created from a node view, assign the new ruler immediately
                 if parent_node_data:
@@ -993,22 +1047,38 @@ class FeodalSimulator:
                 if char_id_str in self.world_data.get("characters", {}):
                     char_data_to_update = self.world_data["characters"][char_id_str]
                     old_name = char_data_to_update.get("name", "")
+                    old_ruler = char_data_to_update.get("ruler_of")
+                    old_type = char_data_to_update.get("type", "")
                     char_data_to_update["name"] = name
                     char_data_to_update["wealth"] = wealth
                     char_data_to_update["description"] = description
                     char_data_to_update["skills"] = skills
+                    char_data_to_update["type"] = type_val
+                    char_data_to_update["ruler_of"] = ruler_of
                     self.add_status_message(
                         f"Uppdaterade karaktär '{old_name}' -> '{name}' (ID: {char_id_str})."
                     )
 
                     # Refresh tree items if this ruler changed name
-                    if old_name != name:
+                    if old_name != name or old_ruler != ruler_of:
                             if self.world_data and "nodes" in self.world_data:
                                 for nid_str, ndata in self.world_data["nodes"].items():
                                     if str(ndata.get("ruler_id")) == char_id_str:
                                         try:
                                             self.refresh_tree_item(int(nid_str))
-                                        except ValueError: pass # Skip non-int keys if any
+                                        except ValueError:
+                                            pass
+
+                    if old_ruler is not None and old_ruler != ruler_of:
+                        old_node = self.world_data.get("nodes", {}).get(str(old_ruler))
+                        if old_node and str(old_node.get("ruler_id")) == char_id_str:
+                            old_node["ruler_id"] = None
+                            self.refresh_tree_item(old_ruler)
+                    if ruler_of is not None:
+                        new_node = self.world_data.get("nodes", {}).get(str(ruler_of))
+                        if new_node:
+                            new_node["ruler_id"] = char_id_str
+                            self.refresh_tree_item(ruler_of)
                 else:
                     messagebox.showerror(
                         "Fel",

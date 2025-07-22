@@ -15,6 +15,7 @@ RES_TYPES = [
     # Character Types (People resources, often singular with ruler)
     "Officer", "Riddare med väpnare", "Falkenerare", "Fogde", "Härold",
     "Livmedikus", "Förvaltare", "Duvhanterare", "Malmletare", "Munskänk",
+    "Härskare",
     # Settlement Types
     "By", "Stad", "Nybygge",
     # Animal Types
@@ -34,6 +35,7 @@ JARLDOM_RESOURCE_TYPES = [
     "Hav",
     "Soldater",
     "Djur",
+    "Karaktärer",
 ]
 
 # Categorized for easier handling in UI
@@ -44,7 +46,8 @@ SOLDIER_TYPES = {
 }
 CHARACTER_TYPES = {
     "Officer", "Riddare med väpnare", "Falkenerare", "Fogde", "Härold",
-    "Livmedikus", "Förvaltare", "Duvhanterare", "Malmletare", "Munskänk"
+    "Livmedikus", "Förvaltare", "Duvhanterare", "Malmletare", "Munskänk",
+    "Härskare"
 }
 SETTLEMENT_TYPES = {"By", "Stad", "Nybygge"}
 ANIMAL_TYPES = {"Stridshästar", "Ridhästar", "Packhästar", "Draghästar", "Oxe", "Föl"}
