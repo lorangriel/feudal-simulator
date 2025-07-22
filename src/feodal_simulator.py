@@ -1560,6 +1560,21 @@ class FeodalSimulator:
 
         craftsman_rows: list[dict] = []
 
+        def update_craftsman_options() -> None:
+            """Refresh available craftsman choices for each row."""
+            selected = {
+                r["type_var"].get() for r in craftsman_rows if r["type_var"].get()
+            }
+            for r in craftsman_rows:
+                combo = r.get("type_combo")
+                if not combo:
+                    continue
+                current = r["type_var"].get()
+                choices = [
+                    t for t in CRAFTSMAN_TYPES if t not in selected or t == current
+                ]
+                combo.config(values=choices)
+
         def create_craftsman_row(c_type: str = "", c_count: int = 1, blank: bool = False):
             if len(craftsman_rows) >= 9:
                 return
@@ -1567,14 +1582,14 @@ class FeodalSimulator:
             frame = ttk.Frame(craft_frame)
             type_var = tk.StringVar(value=c_type)
             count_var = tk.StringVar(value=str(c_count))
-            type_combo = ttk.Combobox(frame, textvariable=type_var, values=CRAFTSMAN_TYPES, state="readonly", width=15)
+            type_combo = ttk.Combobox(frame, textvariable=type_var, state="readonly", width=15)
             count_combo = ttk.Combobox(frame, textvariable=count_var, values=[str(i) for i in range(1,10)], state="readonly", width=3)
             del_btn = ttk.Button(frame, text="Radera", command=lambda r=row: remove_craftsman_row(r))
             type_combo.pack(side=tk.LEFT, padx=5)
             count_combo.pack(side=tk.LEFT, padx=5)
             del_btn.pack(side=tk.LEFT, padx=5)
             frame.pack(fill="x", pady=2)
-            row.update({"frame": frame, "type_var": type_var, "count_var": count_var, "blank": blank})
+            row.update({"frame": frame, "type_var": type_var, "count_var": count_var, "type_combo": type_combo, "blank": blank})
             craftsman_rows.append(row)
             def on_type_change(*args, r=row):
                 # Prevent duplicate craftsman types across rows
@@ -1588,17 +1603,21 @@ class FeodalSimulator:
                 if r.get("blank") and r["type_var"].get():
                     r["blank"] = False
                     add_blank_row_if_needed()
+                update_craftsman_options()
             type_var.trace_add("write", on_type_change)
+            update_craftsman_options()
 
         def remove_craftsman_row(row):
             if row in craftsman_rows:
                 row["frame"].destroy()
                 craftsman_rows.remove(row)
                 add_blank_row_if_needed()
+                update_craftsman_options()
 
         def add_blank_row_if_needed():
             if len(craftsman_rows) < 9 and not any(r.get("blank") for r in craftsman_rows):
                 create_craftsman_row(blank=True)
+            update_craftsman_options()
 
         ttk.Label(settlement_frame, text="Bosättningstyp:").grid(row=0, column=0, sticky="w", padx=5, pady=3)
         type_combo = ttk.Combobox(settlement_frame, textvariable=settlement_type_var, values=list(SETTLEMENT_TYPES), state="readonly")
@@ -1624,6 +1643,7 @@ class FeodalSimulator:
             create_craftsman_row(ctype, count)
 
         add_blank_row_if_needed()
+        update_craftsman_options()
 
         def refresh_settlement_visibility(*args):
             if res_var.get() == "Bosättning":
