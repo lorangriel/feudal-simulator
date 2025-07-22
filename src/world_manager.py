@@ -59,15 +59,20 @@ class WorldManager(WorldInterface):
             max_depth = max(max_depth, d)
 
         base_population: Dict[int, int] = {}
-        # Determine the intrinsic population for each node and persist it so
-        # repeated calls do not accumulate child populations again.
+        # Determine the intrinsic population for each node. Always recompute the
+        # base value so that changes to settlement fields are reflected on
+        # subsequent calls. Use the previously stored ``_base_population`` as the
+        # population field to avoid compounding child totals from earlier runs.
         for nid in depth_map:
             node = nodes.get(str(nid))
             if not node:
                 continue
-            if "_base_population" not in node:
-                node["_base_population"] = self.calculate_population_from_fields(node)
-            base_population[nid] = node["_base_population"]
+            base_input = dict(node)
+            if "_base_population" in node:
+                base_input["population"] = node["_base_population"]
+            base_pop = self.calculate_population_from_fields(base_input)
+            node["_base_population"] = base_pop
+            base_population[nid] = base_pop
 
         # Reset all nodes to their base population
         for nid, base_pop in base_population.items():
