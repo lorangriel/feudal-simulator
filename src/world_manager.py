@@ -23,6 +23,60 @@ class WorldManager(WorldInterface):
     def clear_depth_cache(self) -> None:
         self._depth_cache = {}
 
+    @staticmethod
+    def calculate_population_from_fields(data: Dict[str, Any]) -> int:
+        """Compute total population from category fields."""
+        try:
+            free_p = int(data.get("free_peasants", 0) or 0)
+            unfree_p = int(data.get("unfree_peasants", 0) or 0)
+            thralls = int(data.get("thralls", 0) or 0)
+            burghers = int(data.get("burghers", 0) or 0)
+        except (ValueError, TypeError):
+            free_p = unfree_p = thralls = burghers = 0
+        total = free_p + unfree_p + thralls + burghers
+        if total:
+            return total
+        try:
+            return int(data.get("population", 0) or 0)
+        except (ValueError, TypeError):
+            return 0
+
+    def update_population_totals(self) -> None:
+        """Update population for each node by summing immediate children."""
+        nodes = self.world_data.get("nodes", {})
+        if not nodes:
+            return
+
+        depth_map: Dict[int, int] = {}
+        max_depth = 0
+        for nid_str in nodes.keys():
+            try:
+                nid = int(nid_str)
+            except ValueError:
+                continue
+            d = self.get_depth_of_node(nid)
+            depth_map[nid] = d
+            max_depth = max(max_depth, d)
+
+        for depth in range(max_depth, -1, -1):
+            for nid, d in depth_map.items():
+                if d != depth:
+                    continue
+                node = nodes.get(str(nid))
+                if not node:
+                    continue
+                base_pop = self.calculate_population_from_fields(node)
+                total = base_pop
+                for cid in node.get("children", []):
+                    child = nodes.get(str(cid))
+                    if not child:
+                        continue
+                    try:
+                        total += int(child.get("population", 0) or 0)
+                    except (ValueError, TypeError):
+                        continue
+                node["population"] = total
+
     def aggregate_resources(self, node_id: int) -> Dict[str, Dict[str, int]]:
         """Return aggregated resource counts for ``node_id`` and descendants."""
 

@@ -103,3 +103,25 @@ def test_count_descendants_simple_hierarchy():
     assert manager.count_descendants(1) == 3
     assert manager.count_descendants(2) == 1
     assert manager.count_descendants(3) == 0
+
+
+def test_update_population_totals_bottom_up():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {"node_id": 2, "parent_id": 1, "children": [3], "population": 1},
+            "3": {"node_id": 3, "parent_id": 2, "children": [4, 5]},
+            "4": {"node_id": 4, "parent_id": 3, "children": [], "population": 4},
+            "5": {"node_id": 5, "parent_id": 3, "children": [], "free_peasants": 2},
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: {1: 0, 2: 1, 3: 2, 4: 3, 5: 3}[nid]
+    manager.update_population_totals()
+
+    assert world["nodes"]["5"]["population"] == 2
+    assert world["nodes"]["3"]["population"] == 6
+    assert world["nodes"]["2"]["population"] == 7
+    assert world["nodes"]["1"]["population"] == 7

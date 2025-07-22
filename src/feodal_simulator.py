@@ -1283,6 +1283,7 @@ class FeodalSimulator:
                 status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
 
             if changes_made:
+                self.world_manager.update_population_totals()
                 self.save_current_world()
                 status = f"Nod {node_id} uppdaterad: " + ", ".join(status_details)
                 self.add_status_message(status)
@@ -1440,6 +1441,7 @@ class FeodalSimulator:
             node_data["res_type"] = "Resurs" # Ensure internal type
 
             if changes_made:
+                self.world_manager.update_population_totals()
                 self.save_current_world()
                 status = f"Jarldöme {node_id} uppdaterad: " + ", ".join(status_details)
                 self.add_status_message(status)
@@ -1822,6 +1824,7 @@ class FeodalSimulator:
                 changes = True
 
             if changes:
+                self.world_manager.update_population_totals()
                 self.save_current_world()
                 status = f"Resurs {node_id} uppdaterad: " + ", ".join(details)
                 self.add_status_message(status)
