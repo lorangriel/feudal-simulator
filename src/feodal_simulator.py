@@ -1558,6 +1558,23 @@ class FeodalSimulator:
         thrall_var = tk.IntVar(value=node_data.get("thralls", 0))
         burgher_var = tk.IntVar(value=node_data.get("burghers", 0))
 
+        def update_population_display(*_args) -> None:
+            """Update population field based on category counts."""
+            try:
+                total = (
+                    int(free_var.get() or 0)
+                    + int(unfree_var.get() or 0)
+                    + int(thrall_var.get() or 0)
+                    + int(burgher_var.get() or 0)
+                )
+            except tk.TclError:
+                total = 0
+            pop_var.set(total)
+
+        for v in (free_var, unfree_var, thrall_var, burgher_var):
+            v.trace_add("write", update_population_display)
+        update_population_display()
+
         craftsman_rows: list[dict] = []
 
         def update_craftsman_options() -> None:
