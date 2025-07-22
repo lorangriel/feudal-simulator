@@ -212,6 +212,12 @@ class WorldInterface(ABC):
             if "skills" not in char:
                 char["skills"] = []
                 updated = True
+            if "type" not in char:
+                char["type"] = ""
+                updated = True
+            if "ruler_of" not in char:
+                char["ruler_of"] = None
+                updated = True
             if updated:
                 chars_updated += 1
 
