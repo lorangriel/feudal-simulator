@@ -33,6 +33,7 @@ JARLDOM_RESOURCE_TYPES = [
     "Flod",
     "Hav",
     "Soldater",
+    "Djur",
 ]
 
 # Categorized for easier handling in UI

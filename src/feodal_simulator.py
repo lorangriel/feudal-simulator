@@ -1823,6 +1823,11 @@ class FeodalSimulator:
             else:
                 soldier_frame.grid_remove()
 
+            if res_var.get() == "Djur":
+                animal_frame.grid()
+            else:
+                animal_frame.grid_remove()
+
         res_var.trace_add("write", refresh_settlement_visibility)
         refresh_settlement_visibility()
 
