@@ -230,7 +230,7 @@ class WorldManager(WorldInterface):
             if ruler_id and "characters" in self.world_data:
                 ruler_data = self.world_data["characters"].get(str(ruler_id))
                 if ruler_data:
-                    ruler_str = ruler_data.get("name", f"Härskare {ruler_id}")
+                    ruler_str = ruler_data.get("name", f"Karaktär {ruler_id}")
             parts: List[str] = []
             if res_type and res_type != "Resurs":
                 parts.append(res_type)

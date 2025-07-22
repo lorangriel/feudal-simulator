@@ -19,7 +19,12 @@ from constants import (
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
-from utils import roll_dice, generate_swedish_village_name, ScrollableFrame
+from utils import (
+    roll_dice,
+    generate_swedish_village_name,
+    generate_character_name,
+    ScrollableFrame,
+)
 from dynamic_map import DynamicMapCanvas
 from map_logic import StaticMapLogic
 from world_manager import WorldManager
@@ -291,7 +296,7 @@ class FeodalSimulator:
 
         ttk.Label(container, text="Hantera data", font=("Arial", 16, "bold")).pack(pady=(10, 20))
         ttk.Button(container, text="Hantera Världar", command=self.show_manage_worlds_view, width=20).pack(pady=5)
-        ttk.Button(container, text="Hantera Härskare", command=self.show_manage_characters_view, width=20).pack(pady=5)
+        ttk.Button(container, text="Hantera Karaktärer", command=self.show_manage_characters_view, width=20).pack(pady=5)
         ttk.Separator(container, orient=tk.HORIZONTAL).pack(fill='x', pady=15, padx=20)
         ttk.Button(container, text="< Tillbaka", command=self.show_no_world_view, width=20).pack(pady=5)
 
@@ -532,7 +537,7 @@ class FeodalSimulator:
         nodes_updated, chars_updated = self.world_manager.validate_world_data()
         if nodes_updated > 0 or chars_updated > 0:
             self.add_status_message(
-                f"Validerade och uppdaterade data vid laddning: {nodes_updated} noder, {chars_updated} härskare."
+                f"Validerade och uppdaterade data vid laddning: {nodes_updated} noder, {chars_updated} karaktärer."
             )
             self.save_current_world()
 
@@ -720,16 +725,20 @@ class FeodalSimulator:
 
     # --- Character Management ---
     def show_manage_characters_view(self):
-        """Displays the UI for managing characters (härskare)."""
+        """Displays the UI for managing characters (karaktärer)."""
         if not self.active_world_name:
-            messagebox.showinfo("Ingen Värld", "Ladda en värld först för att hantera härskare.", parent=self.root)
+            messagebox.showinfo(
+                "Ingen Värld",
+                "Ladda en värld först för att hantera karaktärer.",
+                parent=self.root,
+            )
             return
 
         self._clear_right_frame()
         container = ttk.Frame(self.right_frame)
         container.pack(expand=True, fill='y', pady=20)
 
-        ttk.Label(container, text="Hantera Härskare", font=("Arial", 14)).pack(pady=5)
+        ttk.Label(container, text="Hantera Karaktärer", font=("Arial", 14)).pack(pady=5)
 
         # Ensure characters structure exists
         if "characters" not in self.world_data:
@@ -775,15 +784,27 @@ class FeodalSimulator:
                     # Pass the actual character data dictionary
                     self.show_edit_character_view(char_data, is_new=False)
                 else:
-                    messagebox.showerror("Fel", f"Kunde inte hitta data för härskare ID {char_id_str}", parent=self.root)
+                    messagebox.showerror(
+                        "Fel",
+                        f"Kunde inte hitta data för karaktär ID {char_id_str}",
+                        parent=self.root,
+                    )
             else:
-                messagebox.showinfo("Inget Val", "Välj en härskare i listan att redigera.", parent=self.root)
+                messagebox.showinfo(
+                    "Inget Val",
+                    "Välj en karaktär i listan att redigera.",
+                    parent=self.root,
+                )
 
 
         def do_delete():
             char_id_to_delete_str = get_selected_char_id()
             if not char_id_to_delete_str:
-                messagebox.showinfo("Inget Val", "Välj en härskare i listan att radera.", parent=self.root)
+                messagebox.showinfo(
+                    "Inget Val",
+                    "Välj en karaktär i listan att radera.",
+                    parent=self.root,
+                )
                 return
 
             char_name = self.world_data.get("characters", {}).get(char_id_to_delete_str, {}).get('name', f'ID {char_id_to_delete_str}')
@@ -802,13 +823,15 @@ class FeodalSimulator:
                             nodes_to_update.append(node_id_str)
                         except ValueError: continue # Skip if node_id is not int
 
-            confirm_message = f"Är du säker på att du vill radera härskaren '{char_name}' (ID: {char_id_to_delete_str})?"
+            confirm_message = (
+                f"Är du säker på att du vill radera karaktären '{char_name}' (ID: {char_id_to_delete_str})?"
+            )
             if ruled_nodes_info:
-                confirm_message += "\n\nDenna härskare styr för närvarande:\n" + "\n".join(ruled_nodes_info[:5]) # Show first 5
+                confirm_message += "\n\nDenna karaktär styr för närvarande:\n" + "\n".join(ruled_nodes_info[:5])
                 if len(ruled_nodes_info) > 5: confirm_message += "\n- ..."
-                confirm_message += "\n\nOm du raderar härskaren kommer dessa förläningar att bli utan härskare."
+                confirm_message += "\n\nOm du raderar karaktären kommer dessa förläningar att bli utan härskare."
 
-            if messagebox.askyesno("Radera Härskare?", confirm_message, icon='warning', parent=self.root):
+            if messagebox.askyesno("Radera Karaktär?", confirm_message, icon='warning', parent=self.root):
                 nodes_updated_count = 0
                 # Remove ruler_id from nodes
                 for node_id_str_update in nodes_to_update:
@@ -825,18 +848,24 @@ class FeodalSimulator:
                 if char_id_to_delete_str in self.world_data.get("characters", {}):
                     del self.world_data["characters"][char_id_to_delete_str]
                     self.save_current_world()
-                    self.add_status_message(f"Härskare '{char_name}' (ID: {char_id_to_delete_str}) raderad. {nodes_updated_count} förläning(ar) uppdaterades.")
+                    self.add_status_message(
+                        f"Karaktär '{char_name}' (ID: {char_id_to_delete_str}) raderad. {nodes_updated_count} förläning(ar) uppdaterades."
+                    )
                     # Refresh the list view
                     self.show_manage_characters_view()
                 else:
-                    messagebox.showerror("Fel", f"Kunde inte radera, härskare med ID {char_id_to_delete_str} hittades ej (kanske redan raderad?).", parent=self.root)
+                    messagebox.showerror(
+                        "Fel",
+                        f"Kunde inte radera, karaktär med ID {char_id_to_delete_str} hittades ej (kanske redan raderad?).",
+                        parent=self.root,
+                    )
                     self.show_manage_characters_view() # Refresh anyway
 
 
         # Button Frame
         button_frame = ttk.Frame(container)
         button_frame.pack(pady=10)
-        ttk.Button(button_frame, text="Ny härskare", command=do_new).grid(row=0, column=0, padx=5, pady=2)
+        ttk.Button(button_frame, text="Ny karaktär", command=do_new).grid(row=0, column=0, padx=5, pady=2)
         ttk.Button(button_frame, text="Redigera vald", command=do_edit).grid(row=0, column=1, padx=5, pady=2)
         ttk.Button(button_frame, text="Radera vald", command=do_delete, style="Danger.TButton").grid(row=1, column=0, columnspan=2, padx=5, pady=2)
 
@@ -851,7 +880,7 @@ class FeodalSimulator:
         container.pack(expand=True, pady=20, padx=20, fill='both') # Fill frame
 
         char_id = char_data.get("char_id") if char_data and not is_new else None # Get existing ID only if editing
-        title = "Skapa Ny Härskare" if is_new else f"Redigera Härskare (ID: {char_id})"
+        title = "Skapa Ny Karaktär" if is_new else f"Redigera Karaktär (ID: {char_id})"
         ttk.Label(container, text=title, font=("Arial", 14)).pack(pady=(5, 15))
 
         # Use a frame for the form elements for better alignment
@@ -861,7 +890,10 @@ class FeodalSimulator:
         # --- Form Fields ---
         # Name
         ttk.Label(form_frame, text="Namn:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        name_var = tk.StringVar(value=char_data.get("name", "") if char_data else "")
+        default_name = generate_character_name()
+        name_var = tk.StringVar(
+            value=char_data.get("name", default_name) if char_data else default_name
+        )
         name_entry = ttk.Entry(form_frame, textvariable=name_var, width=40)
         name_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         name_entry.focus() # Set focus to name field
@@ -903,7 +935,11 @@ class FeodalSimulator:
         def do_save():
             name = name_var.get().strip()
             if not name:
-                messagebox.showwarning("Namn Saknas", "Härskaren måste ha ett namn.", parent=self.root)
+                messagebox.showwarning(
+                    "Namn Saknas",
+                    "Karaktären måste ha ett namn.",
+                    parent=self.root,
+                )
                 name_entry.focus()
                 return
 
@@ -933,7 +969,9 @@ class FeodalSimulator:
                     "skills": skills
                 }
                 self.world_data.setdefault("characters", {})[new_id_str] = new_char_data
-                self.add_status_message(f"Skapade ny härskare: '{name}' (ID: {new_id}).")
+                self.add_status_message(
+                    f"Skapade ny karaktär: '{name}' (ID: {new_id})."
+                )
 
                 # If created from a node view, assign the new ruler immediately
                 if parent_node_data:
@@ -954,7 +992,9 @@ class FeodalSimulator:
                     char_data_to_update["wealth"] = wealth
                     char_data_to_update["description"] = description
                     char_data_to_update["skills"] = skills
-                    self.add_status_message(f"Uppdaterade härskare '{old_name}' -> '{name}' (ID: {char_id_str}).")
+                    self.add_status_message(
+                        f"Uppdaterade karaktär '{old_name}' -> '{name}' (ID: {char_id_str})."
+                    )
 
                     # Refresh tree items if this ruler changed name
                     if old_name != name:
@@ -965,7 +1005,11 @@ class FeodalSimulator:
                                             self.refresh_tree_item(int(nid_str))
                                         except ValueError: pass # Skip non-int keys if any
                 else:
-                    messagebox.showerror("Fel", f"Kunde inte spara, härskare med ID {char_id_str} hittades ej.", parent=self.root)
+                    messagebox.showerror(
+                        "Fel",
+                        f"Kunde inte spara, karaktär med ID {char_id_str} hittades ej.",
+                        parent=self.root,
+                    )
                     return
 
 

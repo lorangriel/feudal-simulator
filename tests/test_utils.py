@@ -36,3 +36,12 @@ def test_generate_swedish_village_name_components():
     name = utils.generate_swedish_village_name()
     assert isinstance(name, str)
     assert name == "Hildatorp"
+
+
+def test_generate_character_name_deterministic():
+    random.seed(0)
+    male = utils.generate_character_name("m")
+    random.seed(0)
+    female = utils.generate_character_name("f")
+    assert male == "Mate Alen"
+    assert female == "Mianeni Alen"
