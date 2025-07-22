@@ -1188,7 +1188,7 @@ class FeodalSimulator:
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         calculated_pop = self.calculate_population_from_fields(node_data)
-        pop_var = tk.IntVar(value=calculated_pop)
+        pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
@@ -1227,8 +1227,10 @@ class FeodalSimulator:
             # Save potentially changed data before updating children
             node_data["name"] = name_var.get().strip()
             node_data["custom_name"] = custom_name_var.get().strip()
-            try: node_data["population"] = pop_var.get()
-            except tk.TclError: node_data["population"] = 0
+            try:
+                node_data["population"] = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["population"] = 0
             try:
                 target_subfiefs = sub_var.get()
                 if target_subfiefs < 0: target_subfiefs = 0 # Ensure non-negative
@@ -1250,8 +1252,10 @@ class FeodalSimulator:
         def add_subnode_action():
             node_data["name"] = name_var.get().strip()
             node_data["custom_name"] = custom_name_var.get().strip()
-            try: node_data["population"] = pop_var.get()
-            except tk.TclError: node_data["population"] = 0
+            try:
+                node_data["population"] = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["population"] = 0
             new_count = node_data.get("num_subfiefs", 0) + 1
             sub_var.set(new_count)
             node_data["num_subfiefs"] = new_count
@@ -1267,8 +1271,10 @@ class FeodalSimulator:
 
             new_name = name_var.get().strip()
             new_custom_name = custom_name_var.get().strip()
-            try: new_pop = pop_var.get()
-            except tk.TclError: new_pop = 0
+            try:
+                new_pop = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_pop = 0
             # num_subfiefs is saved via its own button
 
             changes_made = False
@@ -1302,8 +1308,8 @@ class FeodalSimulator:
 
         def unsaved_changes() -> bool:
             try:
-                current_pop = pop_var.get()
-            except tk.TclError:
+                current_pop = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
                 current_pop = 0
             return (
                 name_var.get().strip() != node_data.get("name", "")
@@ -1374,7 +1380,7 @@ class FeodalSimulator:
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         calculated_pop = self.calculate_population_from_fields(node_data)
-        pop_var = tk.IntVar(value=calculated_pop)
+        pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
 
@@ -1403,8 +1409,10 @@ class FeodalSimulator:
                 return
             node_data["custom_name"] = new_custom_name
 
-            try: node_data["population"] = pop_var.get()
-            except tk.TclError: node_data["population"] = 0
+            try:
+                node_data["population"] = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["population"] = 0
             try:
                 target_subfiefs = sub_var.get()
                 if target_subfiefs < 0: target_subfiefs = 0
@@ -1426,8 +1434,10 @@ class FeodalSimulator:
             if not new_custom_name:
                 messagebox.showwarning("Namn Saknas", "Ett Jarldöme måste ha ett namn.", parent=self.root)
                 return
-            try: new_pop = pop_var.get()
-            except tk.TclError: new_pop = 0
+            try:
+                new_pop = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_pop = 0
             # num_subfiefs saved via its own button
 
             changes_made = False
@@ -1470,8 +1480,8 @@ class FeodalSimulator:
 
         def unsaved_changes() -> bool:
             try:
-                current_pop = pop_var.get()
-            except tk.TclError:
+                current_pop = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
                 current_pop = 0
             try:
                 current_sub = sub_var.get()
@@ -1518,7 +1528,7 @@ class FeodalSimulator:
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         calculated_pop = self.calculate_population_from_fields(node_data)
-        pop_var = tk.IntVar(value=calculated_pop)
+        pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
@@ -1572,7 +1582,7 @@ class FeodalSimulator:
                 )
             except tk.TclError:
                 total = 0
-            pop_var.set(total)
+            pop_var.set(str(total))
 
         for v in (free_var, unfree_var, thrall_var, burgher_var):
             v.trace_add("write", update_population_display)
@@ -1714,8 +1724,8 @@ class FeodalSimulator:
                 temp_data["population"] = 0
             else:
                 try:
-                    manual_pop = pop_var.get()
-                except tk.TclError:
+                    manual_pop = int(pop_var.get() or "0")
+                except (tk.TclError, ValueError):
                     manual_pop = 0
                 temp_data["population"] = manual_pop
             node_data["population"] = self.calculate_population_from_fields(temp_data)
@@ -1743,8 +1753,8 @@ class FeodalSimulator:
 
             new_custom = custom_var.get().strip()
             try:
-                manual_pop = pop_var.get()
-            except tk.TclError:
+                manual_pop = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
                 manual_pop = 0
             try:
                 manual_area = area_var.get()
@@ -1841,8 +1851,8 @@ class FeodalSimulator:
 
         def unsaved_changes() -> bool:
             try:
-                manual_pop = pop_var.get()
-            except tk.TclError:
+                manual_pop = int(pop_var.get() or "0")
+            except (tk.TclError, ValueError):
                 manual_pop = 0
             try:
                 manual_area = area_var.get()
