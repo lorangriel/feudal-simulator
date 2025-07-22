@@ -149,3 +149,24 @@ def test_create_drunok_world_builds_structure(monkeypatch):
     assert princ == 4
     assert duchies == 15
     assert jarls >= 200
+
+
+def test_save_current_world_refreshes_dynamic_map(monkeypatch):
+    world = {"nodes": {}, "characters": {}}
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.active_world_name = "A"
+    sim.world_data = world
+    sim.all_worlds = {"A": world}
+    sim.dynamic_map_view = type(
+        "DM",
+        (),
+        {
+            "set_world_data": lambda self, wd: setattr(self, "wd", wd),
+            "draw_dynamic_map": lambda self: setattr(self, "redrawn", True),
+        },
+    )()
+    monkeypatch.setattr(fs, "save_worlds_to_file", lambda data: None)
+    sim.refresh_dynamic_map = fs.FeodalSimulator.refresh_dynamic_map.__get__(sim)
+    fs.FeodalSimulator.save_current_world(sim)
+    assert sim.dynamic_map_view.wd is world
+    assert getattr(sim.dynamic_map_view, "redrawn", False)

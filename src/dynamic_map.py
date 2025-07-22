@@ -20,6 +20,10 @@ class DynamicMapCanvas:
         self.dynamic_scale = 1.0
         self.positions = {}  # node_id -> (x, y)
 
+    def set_world_data(self, world_data):
+        """Replace the internal reference to ``world_data``."""
+        self.world_data = world_data
+
     def show(self):
         """Creates and displays the dynamic map canvas."""
         for w in self.parent_frame.winfo_children():
