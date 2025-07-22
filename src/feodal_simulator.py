@@ -902,8 +902,8 @@ class FeodalSimulator:
 
         # Wealth (Example - Currently unused field)
         ttk.Label(form_frame, text="Förmögenhet:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        wealth_var = tk.IntVar(value=char_data.get("wealth", 0) if char_data else 0)
-        wealth_spinbox = tk.Spinbox(form_frame, from_=0, to=1000000, textvariable=wealth_var, width=10) # Standard Spinbox for now
+        wealth_var = tk.StringVar(value=str(char_data.get("wealth", 0) if char_data else 0))
+        wealth_spinbox = tk.Spinbox(form_frame, from_=0, to=1000000, textvariable=wealth_var, width=10)
         wealth_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky="w")
 
         # Description (Example - Currently unused field)
@@ -945,9 +945,11 @@ class FeodalSimulator:
                 name_entry.focus()
                 return
 
-            # Validate wealth? For now assume valid int.
-            try: wealth = wealth_var.get()
-            except tk.TclError: wealth = 0
+            # Validate wealth
+            try:
+                wealth = int(wealth_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                wealth = 0
 
             description = desc_text.get("1.0", tk.END).strip()
             # Simple skill parsing - split by comma, remove whitespace
@@ -1196,9 +1198,8 @@ class FeodalSimulator:
 
         # Number of Subfiefs
         ttk.Label(editor_frame, text="Antal Underförläningar (barnregioner):").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        sub_var = tk.IntVar(value=node_data.get("num_subfiefs", 0))
-        # Use standard spinbox as ttk doesn't have one? Or just Entry + validation? Use Spinbox for now.
-        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=('Arial', 10))
+        sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
+        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
         sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
@@ -1233,10 +1234,12 @@ class FeodalSimulator:
             except (tk.TclError, ValueError):
                 node_data["population"] = 0
             try:
-                target_subfiefs = sub_var.get()
-                if target_subfiefs < 0: target_subfiefs = 0 # Ensure non-negative
+                target_subfiefs = int(sub_var.get() or "0", 10)
+                if target_subfiefs < 0:
+                    target_subfiefs = 0
                 node_data["num_subfiefs"] = target_subfiefs
-            except tk.TclError: node_data["num_subfiefs"] = 0
+            except (tk.TclError, ValueError):
+                node_data["num_subfiefs"] = 0
             current_count = len(node_data.get("children", []))
             if abs(target_subfiefs - current_count) > 1:
                 if not messagebox.askyesno(
@@ -1312,11 +1315,15 @@ class FeodalSimulator:
                 current_pop = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
                 current_pop = 0
+            try:
+                current_sub = int(sub_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                current_sub = 0
             return (
                 name_var.get().strip() != node_data.get("name", "")
                 or custom_name_var.get().strip() != node_data.get("custom_name", "")
                 or current_pop != node_data.get("population", 0)
-                or sub_var.get() != node_data.get("num_subfiefs", 0)
+                or current_sub != node_data.get("num_subfiefs", 0)
             )
 
         delete_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
@@ -1389,8 +1396,8 @@ class FeodalSimulator:
 
         # Number of Subfiefs (Resources under the Jarldom)
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        sub_var = tk.IntVar(value=node_data.get("num_subfiefs", 0))
-        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=('Arial', 10))
+        sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
+        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
         sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
@@ -1415,10 +1422,12 @@ class FeodalSimulator:
             except (tk.TclError, ValueError):
                 node_data["population"] = 0
             try:
-                target_subfiefs = sub_var.get()
-                if target_subfiefs < 0: target_subfiefs = 0
+                target_subfiefs = int(sub_var.get() or "0", 10)
+                if target_subfiefs < 0:
+                    target_subfiefs = 0
                 node_data["num_subfiefs"] = target_subfiefs
-            except tk.TclError: node_data["num_subfiefs"] = 0
+            except (tk.TclError, ValueError):
+                node_data["num_subfiefs"] = 0
             node_data["res_type"] = "Resurs" # Ensure internal type is correct
 
             self.update_subfiefs_for_node(node_data)
@@ -1485,8 +1494,8 @@ class FeodalSimulator:
             except (tk.TclError, ValueError):
                 current_pop = 0
             try:
-                current_sub = sub_var.get()
-            except tk.TclError:
+                current_sub = int(sub_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 current_sub = 0
             return (
                 custom_name_var.get().strip() != node_data.get("custom_name", "")
@@ -1535,7 +1544,7 @@ class FeodalSimulator:
         row_idx += 1
 
         area_label = ttk.Label(editor_frame, text="Tunnland:")
-        area_var = tk.IntVar(value=node_data.get("tunnland", 0))
+        area_var = tk.StringVar(value=str(node_data.get("tunnland", 0)))
         area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=10)
         area_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
@@ -1557,7 +1566,7 @@ class FeodalSimulator:
         refresh_area_visibility()
 
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        sub_var = tk.IntVar(value=node_data.get("num_subfiefs", 0))
+        sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
         sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
         sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
@@ -1567,21 +1576,21 @@ class FeodalSimulator:
         row_idx += 1
 
         settlement_type_var = tk.StringVar(value=node_data.get("settlement_type", "By"))
-        free_var = tk.IntVar(value=node_data.get("free_peasants", 0))
-        unfree_var = tk.IntVar(value=node_data.get("unfree_peasants", 0))
-        thrall_var = tk.IntVar(value=node_data.get("thralls", 0))
-        burgher_var = tk.IntVar(value=node_data.get("burghers", 0))
+        free_var = tk.StringVar(value=str(node_data.get("free_peasants", 0)))
+        unfree_var = tk.StringVar(value=str(node_data.get("unfree_peasants", 0)))
+        thrall_var = tk.StringVar(value=str(node_data.get("thralls", 0)))
+        burgher_var = tk.StringVar(value=str(node_data.get("burghers", 0)))
 
         def update_population_display(*_args) -> None:
             """Update population field based on category counts."""
             try:
                 total = (
-                    int(free_var.get() or 0)
-                    + int(unfree_var.get() or 0)
-                    + int(thrall_var.get() or 0)
-                    + int(burgher_var.get() or 0)
+                    int(free_var.get() or "0", 10)
+                    + int(unfree_var.get() or "0", 10)
+                    + int(thrall_var.get() or "0", 10)
+                    + int(burgher_var.get() or "0", 10)
                 )
-            except tk.TclError:
+            except ValueError:
                 total = 0
             pop_var.set(str(total))
 
@@ -1767,20 +1776,20 @@ class FeodalSimulator:
             node_data["res_type"] = res_var.get().strip()
             node_data["settlement_type"] = settlement_type_var.get().strip()
             try:
-                node_data["free_peasants"] = free_var.get()
-            except tk.TclError:
+                node_data["free_peasants"] = int(free_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 node_data["free_peasants"] = 0
             try:
-                node_data["unfree_peasants"] = unfree_var.get()
-            except tk.TclError:
+                node_data["unfree_peasants"] = int(unfree_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 node_data["unfree_peasants"] = 0
             try:
-                node_data["thralls"] = thrall_var.get()
-            except tk.TclError:
+                node_data["thralls"] = int(thrall_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 node_data["thralls"] = 0
             try:
-                node_data["burghers"] = burgher_var.get()
-            except tk.TclError:
+                node_data["burghers"] = int(burgher_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 node_data["burghers"] = 0
             node_data["craftsmen"] = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
@@ -1795,8 +1804,8 @@ class FeodalSimulator:
             temp_data = dict(node_data)
             if res_var.get() == "Vildmark":
                 try:
-                    node_data["tunnland"] = area_var.get()
-                except tk.TclError:
+                    node_data["tunnland"] = int(area_var.get() or "0", 10)
+                except (tk.TclError, ValueError):
                     node_data["tunnland"] = 0
                 temp_data["population"] = 0
             else:
@@ -1807,11 +1816,11 @@ class FeodalSimulator:
                 temp_data["population"] = manual_pop
             node_data["population"] = self.calculate_population_from_fields(temp_data)
             try:
-                target = sub_var.get()
+                target = int(sub_var.get() or "0", 10)
                 if target < 0:
                     target = 0
                 node_data["num_subfiefs"] = target
-            except tk.TclError:
+            except (tk.TclError, ValueError):
                 node_data["num_subfiefs"] = 0
             self.update_subfiefs_for_node(node_data)
 
@@ -1836,26 +1845,26 @@ class FeodalSimulator:
             except (tk.TclError, ValueError):
                 manual_pop = 0
             try:
-                manual_area = area_var.get()
-            except tk.TclError:
+                manual_area = int(area_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 manual_area = 0
             new_type = res_var.get().strip()
             new_settlement_type = settlement_type_var.get().strip()
             try:
-                new_free = free_var.get()
-            except tk.TclError:
+                new_free = int(free_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_free = 0
             try:
-                new_unfree = unfree_var.get()
-            except tk.TclError:
+                new_unfree = int(unfree_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_unfree = 0
             try:
-                new_thralls = thrall_var.get()
-            except tk.TclError:
+                new_thralls = int(thrall_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_thralls = 0
             try:
-                new_burghers = burgher_var.get()
-            except tk.TclError:
+                new_burghers = int(burgher_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_burghers = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
@@ -1942,28 +1951,28 @@ class FeodalSimulator:
             except (tk.TclError, ValueError):
                 manual_pop = 0
             try:
-                manual_area = area_var.get()
-            except tk.TclError:
+                manual_area = int(area_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 manual_area = 0
             try:
-                current_sub = sub_var.get()
-            except tk.TclError:
+                current_sub = int(sub_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 current_sub = 0
             try:
-                new_free = free_var.get()
-            except tk.TclError:
+                new_free = int(free_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_free = 0
             try:
-                new_unfree = unfree_var.get()
-            except tk.TclError:
+                new_unfree = int(unfree_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_unfree = 0
             try:
-                new_thralls = thrall_var.get()
-            except tk.TclError:
+                new_thralls = int(thrall_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_thralls = 0
             try:
-                new_burghers = burgher_var.get()
-            except tk.TclError:
+                new_burghers = int(burgher_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
                 new_burghers = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
