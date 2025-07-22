@@ -4,6 +4,20 @@ import tkinter as tk
 from tkinter import ttk
 
 
+def parse_int_10(value: str | int | None) -> int:
+    """Return ``value`` parsed as a base-10 integer or 0 on failure."""
+    try:
+        text = str(value).strip()
+    except Exception:
+        return 0
+    if not text:
+        return 0
+    try:
+        return int(text, 10)
+    except (ValueError, TypeError):
+        return 0
+
+
 def roll_dice(expr: str, debug=False):
     """Rolls dice based on standard notation (e.g., '3d6+2', 'ob2d6')."""
     expr_original = expr.strip()
