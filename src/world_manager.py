@@ -141,10 +141,27 @@ class WorldManager(WorldInterface):
         recurse(node_id)
         return totals
 
-    def calculate_total_resources(self, node_id: int) -> Dict[str, Any]:
-        """Recursively sum resources for ``node_id`` and store on each node."""
+    def calculate_total_resources(
+        self, node_id: int, visited: set[int] | None = None
+    ) -> Dict[str, Any]:
+        """Recursively sum resources for ``node_id`` and store on each node.
+
+        ``visited`` prevents infinite recursion if cycles exist in the hierarchy.
+        """
 
         nodes = self.world_data.get("nodes", {})
+
+        if visited is None:
+            visited = set()
+        if node_id in visited:
+            return {
+                "population": 0,
+                "soldiers": {},
+                "characters": {},
+                "animals": {},
+                "buildings": {},
+            }
+        visited.add(node_id)
 
         def add_count(target: Dict[str, int], key: str, amount: int = 1) -> None:
             if not key:
@@ -212,7 +229,7 @@ class WorldManager(WorldInterface):
             add_count(totals["buildings"], t, c)
 
         for child_id in node.get("children", []):
-            child_totals = self.calculate_total_resources(child_id)
+            child_totals = self.calculate_total_resources(child_id, visited)
             totals["population"] += child_totals.get("population", 0)
             for key in ("soldiers", "characters", "animals", "buildings"):
                 child_dict = child_totals.get(key, {})

@@ -87,6 +87,28 @@ def test_calculate_total_resources_recursive():
     assert world["nodes"]["4"]["total_resources"]["population"] == 2
 
 
+def test_calculate_total_resources_cycle():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [1],  # cycle back to root
+                "population": 5,
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    totals = manager.calculate_total_resources(1)
+
+    assert totals["population"] == 5
+    assert world["nodes"]["1"]["total_resources"]["population"] == 5
+    assert world["nodes"]["2"]["total_resources"]["population"] == 5
+
+
 def test_count_descendants_simple_hierarchy():
     world = {
         "nodes": {
