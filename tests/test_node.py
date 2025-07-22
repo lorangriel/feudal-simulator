@@ -125,6 +125,20 @@ def test_node_soldier_large_count():
     assert back["soldiers"] == [{"type": "Fotsoldat", "count": 123456}]
 
 
+def test_node_animal_large_count():
+    raw = {
+        "node_id": 31,
+        "parent_id": 1,
+        "animals": [{"type": "Oxe", "count": "654321"}],
+    }
+
+    node = Node.from_dict(raw)
+    assert node.animals == [{"type": "Oxe", "count": 654321}]
+
+    back = node.to_dict()
+    assert back["animals"] == [{"type": "Oxe", "count": 654321}]
+
+
 def test_node_vildmark_tunnland_roundtrip():
     raw = {
         "node_id": 40,
