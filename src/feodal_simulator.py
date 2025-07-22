@@ -1512,12 +1512,35 @@ class FeodalSimulator:
         custom_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
         row_idx += 1
 
-        ttk.Label(editor_frame, text="Befolkning:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        pop_label = ttk.Label(editor_frame, text="Befolkning:")
+        pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         calculated_pop = self.calculate_population_from_fields(node_data)
         pop_var = tk.IntVar(value=calculated_pop)
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
+
+        area_label = ttk.Label(editor_frame, text="Tunnland:")
+        area_var = tk.IntVar(value=node_data.get("tunnland", 0))
+        area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=10)
+        area_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        def refresh_area_visibility(*args):
+            if res_var.get() == "Vildmark":
+                area_label.grid()
+                area_entry.grid()
+                pop_label.grid_remove()
+                pop_entry.grid_remove()
+            else:
+                area_label.grid_remove()
+                area_entry.grid_remove()
+                pop_label.grid()
+                pop_entry.grid()
+
+        res_var.trace_add("write", refresh_area_visibility)
+        refresh_area_visibility()
 
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.IntVar(value=node_data.get("num_subfiefs", 0))
