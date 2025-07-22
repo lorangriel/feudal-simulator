@@ -58,6 +58,22 @@ class WorldManager(WorldInterface):
             depth_map[nid] = d
             max_depth = max(max_depth, d)
 
+        base_population: Dict[int, int] = {}
+        # Determine the intrinsic population for each node and persist it so
+        # repeated calls do not accumulate child populations again.
+        for nid in depth_map:
+            node = nodes.get(str(nid))
+            if not node:
+                continue
+            if "_base_population" not in node:
+                node["_base_population"] = self.calculate_population_from_fields(node)
+            base_population[nid] = node["_base_population"]
+
+        # Reset all nodes to their base population
+        for nid, base_pop in base_population.items():
+            nodes[str(nid)]["population"] = base_pop
+
+        # Now accumulate child populations from deepest level upwards
         for depth in range(max_depth, -1, -1):
             for nid, d in depth_map.items():
                 if d != depth:
@@ -65,8 +81,7 @@ class WorldManager(WorldInterface):
                 node = nodes.get(str(nid))
                 if not node:
                     continue
-                base_pop = self.calculate_population_from_fields(node)
-                total = base_pop
+                total = base_population.get(nid, 0)
                 for cid in node.get("children", []):
                     child = nodes.get(str(cid))
                     if not child:
