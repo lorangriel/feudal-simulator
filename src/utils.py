@@ -128,6 +128,110 @@ def generate_swedish_village_name() -> str:
     return namn
 
 
+def generate_character_name(gender: str = "m") -> str:
+    """Return a random fantasy-style character name."""
+
+    male_prefix = [
+        "Ak",
+        "Al",
+        "An",
+        "Ar",
+        "Che",
+        "Cor",
+        "Dor",
+        "Gar",
+        "Gor",
+        "Hal",
+        "Hau",
+        "Ig",
+        "Ma",
+        "Men",
+        "Mik",
+        "Nar",
+        "Pal",
+        "Pav",
+        "Reh",
+        "Sieg",
+    ]
+
+    male_suffix = [
+        "an",
+        "in",
+        "on",
+        "or",
+        "os",
+        "us",
+        "am",
+        "em",
+        "en",
+        "er",
+        "el",
+        "al",
+        "il",
+        "te",
+        "as",
+        "is",
+        "rus",
+        "vin",
+        "vam",
+        "val",
+    ]
+
+    female_prefix = [
+        "An",
+        "Des",
+        "Dru",
+        "Dol",
+        "En",
+        "Ef",
+        "Gyn",
+        "Gu",
+        "Ine",
+        "Iv",
+        "Kat",
+        "Len",
+        "Mian",
+        "Mon",
+        "Nin",
+        "Pat",
+        "Sab",
+        "Sel",
+        "Van",
+        "Vil",
+    ]
+
+    female_suffix = [
+        "a",
+        "ra",
+        "na",
+        "is",
+        "ina",
+        "ena",
+        "ela",
+        "ella",
+        "ia",
+        "va",
+        "la",
+        "e",
+        "ae",
+        "eni",
+        "vi",
+        "sa",
+        "ta",
+        "ni",
+        "ma",
+        "ya",
+    ]
+
+    if gender == "m":
+        first = random.choice(male_prefix) + random.choice(male_suffix)
+    else:
+        first = random.choice(female_prefix) + random.choice(female_suffix)
+
+    father = random.choice(male_prefix) + random.choice(male_suffix)
+    return f"{first} {father}"
+
+
 class ScrollableFrame(ttk.Frame):
     """A frame that adds a vertical scrollbar when content overflows."""
 
