@@ -206,6 +206,7 @@ class FeodalSimulator:
         if self.active_world_name and self.world_data:
             self.all_worlds[self.active_world_name] = self.world_data
             save_worlds_to_file(self.all_worlds)
+            self.refresh_dynamic_map()
             # No status message here, usually called from other actions that add status
         #else:
         #    print("Warning: Tried to save world, but no active world or data.")
@@ -2400,6 +2401,12 @@ class FeodalSimulator:
         self.dynamic_map_view = DynamicMapCanvas(self.right_frame, self, self.world_data)
 
         self.dynamic_map_view.show()
+
+    def refresh_dynamic_map(self):
+        """Redraw the dynamic map if it is currently shown."""
+        if getattr(self, "dynamic_map_view", None):
+            self.dynamic_map_view.set_world_data(self.world_data)
+            self.dynamic_map_view.draw_dynamic_map()
 def main():
     root = tk.Tk()
     app = FeodalSimulator(root)
