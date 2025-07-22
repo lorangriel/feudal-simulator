@@ -1577,6 +1577,14 @@ class FeodalSimulator:
             row.update({"frame": frame, "type_var": type_var, "count_var": count_var, "blank": blank})
             craftsman_rows.append(row)
             def on_type_change(*args, r=row):
+                # Prevent duplicate craftsman types across rows
+                selected = r["type_var"].get()
+                if selected:
+                    for other in craftsman_rows:
+                        if other is not r and other["type_var"].get() == selected:
+                            # Revert selection if another row already uses this type
+                            r["type_var"].set("")
+                            return
                 if r.get("blank") and r["type_var"].get():
                     r["blank"] = False
                     add_blank_row_if_needed()
