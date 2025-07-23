@@ -122,9 +122,13 @@ class Node:
                         items.append({"type": str(tval), "ruler_id": rid})
             return items
 
-        soldiers = parse_list_of_dict("soldiers", count_field=True)
+        soldiers: List[dict] = []
+        animals: List[dict] = []
+        if data.get("res_type") == "Soldater" or "soldiers" in data:
+            soldiers = parse_list_of_dict("soldiers", count_field=True)
+        if data.get("res_type") == "Djur" or "animals" in data:
+            animals = parse_list_of_dict("animals", count_field=True)
         characters = parse_list_of_dict("characters", count_field=False)
-        animals = parse_list_of_dict("animals", count_field=True)
         buildings = parse_list_of_dict("buildings", count_field=True)
 
         return cls(
@@ -153,7 +157,7 @@ class Node:
 
     def to_dict(self) -> dict:
         """Convert this Node back into a serialisable dictionary."""
-        return {
+        data = {
             "node_id": self.node_id,
             "parent_id": self.parent_id,
             "name": self.name,
@@ -176,23 +180,29 @@ class Node:
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
             ],
-            "soldiers": [
-                {"type": s.get("type", ""), "count": s.get("count", 1)}
-                for s in self.soldiers
-            ],
             "characters": [
                 {"type": c.get("type", ""), "ruler_id": c.get("ruler_id")}
                 for c in self.characters
-            ],
-            "animals": [
-                {"type": a.get("type", ""), "count": a.get("count", 1)}
-                for a in self.animals
             ],
             "buildings": [
                 {"type": b.get("type", ""), "count": b.get("count", 1)}
                 for b in self.buildings
             ],
         }
+
+        if self.res_type == "Soldater":
+            data["soldiers"] = [
+                {"type": s.get("type", ""), "count": s.get("count", 1)}
+                for s in self.soldiers
+            ]
+
+        if self.res_type == "Djur":
+            data["animals"] = [
+                {"type": a.get("type", ""), "count": a.get("count", 1)}
+                for a in self.animals
+            ]
+
+        return data
 
     def calculate_population(self) -> int:
         """Return the total population for this node based on categories."""
