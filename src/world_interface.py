@@ -9,6 +9,7 @@ from constants import (
     MAX_NEIGHBORS,
     NEIGHBOR_NONE_STR,
     NEIGHBOR_OTHER_STR,
+    DAGSVERKEN_LEVELS,
 )
 
 
@@ -150,6 +151,9 @@ class WorldInterface(ABC):
                     if node.get("neighbors") != validated_neighbors:
                         node["neighbors"] = validated_neighbors
                         updated = True
+                if "dagsverken" not in node or node["dagsverken"] not in DAGSVERKEN_LEVELS:
+                    node["dagsverken"] = "normalt"
+                    updated = True
             elif depth >= 4:
                 if "res_type" not in node:
                     node["res_type"] = "Resurs"

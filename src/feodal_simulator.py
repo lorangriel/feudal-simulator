@@ -19,6 +19,7 @@ from constants import (
     SOLDIER_TYPES,
     ANIMAL_TYPES,
     CHARACTER_TYPES,
+    DAGSVERKEN_LEVELS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -1602,6 +1603,14 @@ class FeodalSimulator:
 
         row_idx += 1
 
+        # Work duty level
+        ttk.Label(editor_frame, text="Dagsverken:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        dags_var = tk.StringVar(value=node_data.get("dagsverken", "normalt"))
+        dags_combo = ttk.Combobox(editor_frame, textvariable=dags_var, values=DAGSVERKEN_LEVELS, state="readonly")
+        dags_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+
+        row_idx += 1
+
         # Number of Subfiefs (Resources under the Jarldom)
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
@@ -1636,6 +1645,7 @@ class FeodalSimulator:
                 node_data["num_subfiefs"] = target_subfiefs
             except (tk.TclError, ValueError):
                 node_data["num_subfiefs"] = 0
+            node_data["dagsverken"] = dags_var.get()
             node_data["res_type"] = "Resurs" # Ensure internal type is correct
 
             self.update_subfiefs_for_node(node_data)
@@ -1647,6 +1657,7 @@ class FeodalSimulator:
         def save_node_action():
             old_custom_name = node_data.get("custom_name", "")
             old_pop = node_data.get("population", 0)
+            old_dags = node_data.get("dagsverken", "normalt")
 
             new_custom_name = custom_name_var.get().strip()
             if not new_custom_name:
@@ -1656,6 +1667,7 @@ class FeodalSimulator:
                 new_pop = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
                 new_pop = 0
+            new_dags = dags_var.get()
             # num_subfiefs saved via its own button
 
             changes_made = False
@@ -1666,6 +1678,8 @@ class FeodalSimulator:
             if old_pop != new_pop:
                 node_data["population"] = new_pop; changes_made = True
                 status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
+            if old_dags != new_dags:
+                node_data["dagsverken"] = new_dags; changes_made = True
 
             # Handle ruler assignment
             selected_val = option_map.get(ruler_var.get())
@@ -1747,6 +1761,7 @@ class FeodalSimulator:
                 custom_name_var.get().strip() != node_data.get("custom_name", "")
                 or current_pop != node_data.get("population", 0)
                 or current_sub != node_data.get("num_subfiefs", 0)
+                or dags_var.get() != node_data.get("dagsverken", "normalt")
             )
 
         delete_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
