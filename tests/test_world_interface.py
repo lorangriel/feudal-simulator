@@ -107,6 +107,36 @@ def test_validate_world_data_vildmark_defaults():
     assert "population" not in node
 
 
+def test_validate_world_data_resource_fields_by_type():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "res_type": "Soldater"},
+            "2": {"node_id": 2, "parent_id": None, "res_type": "Djur"},
+            "3": {
+                "node_id": 3,
+                "parent_id": None,
+                "res_type": "Resurs",
+                "soldiers": [],
+                "animals": [],
+            },
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 4
+    nodes_updated, _ = manager.validate_world_data()
+    assert nodes_updated > 0
+    node1 = world["nodes"]["1"]
+    node2 = world["nodes"]["2"]
+    node3 = world["nodes"]["3"]
+    assert "soldiers" in node1 and node1["soldiers"] == []
+    assert "animals" not in node1
+    assert "animals" in node2 and node2["animals"] == []
+    assert "soldiers" not in node2
+    assert "soldiers" not in node3
+    assert "animals" not in node3
+
+
 def test_update_neighbors_for_node_bidirectional():
     world = {
         "nodes": {

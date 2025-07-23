@@ -89,32 +89,51 @@ def test_node_population_calculated_from_categories():
     assert data["population"] == 10
 
 
-def test_node_extra_resource_roundtrip():
+def test_node_soldier_roundtrip():
     raw = {
         "node_id": 20,
         "parent_id": 1,
+        "res_type": "Soldater",
         "soldiers": [{"type": "B\u00e5gskytt", "count": "2"}],
         "characters": [{"type": "Officer", "ruler_id": "5"}],
-        "animals": [{"type": "Oxe", "count": 3}],
         "buildings": [{"type": "Smedja", "count": "1"}],
     }
     node = Node.from_dict(raw)
     assert node.soldiers == [{"type": "B\u00e5gskytt", "count": 2}]
     assert node.characters == [{"type": "Officer", "ruler_id": 5}]
-    assert node.animals == [{"type": "Oxe", "count": 3}]
+    assert node.animals == []
     assert node.buildings == [{"type": "Smedja", "count": 1}]
 
     back = node.to_dict()
     assert back["soldiers"] == [{"type": "B\u00e5gskytt", "count": 2}]
     assert back["characters"] == [{"type": "Officer", "ruler_id": 5}]
-    assert back["animals"] == [{"type": "Oxe", "count": 3}]
+    assert "animals" not in back
     assert back["buildings"] == [{"type": "Smedja", "count": 1}]
+
+
+def test_node_animal_roundtrip():
+    raw = {
+        "node_id": 21,
+        "parent_id": 1,
+        "res_type": "Djur",
+        "animals": [{"type": "Oxe", "count": 3}],
+        "characters": [],
+        "buildings": [],
+    }
+    node = Node.from_dict(raw)
+    assert node.soldiers == []
+    assert node.animals == [{"type": "Oxe", "count": 3}]
+
+    back = node.to_dict()
+    assert back["animals"] == [{"type": "Oxe", "count": 3}]
+    assert "soldiers" not in back
 
 
 def test_node_soldier_large_count():
     raw = {
         "node_id": 30,
         "parent_id": 1,
+        "res_type": "Soldater",
         "soldiers": [{"type": "Fotsoldat", "count": "123456"}],
     }
 
@@ -129,6 +148,7 @@ def test_node_animal_large_count():
     raw = {
         "node_id": 31,
         "parent_id": 1,
+        "res_type": "Djur",
         "animals": [{"type": "Oxe", "count": "654321"}],
     }
 

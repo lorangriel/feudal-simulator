@@ -154,7 +154,28 @@ class WorldInterface(ABC):
                 if "res_type" not in node:
                     node["res_type"] = "Resurs"
                     updated = True
-                for key in ("soldiers", "characters", "animals", "buildings"):
+                res_type = node.get("res_type")
+                # Soldiers field only for Soldier resources
+                if res_type == "Soldater":
+                    if "soldiers" not in node or not isinstance(node["soldiers"], list):
+                        node["soldiers"] = []
+                        updated = True
+                else:
+                    if "soldiers" in node:
+                        del node["soldiers"]
+                        updated = True
+
+                # Animals field only for Animal resources
+                if res_type == "Djur":
+                    if "animals" not in node or not isinstance(node["animals"], list):
+                        node["animals"] = []
+                        updated = True
+                else:
+                    if "animals" in node:
+                        del node["animals"]
+                        updated = True
+
+                for key in ("characters", "buildings"):
                     if key not in node or not isinstance(node[key], list):
                         node[key] = []
                         updated = True
