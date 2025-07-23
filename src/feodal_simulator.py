@@ -930,23 +930,35 @@ class FeodalSimulator:
         skills_frame = ttk.Frame(form_frame)
         skills_frame.grid(row=3, column=1, padx=5, pady=5, sticky="w")
 
-        skill_choices = ["Ingen skill"] + [f"Skill #{i}" for i in range(1, 10)]
+        none_skill = "Ingen skill"
+        skill_choices = [f"Skill #{i}" for i in range(1, 10)]
         skill_vars: list[tk.StringVar] = []
+        level_vars: list[tk.StringVar] = []
+
+        level_choices = []
+        for i in range(1, 7):
+            level_choices.append(str(i))
+            for j in range(1, 4):
+                level_choices.append(f"{i}+{j}")
+        level_choices.append("7")
 
         def on_skill_change(*_):
-            has_empty = any(v.get() == "Ingen skill" for v in skill_vars)
+            has_empty = any(v.get() == none_skill for v in skill_vars)
             if not has_empty and len(skill_vars) < 9:
                 add_skill_var()
-                render_skill_rows()
+            render_skill_rows()
 
-        def add_skill_var(value: str = "Ingen skill") -> None:
-            var = tk.StringVar(value=value)
-            var.trace_add("write", on_skill_change)
-            skill_vars.append(var)
+        def add_skill_var(skill: str = none_skill, level: str = "1") -> None:
+            svar = tk.StringVar(value=skill)
+            lvar = tk.StringVar(value=level)
+            svar.trace_add("write", on_skill_change)
+            skill_vars.append(svar)
+            level_vars.append(lvar)
 
         def delete_skill_row(idx: int) -> None:
             if 0 <= idx < len(skill_vars):
                 skill_vars.pop(idx)
+                level_vars.pop(idx)
                 if not skill_vars:
                     add_skill_var()
                 render_skill_rows()
@@ -954,25 +966,38 @@ class FeodalSimulator:
         def render_skill_rows() -> None:
             for widget in skills_frame.winfo_children():
                 widget.destroy()
-            for i, var in enumerate(skill_vars):
+            selected = {v.get() for v in skill_vars if v.get() != none_skill}
+            for i, (svar, lvar) in enumerate(zip(skill_vars, level_vars)):
+                options = [none_skill] + [ch for ch in skill_choices if ch == svar.get() or ch not in selected]
                 combo = ttk.Combobox(
                     skills_frame,
-                    textvariable=var,
-                    values=skill_choices,
+                    textvariable=svar,
+                    values=options,
                     state="readonly",
                     width=20,
                 )
                 combo.grid(row=i, column=0, padx=2, pady=2, sticky="w")
+                level_combo = ttk.Combobox(
+                    skills_frame,
+                    textvariable=lvar,
+                    values=level_choices,
+                    state="readonly",
+                    width=6,
+                )
+                level_combo.grid(row=i, column=1, padx=2, pady=2, sticky="w")
                 ttk.Button(
                     skills_frame,
                     text="Radera",
                     command=lambda idx=i: delete_skill_row(idx),
-                ).grid(row=i, column=1, padx=2, pady=2)
+                ).grid(row=i, column=2, padx=2, pady=2)
 
         existing_skills = char_data.get("skills", []) if char_data else []
         for s in existing_skills[:9]:
-            add_skill_var(s)
-        if not skill_vars or (len(skill_vars) < 9 and all(v.get() != "Ingen skill" for v in skill_vars)):
+            if isinstance(s, dict):
+                add_skill_var(s.get("name", none_skill), s.get("level", "1"))
+            else:
+                add_skill_var(str(s), "1")
+        if not skill_vars or (len(skill_vars) < 9 and all(v.get() != none_skill for v in skill_vars)):
             add_skill_var()
         render_skill_rows()
 
@@ -1040,7 +1065,11 @@ class FeodalSimulator:
                 wealth = 0
 
             description = desc_text.get("1.0", tk.END).strip()
-            skills = [v.get() for v in skill_vars if v.get() != "Ingen skill"]
+            skills = [
+                {"name": s.get(), "level": l.get()}
+                for s, l in zip(skill_vars, level_vars)
+                if s.get() != none_skill
+            ]
             type_val = type_var.get().strip()
             ruler_of = None
             if type_val == "Härskare" and ruler_var.get():
