@@ -925,11 +925,56 @@ class FeodalSimulator:
         desc_text.config(yscrollcommand=desc_scroll.set)
 
 
-        # Skills (Example - Currently unused field, comma-separated string)
-        ttk.Label(form_frame, text="Färdigheter:").grid(row=3, column=0, padx=5, pady=5, sticky="w")
-        skills_var = tk.StringVar(value=", ".join(char_data.get("skills", [])) if char_data else "")
-        skills_entry = ttk.Entry(form_frame, textvariable=skills_var, width=40)
-        skills_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        # Skills - presented as up to 9 dropdown rows with dynamic add/remove
+        ttk.Label(form_frame, text="F\u00e4rdigheter:").grid(row=3, column=0, padx=5, pady=5, sticky="nw")
+        skills_frame = ttk.Frame(form_frame)
+        skills_frame.grid(row=3, column=1, padx=5, pady=5, sticky="w")
+
+        skill_choices = ["Ingen skill"] + [f"Skill #{i}" for i in range(1, 10)]
+        skill_vars: list[tk.StringVar] = []
+
+        def on_skill_change(*_):
+            has_empty = any(v.get() == "Ingen skill" for v in skill_vars)
+            if not has_empty and len(skill_vars) < 9:
+                add_skill_var()
+                render_skill_rows()
+
+        def add_skill_var(value: str = "Ingen skill") -> None:
+            var = tk.StringVar(value=value)
+            var.trace_add("write", on_skill_change)
+            skill_vars.append(var)
+
+        def delete_skill_row(idx: int) -> None:
+            if 0 <= idx < len(skill_vars):
+                skill_vars.pop(idx)
+                if not skill_vars:
+                    add_skill_var()
+                render_skill_rows()
+
+        def render_skill_rows() -> None:
+            for widget in skills_frame.winfo_children():
+                widget.destroy()
+            for i, var in enumerate(skill_vars):
+                combo = ttk.Combobox(
+                    skills_frame,
+                    textvariable=var,
+                    values=skill_choices,
+                    state="readonly",
+                    width=20,
+                )
+                combo.grid(row=i, column=0, padx=2, pady=2, sticky="w")
+                ttk.Button(
+                    skills_frame,
+                    text="Radera",
+                    command=lambda idx=i: delete_skill_row(idx),
+                ).grid(row=i, column=1, padx=2, pady=2)
+
+        existing_skills = char_data.get("skills", []) if char_data else []
+        for s in existing_skills[:9]:
+            add_skill_var(s)
+        if not skill_vars or (len(skill_vars) < 9 and all(v.get() != "Ingen skill" for v in skill_vars)):
+            add_skill_var()
+        render_skill_rows()
 
         ttk.Label(form_frame, text="Typ:").grid(row=4, column=0, padx=5, pady=5, sticky="w")
         type_var = tk.StringVar(value=char_data.get("type", "") if char_data else "")
@@ -995,8 +1040,7 @@ class FeodalSimulator:
                 wealth = 0
 
             description = desc_text.get("1.0", tk.END).strip()
-            # Simple skill parsing - split by comma, remove whitespace
-            skills = [s.strip() for s in skills_var.get().split(',') if s.strip()]
+            skills = [v.get() for v in skill_vars if v.get() != "Ingen skill"]
             type_val = type_var.get().strip()
             ruler_of = None
             if type_val == "Härskare" and ruler_var.get():
