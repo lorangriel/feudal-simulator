@@ -1561,8 +1561,26 @@ class FeodalSimulator:
             else:
                 node_data["ruler_id"] = str(sel)
             refresh_ruler_style()
+            update_owner_nodes_list()
 
         ruler_var.trace_add("write", on_ruler_change)
+
+        # Set up owner list helper before initial selection triggers callback
+        extra_owner_var = tk.StringVar()
+
+        def update_owner_nodes_list() -> None:
+            rid = node_data.get("ruler_id")
+            if rid is None:
+                extra_owner_var.set("")
+                return
+            ids = [str(node_id)]
+            for nid_str, n in self.world_data.get("nodes", {}).items():
+                if int(nid_str) == node_id:
+                    continue
+                if str(n.get("ruler_id")) == str(rid):
+                    ids.append(nid_str)
+            ids = sorted(set(ids), key=lambda x: int(x))
+            extra_owner_var.set(", ".join(ids))
 
         # Set initial selection
         initial_rid = node_data.get("ruler_id")
@@ -1574,11 +1592,11 @@ class FeodalSimulator:
                     ruler_var.set(disp)
                     break
         refresh_ruler_style()
+        update_owner_nodes_list()
 
         row_idx += 1
 
-        ttk.Label(editor_frame, text="Extra ägarnoder:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        extra_owner_var = tk.StringVar()
+        ttk.Label(editor_frame, text="Ägarnoder:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         extra_owner_entry = ttk.Entry(editor_frame, textvariable=extra_owner_var, width=40)
         extra_owner_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
 
