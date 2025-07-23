@@ -1591,6 +1591,7 @@ class FeodalSimulator:
         editor_frame = ttk.Frame(parent_frame)
         editor_frame.pack(fill="both", expand=True)
         editor_frame.grid_columnconfigure(1, weight=1)
+        editor_frame.grid_columnconfigure(2, weight=0)
 
         row_idx = 0
 
@@ -1598,6 +1599,8 @@ class FeodalSimulator:
         res_var = tk.StringVar(value=node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0]))
         res_combo = ttk.Combobox(editor_frame, textvariable=res_var, values=JARLDOM_RESOURCE_TYPES, state="readonly")
         res_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        save_button = ttk.Button(editor_frame, text="Spara Nod")
+        save_button.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         ttk.Label(editor_frame, text="Eget Namn:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
@@ -2256,6 +2259,7 @@ class FeodalSimulator:
             else:
                 self.add_status_message(f"Resurs {node_id}: Inga ändringar att spara.")
 
+        save_button.configure(command=save_node_action)
         ttk.Button(action_frame, text="Spara Resurs", command=save_node_action).pack(side=tk.LEFT, padx=5)
 
         delete_back_frame = ttk.Frame(editor_frame)
