@@ -66,6 +66,7 @@ class FeodalSimulator:
         self.style.configure("Highlight.TCombobox", fieldbackground="light green") # Used for existing neighbors
         self.style.configure("BlackWhite.TCombobox", foreground="black", fieldbackground="white") # Default combobox
         self.style.configure("Danger.TButton", foreground="red", font=('Arial', 10, 'bold'))
+        self.style.configure("Danger.TCombobox", foreground="red", fieldbackground="white")
 
 
         # --- Main Layout ---
@@ -1466,6 +1467,123 @@ class FeodalSimulator:
 
         row_idx += 1
 
+        # Ruler selection
+        ttk.Label(editor_frame, text="Härskare:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        ruler_var = tk.StringVar()
+
+        # Build list of character options
+        char_usage: dict[str, int] = {}
+        for nid_str, n in self.world_data.get("nodes", {}).items():
+            rid = n.get("ruler_id")
+            if rid is None:
+                continue
+            char_usage[str(rid)] = char_usage.get(str(rid), 0) + 1
+
+        char_list: list[tuple[str, str]] = []
+        for cid_str, cdata in self.world_data.get("characters", {}).items():
+            name = cdata.get("name", f"ID {cid_str}")
+            char_list.append((cid_str, name))
+        char_list.sort(key=lambda x: x[1].lower())
+
+        option_map: dict[str, str | None] = {"Ny härskare": "NEW", "Ingen karaktär": None}
+        for cid_str, name in char_list:
+            count = char_usage.get(cid_str, 0)
+            disp = f"{cid_str}: {name}"
+            if count:
+                disp += f" ({count})"
+            option_map[disp] = cid_str
+
+        ruler_combo = ttk.Combobox(editor_frame, textvariable=ruler_var, values=list(option_map.keys()), state="readonly", width=40, style="BlackWhite.TCombobox")
+        ruler_combo.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+
+        def refresh_ruler_style() -> None:
+            sel = option_map.get(ruler_var.get())
+            rid = None
+            if sel and sel not in (None, "NEW"):
+                rid = str(sel)
+            if rid and char_usage.get(rid, 0) > (1 if str(node_data.get("ruler_id")) == rid else 0):
+                ruler_combo.config(style="Danger.TCombobox")
+            else:
+                ruler_combo.config(style="BlackWhite.TCombobox")
+
+        def create_new_ruler() -> str:
+            existing_ids = [int(k) for k in self.world_data.get("characters", {})]
+            new_id = max(existing_ids) + 1 if existing_ids else 1
+            new_name = generate_character_name()
+            new_data = {
+                "char_id": new_id,
+                "name": new_name,
+                "wealth": 0,
+                "description": "",
+                "skills": [],
+                "type": "Härskare",
+                "ruler_of": node_id,
+            }
+            self.world_data.setdefault("characters", {})[str(new_id)] = new_data
+            self.add_status_message(f"Skapade ny härskare '{new_name}' (ID: {new_id}).")
+            return str(new_id)
+
+        def on_ruler_change(*_args):
+            sel = option_map.get(ruler_var.get())
+            if sel == "NEW":
+                new_id = create_new_ruler()
+                node_data["ruler_id"] = new_id
+                option_map.clear()
+                # rebuild options with new character included
+                char_usage.clear()
+                for nid_str, n in self.world_data.get("nodes", {}).items():
+                    rid = n.get("ruler_id")
+                    if rid is None:
+                        continue
+                    char_usage[str(rid)] = char_usage.get(str(rid), 0) + 1
+                char_list.clear()
+                for cid_str, cdata in self.world_data.get("characters", {}).items():
+                    name = cdata.get("name", f"ID {cid_str}")
+                    char_list.append((cid_str, name))
+                char_list.sort(key=lambda x: x[1].lower())
+                option_map.update({"Ny härskare": "NEW", "Ingen karaktär": None})
+                for cid_str, name in char_list:
+                    count = char_usage.get(cid_str, 0)
+                    disp = f"{cid_str}: {name}"
+                    if count:
+                        disp += f" ({count})"
+                    option_map[disp] = cid_str
+                ruler_combo.config(values=list(option_map.keys()))
+                # set selection to new char
+                for disp, cid in option_map.items():
+                    if cid == new_id:
+                        ruler_var.set(disp)
+                        break
+                self.save_current_world()
+                self.refresh_tree_item(node_id)
+            elif sel is None:
+                node_data["ruler_id"] = None
+            else:
+                node_data["ruler_id"] = str(sel)
+            refresh_ruler_style()
+
+        ruler_var.trace_add("write", on_ruler_change)
+
+        # Set initial selection
+        initial_rid = node_data.get("ruler_id")
+        if initial_rid is None:
+            ruler_var.set("Ingen karaktär")
+        else:
+            for disp, cid in option_map.items():
+                if cid is not None and cid != "NEW" and str(cid) == str(initial_rid):
+                    ruler_var.set(disp)
+                    break
+        refresh_ruler_style()
+
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Extra ägarnoder:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        extra_owner_var = tk.StringVar()
+        extra_owner_entry = ttk.Entry(editor_frame, textvariable=extra_owner_var, width=40)
+        extra_owner_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+
+        row_idx += 1
+
         # Number of Subfiefs (Resources under the Jarldom)
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
@@ -1530,6 +1648,44 @@ class FeodalSimulator:
             if old_pop != new_pop:
                 node_data["population"] = new_pop; changes_made = True
                 status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
+
+            # Handle ruler assignment
+            selected_val = option_map.get(ruler_var.get())
+            if selected_val == "NEW":
+                # new ruler already created in callback
+                new_ruler_id = node_data.get("ruler_id")
+            elif selected_val is None:
+                new_ruler_id = None
+            else:
+                new_ruler_id = str(selected_val)
+
+            old_ruler_id = node_data.get("ruler_id")
+            if str(old_ruler_id) != str(new_ruler_id):
+                node_data["ruler_id"] = new_ruler_id
+                changes_made = True
+                status_details.append("Härskare uppdaterad")
+                if old_ruler_id is not None:
+                    old_char = self.world_data.get("characters", {}).get(str(old_ruler_id))
+                    if old_char and old_char.get("ruler_of") == node_id:
+                        old_char["ruler_of"] = None
+                if new_ruler_id is not None:
+                    new_char = self.world_data.get("characters", {}).get(str(new_ruler_id))
+                    if new_char:
+                        new_char["ruler_of"] = node_id
+
+            # Assign additional owner nodes
+            if new_ruler_id is not None:
+                extra_ids = []
+                for part in extra_owner_var.get().split(','):
+                    part = part.strip()
+                    if part.isdigit() and len(part) <= 4:
+                        extra_ids.append(int(part))
+                for eid in extra_ids:
+                    other = self.world_data.get("nodes", {}).get(str(eid))
+                    if other:
+                        if str(other.get("ruler_id")) != new_ruler_id:
+                            other["ruler_id"] = new_ruler_id
+                            self.refresh_tree_item(eid)
 
             node_data["res_type"] = "Resurs" # Ensure internal type
 
