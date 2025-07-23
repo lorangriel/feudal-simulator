@@ -154,3 +154,26 @@ def test_node_vildmark_tunnland_roundtrip():
     back = node.to_dict()
     assert back["tunnland"] == 7
     assert back["population"] == 0
+
+
+def test_node_characters_roundtrip():
+    raw = {
+        "node_id": 50,
+        "parent_id": 1,
+        "characters": [
+            {"type": "Officer"},
+            {"type": "Härskare", "ruler_id": 3},
+        ],
+    }
+
+    node = Node.from_dict(raw)
+    assert node.characters == [
+        {"type": "Officer", "ruler_id": None},
+        {"type": "Härskare", "ruler_id": 3},
+    ]
+
+    back = node.to_dict()
+    assert back["characters"] == [
+        {"type": "Officer", "ruler_id": None},
+        {"type": "Härskare", "ruler_id": 3},
+    ]
