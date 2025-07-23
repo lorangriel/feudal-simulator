@@ -18,6 +18,7 @@ from constants import (
     CRAFTSMAN_TYPES,
     SOLDIER_TYPES,
     ANIMAL_TYPES,
+    CHARACTER_TYPES,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
