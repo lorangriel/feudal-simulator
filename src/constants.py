@@ -94,3 +94,12 @@ LEVNADSKOSTNADER = [
     "Mycket gott leverne",
     "Lyxliv",
 ]
+
+# Work duty levels used for jarldoms
+DAGSVERKEN_LEVELS = [
+    "inga",
+    "få",
+    "normalt",
+    "många",
+    "galet många",
+]

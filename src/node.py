@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR
+from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR, DAGSVERKEN_LEVELS
 
 
 @dataclass
@@ -26,6 +26,7 @@ class Node:
     neighbors: List[Neighbor] = field(default_factory=list)
     res_type: str = "Resurs"
     settlement_type: str = "By"
+    dagsverken: str = "normalt"
     free_peasants: int = 0
     unfree_peasants: int = 0
     thralls: int = 0
@@ -70,6 +71,9 @@ class Node:
                 neighbors.append(Neighbor())
 
         settlement_type = data.get("settlement_type", "By")
+        dagsverken = data.get("dagsverken", "normalt")
+        if dagsverken not in DAGSVERKEN_LEVELS:
+            dagsverken = "normalt"
         free_peasants = int(data.get("free_peasants", 0) or 0)
         unfree_peasants = int(data.get("unfree_peasants", 0) or 0)
         thralls = int(data.get("thralls", 0) or 0)
@@ -143,6 +147,7 @@ class Node:
             neighbors=neighbors,
             res_type=res_type,
             settlement_type=settlement_type,
+            dagsverken=dagsverken,
             free_peasants=free_peasants,
             unfree_peasants=unfree_peasants,
             thralls=thralls,
@@ -171,6 +176,7 @@ class Node:
             ],
             "res_type": self.res_type,
             "settlement_type": self.settlement_type,
+            "dagsverken": self.dagsverken,
             "free_peasants": self.free_peasants,
             "unfree_peasants": self.unfree_peasants,
             "thralls": self.thralls,
