@@ -1642,8 +1642,8 @@ class FeodalSimulator:
         sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        settlement_row = row_idx
         settlement_frame = ttk.Frame(editor_frame)
-        settlement_frame.grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=5)
         row_idx += 1
 
         settlement_type_var = tk.StringVar(value=node_data.get("settlement_type", "By"))
@@ -1990,7 +1990,13 @@ class FeodalSimulator:
 
         def refresh_settlement_visibility(*args):
             if res_var.get() == "Bosättning":
-                settlement_frame.grid()
+                settlement_frame.grid(
+                    row=settlement_row,
+                    column=0,
+                    columnspan=2,
+                    sticky="ew",
+                    pady=5,
+                )
             else:
                 settlement_frame.grid_remove()
 
