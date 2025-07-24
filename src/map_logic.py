@@ -240,9 +240,11 @@ class StaticMapLogic:
         angle = math.degrees(math.atan2(cy1 - cy2, cx2 - cx1))
         return int(round(((90 - angle) % 360) / 60)) + 1
 
-    def border_lines(self) -> List[Tuple[float, float, float, float, str, int]]:
-        """Return list of lines between neighbors."""
-        lines: List[Tuple[float, float, float, float, str, int]] = []
+    def border_lines_with_ids(
+        self,
+    ) -> List[Tuple[float, float, float, float, str, int, int, int]]:
+        """Return line coordinates with colors and the connected node ids."""
+        lines: List[Tuple[float, float, float, float, str, int, int, int]] = []
         drawn_pairs: set[tuple[int, int]] = set()
         nodes_dict = self.world_data.get("nodes", {})
         for r in range(self.rows):
@@ -265,7 +267,6 @@ class StaticMapLogic:
                             continue
                         drawn_pairs.add(pair)
 
-                        # Determine which node should be treated as the start
                         if jid <= nbid:
                             start_r, start_c = r, c
                             start_idx = idx + 1
@@ -293,8 +294,17 @@ class StaticMapLogic:
                             nb.get("border", NEIGHBOR_NONE_STR), "gray"
                         )
                         width = 3 if color in ["black", "brown", "blue"] else 2
-                        lines.append((start_x, start_y, end_x, end_y, color, width))
+                        lines.append(
+                            (start_x, start_y, end_x, end_y, color, width, jid, nbid)
+                        )
         return lines
+
+    def border_lines(self) -> List[Tuple[float, float, float, float, str, int]]:
+        """Return list of lines between neighbors for drawing."""
+        return [
+            (x1, y1, x2, y2, color, width)
+            for x1, y1, x2, y2, color, width, _jid1, _jid2 in self.border_lines_with_ids()
+        ]
 
     def adjacent_hex_pairs(self) -> List[Tuple[int, int, int]]:
         """Return pairs of adjacent nodes on the grid.

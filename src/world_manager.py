@@ -5,7 +5,7 @@ import math
 from typing import Any, Dict, List
 
 from utils import generate_swedish_village_name
-from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR
+from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR, BORDER_TYPES
 from node import Node
 from world_interface import WorldInterface
 
@@ -587,3 +587,27 @@ class WorldManager(WorldInterface):
             other_neighbors[opp_idx]["border"] = border_val
 
         node["neighbors"] = new_neighbors
+
+    def set_border_between(self, node_id1: int, node_id2: int, border_type: str) -> bool:
+        """Set border type for the connection between two nodes."""
+        if border_type not in BORDER_TYPES:
+            border_type = NEIGHBOR_NONE_STR
+        nodes = self.world_data.get("nodes", {})
+        n1 = nodes.get(str(node_id1))
+        n2 = nodes.get(str(node_id2))
+        if not n1 or not n2:
+            return False
+
+        changed = False
+        for nb in n1.get("neighbors", []):
+            if nb.get("id") == node_id2:
+                if nb.get("border") != border_type:
+                    nb["border"] = border_type
+                    changed = True
+        for nb in n2.get("neighbors", []):
+            if nb.get("id") == node_id1:
+                if nb.get("border") != border_type:
+                    nb["border"] = border_type
+                    changed = True
+
+        return changed
