@@ -209,3 +209,29 @@ def test_load_world_uses_saved_positions():
     fs.FeodalSimulator.load_world(sim, "A")
     assert sim.map_static_positions[10] == (2, 3)
     assert sim.map_static_positions[20] == (5, 1)
+
+
+def test_auto_link_adjacent_hexes_adds_neighbors():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "10": {"node_id": 10, "parent_id": 1},
+            "101": {"node_id": 101, "parent_id": 10, "neighbors": []},
+            "102": {"node_id": 102, "parent_id": 10, "neighbors": []},
+        },
+        "characters": {},
+    }
+    sim = make_simulator(world)
+    sim.static_rows = 5
+    sim.static_cols = 5
+    sim.hex_spacing = 15
+    sim.map_logic = fs.StaticMapLogic(world, rows=5, cols=5, hex_size=30, spacing=15)
+    sim.get_depth_of_node = lambda nid: 3 if nid in (101, 102) else 0
+    sim.world_manager.get_depth_of_node = sim.get_depth_of_node
+    fs.FeodalSimulator.place_jarldomes_hierarchy(sim)
+    fs.FeodalSimulator.auto_link_adjacent_hexes(sim)
+
+    n101 = world["nodes"]["101"]["neighbors"][3]
+    n102 = world["nodes"]["102"]["neighbors"][0]
+    assert n101["id"] == 102 and n101["border"] == "liten väg"
+    assert n102["id"] == 101 and n102["border"] == "liten väg"

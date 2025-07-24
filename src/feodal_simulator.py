@@ -2940,9 +2940,29 @@ class FeodalSimulator:
         self.static_rows = self.map_logic.rows
         self.static_cols = self.map_logic.cols
 
+    def auto_link_adjacent_hexes(self):
+        """Create neighbor links for all adjacent hexagons."""
+        if not (self.map_logic and self.world_data):
+            return
+
+        nodes = self.world_data.get("nodes", {})
+        for nid1, nid2, direction in self.map_logic.adjacent_hex_pairs():
+            success, _ = self.world_manager.attempt_link_neighbors(
+                nid1, nid2, slot1=direction
+            )
+            if success:
+                node1 = nodes.get(str(nid1))
+                node2 = nodes.get(str(nid2))
+                if node1 and node2:
+                    node1["neighbors"][direction - 1]["border"] = "liten väg"
+                    opp = ((direction + 2) % MAX_NEIGHBORS) + 1
+                    node2["neighbors"][opp - 1]["border"] = "liten väg"
+        self.save_current_world()
+
     def on_hierarchy_layout(self):
         """Callback for hierarchy grouping button."""
         self.place_jarldomes_hierarchy()
+        self.auto_link_adjacent_hexes()
         self.draw_static_hexgrid()
         self.draw_static_border_lines()
 
