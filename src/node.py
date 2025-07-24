@@ -81,7 +81,8 @@ class Node:
         tunnland = int(data.get("tunnland", 0) or 0)
         base_pop = int(data.get("population", 0) or 0)
         computed_pop = free_peasants + unfree_peasants + thralls + burghers
-        res_type = data.get("res_type", "Resurs")
+        res_type_raw = data.get("res_type", "Resurs")
+        res_type = res_type_raw if isinstance(res_type_raw, str) and res_type_raw else "Resurs"
         if res_type == "Vildmark":
             population = 0
         elif computed_pop:
@@ -174,7 +175,7 @@ class Node:
             "neighbors": [
                 {"id": nb.id, "border": nb.border} for nb in self.neighbors
             ],
-            "res_type": self.res_type,
+            "res_type": str(self.res_type) if self.res_type is not None else "Resurs",
             "settlement_type": self.settlement_type,
             "dagsverken": self.dagsverken,
             "free_peasants": self.free_peasants,

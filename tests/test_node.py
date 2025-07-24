@@ -212,3 +212,14 @@ def test_node_characters_roundtrip():
         {"type": "Officer", "ruler_id": None},
         {"type": "Härskare", "ruler_id": 3},
     ]
+
+
+def test_node_res_type_invalid_defaults_to_resurs():
+    raw = {"node_id": 60, "parent_id": None, "res_type": 123}
+
+    node = Node.from_dict(raw)
+
+    assert node.res_type == "Resurs"
+
+    back = node.to_dict()
+    assert back["res_type"] == "Resurs"
