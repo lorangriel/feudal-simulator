@@ -295,3 +295,34 @@ class StaticMapLogic:
                         width = 3 if color in ["black", "brown", "blue"] else 2
                         lines.append((start_x, start_y, end_x, end_y, color, width))
         return lines
+
+    def adjacent_hex_pairs(self) -> List[Tuple[int, int, int]]:
+        """Return pairs of adjacent nodes on the grid.
+
+        Each tuple contains ``(id1, id2, direction)`` where ``direction`` is the
+        side index from ``id1`` to ``id2`` (1-6). Pairs are returned only once
+        regardless of order.
+        """
+        pairs: List[Tuple[int, int, int]] = []
+        seen: set[tuple[int, int]] = set()
+
+        for r in range(self.rows):
+            for c in range(self.cols):
+                nid = self.static_grid_occupied[r][c]
+                if nid is None:
+                    continue
+                for direction in range(1, MAX_NEIGHBORS + 1):
+                    dr, dc = self.direction_offset(direction, c)
+                    nr, nc = r + dr, c + dc
+                    if nr < 0 or nr >= self.rows or nc < 0 or nc >= self.cols:
+                        continue
+                    other = self.static_grid_occupied[nr][nc]
+                    if other is None:
+                        continue
+                    key = tuple(sorted((nid, other)))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    pairs.append((nid, other, direction))
+
+        return pairs
