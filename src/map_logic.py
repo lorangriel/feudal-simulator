@@ -244,12 +244,12 @@ class StaticMapLogic:
         """
         cx, cy = self.hex_center(r, c)
         angles = {
-            1: (60, 120),
-            2: (0, 60),
-            3: (300, 0),
-            4: (240, 300),
-            5: (180, 240),
-            6: (120, 180),
+            1: (240, 300),  # North (NW -> NE)
+            2: (300, 0),    # North-East (NE -> E)
+            3: (0, 60),     # South-East (E -> SE)
+            4: (60, 120),   # South (SE -> SW)
+            5: (120, 180),  # South-West (SW -> W)
+            6: (180, 240),  # North-West (W -> NW)
         }
         a1, a2 = angles.get(direction, (0, 0))
         x1 = cx + self.hex_size * math.cos(math.radians(a1))
