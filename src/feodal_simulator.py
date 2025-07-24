@@ -2852,6 +2852,7 @@ class FeodalSimulator:
         btn_fr = ttk.Frame(self.right_frame, style="Tool.TFrame")
         btn_fr.pack(fill="x", pady=5)
         ttk.Button(btn_fr, text="< Tillbaka", command=self.show_no_world_view).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_fr, text="Gruppera Hierarki", command=self.on_hierarchy_layout).pack(side=tk.LEFT, padx=5)
 
         self.static_scale = 1.0
         self.static_map_canvas.bind("<MouseWheel>", self.on_static_map_zoom) # Windows/macOS
@@ -2894,6 +2895,28 @@ class FeodalSimulator:
         self.static_grid_occupied = self.map_logic.static_grid_occupied
         self.static_rows = self.map_logic.rows
         self.static_cols = self.map_logic.cols
+
+    def place_jarldomes_hierarchy(self):
+        """Places Jarldoms grouped by hierarchy using :class:`StaticMapLogic`."""
+        if not self.map_logic:
+            self.map_logic = StaticMapLogic(
+                self.world_data,
+                self.static_rows,
+                self.static_cols,
+                hex_size=30,
+                spacing=self.hex_spacing,
+            )
+        self.map_logic.place_jarldomes_hierarchy(self.get_depth_of_node)
+        self.map_static_positions = self.map_logic.map_static_positions
+        self.static_grid_occupied = self.map_logic.static_grid_occupied
+        self.static_rows = self.map_logic.rows
+        self.static_cols = self.map_logic.cols
+
+    def on_hierarchy_layout(self):
+        """Callback for hierarchy grouping button."""
+        self.place_jarldomes_hierarchy()
+        self.draw_static_hexgrid()
+        self.draw_static_border_lines()
 
     def draw_static_hexgrid(self):
         """Draws the hex grid and places Jarldom names."""

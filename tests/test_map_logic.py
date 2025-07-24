@@ -140,3 +140,40 @@ def test_border_lines_unidirectional_neighbor():
     lines = logic.border_lines()
     assert len(lines) == 1
 
+
+def test_hierarchy_layout_simple():
+    nodes = {
+        "1": {"node_id": 1, "parent_id": None},
+        "2": {"node_id": 2, "parent_id": 1},
+        "3": {"node_id": 3, "parent_id": 1},
+        "10": {"node_id": 10, "parent_id": 2},
+        "11": {"node_id": 11, "parent_id": 2},
+        "20": {"node_id": 20, "parent_id": 3},
+        "101": {"node_id": 101, "parent_id": 10, "neighbors": []},
+        "102": {"node_id": 102, "parent_id": 10, "neighbors": []},
+        "111": {"node_id": 111, "parent_id": 11, "neighbors": []},
+        "201": {"node_id": 201, "parent_id": 20, "neighbors": []},
+    }
+    world = {"nodes": nodes, "characters": {}}
+
+    def depth(nid: int) -> int:
+        d = 0
+        while True:
+            node = nodes.get(str(nid))
+            if not node:
+                break
+            pid = node.get("parent_id")
+            if pid is None:
+                break
+            nid = pid
+            d += 1
+        return d
+
+    logic = StaticMapLogic(world, rows=10, cols=10, hex_size=30, spacing=15)
+    logic.place_jarldomes_hierarchy(depth)
+
+    assert logic.map_static_positions[101] == (0, 0)
+    assert logic.map_static_positions[102] == (1, 0)
+    assert logic.map_static_positions[111] == (0, 3)
+    assert logic.map_static_positions[201] == (7, 0)
+

@@ -122,6 +122,51 @@ class StaticMapLogic:
             if jid not in visited:
                 bfs_component(jid)
 
+    def place_jarldomes_hierarchy(self, get_depth_of_node) -> None:
+        """Place Jarldoms grouped by their hierarchy in the world tree."""
+        nodes = self.world_data.get("nodes", {})
+
+        groups: Dict[int | None, Dict[int | None, List[int]]] = {}
+
+        for nid_str, nd in nodes.items():
+            try:
+                nid = int(nid_str)
+            except ValueError:
+                continue
+            if get_depth_of_node(nid) != 3:
+                continue
+            hertig_id = nd.get("parent_id")
+            furste_id = None
+            if hertig_id is not None and str(hertig_id) in nodes:
+                furste_id = nodes[str(hertig_id)].get("parent_id")
+            groups.setdefault(furste_id, {}).setdefault(hertig_id, []).append(nid)
+
+        self.map_static_positions = {}
+        self.static_grid_occupied = [[None] * self.cols for _ in range(self.rows)]
+
+        row = 0
+        FUR_GAP = 5
+        HER_GAP = 2
+        for _fur_id, h_dict in groups.items():
+            col = 0
+            fur_height = 0
+            for _her_id, j_list in h_dict.items():
+                for j_idx, jid in enumerate(sorted(j_list)):
+                    r = row + j_idx
+                    c = col
+                    while r >= self.rows:
+                        self.static_grid_occupied.append([None] * self.cols)
+                        self.rows += 1
+                    while c >= self.cols:
+                        for rr in self.static_grid_occupied:
+                            rr.append(None)
+                        self.cols += 1
+                    self.map_static_positions[jid] = (r, c)
+                    self.static_grid_occupied[r][c] = jid
+                fur_height = max(fur_height, len(j_list))
+                col += 1 + HER_GAP
+            row += fur_height + FUR_GAP
+
     # --------------------------------------------------
     # Helper calculations
     # --------------------------------------------------
