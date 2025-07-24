@@ -191,3 +191,21 @@ def test_save_static_positions_updates_nodes():
     assert world["nodes"]["20"]["hex_row"] == 3
     assert world["nodes"]["20"]["hex_col"] == 4
     assert saved
+
+
+def test_load_world_uses_saved_positions():
+    world = {
+        "nodes": {
+            "10": {"node_id": 10, "hex_row": 2, "hex_col": 3},
+            "20": {"node_id": 20, "hex_row": 5, "hex_col": 1},
+        },
+        "characters": {},
+    }
+    sim = LoadStubSimulator()
+    sim.world_manager = fs.WorldManager({})
+    sim.static_rows = 35
+    sim.static_cols = 35
+    sim.all_worlds = {"A": world}
+    fs.FeodalSimulator.load_world(sim, "A")
+    assert sim.map_static_positions[10] == (2, 3)
+    assert sim.map_static_positions[20] == (5, 1)
