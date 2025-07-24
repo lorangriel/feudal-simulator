@@ -170,3 +170,42 @@ def test_save_current_world_refreshes_dynamic_map(monkeypatch):
     fs.FeodalSimulator.save_current_world(sim)
     assert sim.dynamic_map_view.wd is world
     assert getattr(sim.dynamic_map_view, "redrawn", False)
+
+
+def test_save_static_positions_updates_nodes():
+    world = {
+        "nodes": {
+            "10": {"node_id": 10},
+            "20": {"node_id": 20},
+        },
+        "characters": {},
+        "next_node_id": 21,
+    }
+    sim = make_simulator(world)
+    sim.map_static_positions = {10: (1, 2), 20: (3, 4)}
+    saved = []
+    sim.save_current_world = lambda: saved.append(True)
+    sim.save_static_positions()
+    assert world["nodes"]["10"]["hex_row"] == 1
+    assert world["nodes"]["10"]["hex_col"] == 2
+    assert world["nodes"]["20"]["hex_row"] == 3
+    assert world["nodes"]["20"]["hex_col"] == 4
+    assert saved
+
+
+def test_load_world_uses_saved_positions():
+    world = {
+        "nodes": {
+            "10": {"node_id": 10, "hex_row": 2, "hex_col": 3},
+            "20": {"node_id": 20, "hex_row": 5, "hex_col": 1},
+        },
+        "characters": {},
+    }
+    sim = LoadStubSimulator()
+    sim.world_manager = fs.WorldManager({})
+    sim.static_rows = 35
+    sim.static_cols = 35
+    sim.all_worlds = {"A": world}
+    fs.FeodalSimulator.load_world(sim, "A")
+    assert sim.map_static_positions[10] == (2, 3)
+    assert sim.map_static_positions[20] == (5, 1)

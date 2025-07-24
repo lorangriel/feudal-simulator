@@ -547,6 +547,9 @@ class FeodalSimulator:
             )
             self.save_current_world()
 
+        # Load any saved static map positions
+        self.load_static_positions()
+
 
         self.root.title(f"Förläningssimulator - {wname}")
         self.populate_tree()
@@ -2840,19 +2843,45 @@ class FeodalSimulator:
         self.static_map_canvas.config(xscrollcommand=xsc.set, yscrollcommand=ysc.set)
 
         # Map logic
+        rows = max(self.static_rows, 30)
+        cols = max(self.static_cols, 30)
         self.map_logic = StaticMapLogic(
             self.world_data,
-            30,
-            30,
+            rows,
+            cols,
             hex_size=30,
             spacing=self.hex_spacing,
         )
+
+        if self.map_static_positions:
+            self.map_logic.map_static_positions = {}
+            self.map_logic.static_grid_occupied = [
+                [None] * self.map_logic.cols for _ in range(self.map_logic.rows)
+            ]
+            for nid, (r, c) in self.map_static_positions.items():
+                while r >= self.map_logic.rows:
+                    self.map_logic.static_grid_occupied.append(
+                        [None] * self.map_logic.cols
+                    )
+                    self.map_logic.rows += 1
+                while c >= self.map_logic.cols:
+                    for row in self.map_logic.static_grid_occupied:
+                        row.append(None)
+                    self.map_logic.cols += 1
+                self.map_logic.map_static_positions[nid] = (r, c)
+                self.map_logic.static_grid_occupied[r][c] = nid
+            self.static_rows = self.map_logic.rows
+            self.static_cols = self.map_logic.cols
+            self.static_grid_occupied = self.map_logic.static_grid_occupied
+        else:
+            self.place_jarldomes_bfs()
 
         # Bottom button bar
         btn_fr = ttk.Frame(self.right_frame, style="Tool.TFrame")
         btn_fr.pack(fill="x", pady=5)
         ttk.Button(btn_fr, text="< Tillbaka", command=self.show_no_world_view).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_fr, text="Gruppera Hierarki", command=self.on_hierarchy_layout).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_fr, text="Spara positioner", command=self.save_static_positions).pack(side=tk.LEFT, padx=5)
 
         self.static_scale = 1.0
         self.static_map_canvas.bind("<MouseWheel>", self.on_static_map_zoom) # Windows/macOS
@@ -2864,7 +2893,6 @@ class FeodalSimulator:
         self.static_map_canvas.bind("<B1-Motion>", self.on_static_map_mouse_motion)
         self.static_map_canvas.bind("<ButtonRelease-1>", self.on_static_map_button_release)
 
-        self.place_jarldomes_bfs()
         self.draw_static_hexgrid()
         self.draw_static_border_lines()
 
@@ -3110,6 +3138,51 @@ class FeodalSimulator:
             self.save_current_world()
             self.draw_static_border_lines()
         self.add_status_message(message)
+
+    def save_static_positions(self):
+        """Store current hex positions on each node and save to file."""
+        if not self.world_data:
+            return
+        for nid, (r, c) in self.map_static_positions.items():
+            node = self.world_data.get("nodes", {}).get(str(nid))
+            if node is not None:
+                node["hex_row"] = r
+                node["hex_col"] = c
+        self.save_current_world()
+        self.add_status_message("Positioner sparade")
+
+    def load_static_positions(self):
+        """Load saved hex coordinates from nodes into memory."""
+        self.map_static_positions = {}
+        self.static_grid_occupied = []
+        if not self.world_data:
+            return
+        max_r = max_c = 0
+        for nid_str, node in self.world_data.get("nodes", {}).items():
+            try:
+                nid = int(nid_str)
+            except ValueError:
+                continue
+            r = node.get("hex_row")
+            c = node.get("hex_col")
+            if isinstance(r, int) and isinstance(c, int):
+                self.map_static_positions[nid] = (r, c)
+                max_r = max(max_r, r)
+                max_c = max(max_c, c)
+        self.static_rows = max(self.static_rows, max_r + 1)
+        self.static_cols = max(self.static_cols, max_c + 1)
+        self.static_grid_occupied = [
+            [None] * self.static_cols for _ in range(self.static_rows)
+        ]
+        for nid, (r, c) in self.map_static_positions.items():
+            while r >= self.static_rows:
+                self.static_grid_occupied.append([None] * self.static_cols)
+                self.static_rows += 1
+            while c >= self.static_cols:
+                for row in self.static_grid_occupied:
+                    row.append(None)
+                self.static_cols += 1
+            self.static_grid_occupied[r][c] = nid
 
     def open_dynamic_map_view(self):
         """Opens the dynamic map view."""
