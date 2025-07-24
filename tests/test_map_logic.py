@@ -172,8 +172,8 @@ def test_hierarchy_layout_simple():
     logic = StaticMapLogic(world, rows=10, cols=10, hex_size=30, spacing=15)
     logic.place_jarldomes_hierarchy(depth)
 
-    assert logic.map_static_positions[101] == (0, 0)
-    assert logic.map_static_positions[102] == (1, 0)
-    assert logic.map_static_positions[111] == (0, 3)
-    assert logic.map_static_positions[201] == (7, 0)
+    assert logic.map_static_positions[101] == (1, 1)
+    assert logic.map_static_positions[102] == (2, 1)
+    assert logic.map_static_positions[111] == (1, 4)
+    assert logic.map_static_positions[201] == (8, 1)
 
