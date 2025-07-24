@@ -49,6 +49,28 @@ def test_aggregate_resources_simple():
     assert totals["animals"]["Oxe"] == 1
 
 
+def test_aggregate_resources_buildings():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "buildings": [
+                    {"type": "Smedja", "count": 1},
+                    {"type": "Bageri", "count": 2},
+                ],
+            },
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    totals = manager.aggregate_resources(1)
+    assert totals["buildings"]["Smedja"] == 1
+    assert totals["buildings"]["Bageri"] == 2
+
+
 def test_calculate_total_resources_recursive():
     world = {
         "nodes": {

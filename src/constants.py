@@ -36,6 +36,7 @@ JARLDOM_RESOURCE_TYPES = [
     "Soldater",
     "Djur",
     "Karaktärer",
+    "Byggnader",
 ]
 
 # Categorized for easier handling in UI

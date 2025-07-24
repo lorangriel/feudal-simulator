@@ -2038,6 +2038,13 @@ class FeodalSimulator:
 
         character_rows: list[dict] = []
 
+        ttk.Label(editor_frame, text="Byggnader:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
+        building_frame = ttk.Frame(editor_frame)
+        building_frame.grid(row=row_idx, column=1, sticky="w", pady=(10, 3))
+        row_idx += 1
+
+        building_rows: list[dict] = []
+
         jarldom_options: list[str] = []
         if self.world_data and "nodes" in self.world_data:
             jarldoms = []
@@ -2224,6 +2231,58 @@ class FeodalSimulator:
                 create_character_row(blank=True)
             update_character_options()
 
+        def update_building_options() -> None:
+            selected = {r["type_var"].get() for r in building_rows if r["type_var"].get()}
+            for r in building_rows:
+                combo = r.get("type_combo")
+                if not combo:
+                    continue
+                current = r["type_var"].get()
+                choices = [t for t in BUILDING_TYPES if t not in selected or t == current]
+                combo.config(values=choices)
+
+        def create_building_row(b_type: str = "", b_count: int = 0, blank: bool = False):
+            row = {}
+            frame = ttk.Frame(building_frame)
+            type_var = tk.StringVar(value=b_type)
+            count_var = tk.StringVar(value=str(b_count))
+            type_combo = ttk.Combobox(frame, textvariable=type_var, state="readonly", width=20)
+            count_entry = ttk.Entry(frame, textvariable=count_var, width=6)
+            del_btn = ttk.Button(frame, text="Radera", command=lambda r=row: remove_building_row(r))
+            type_combo.pack(side=tk.LEFT, padx=5)
+            count_entry.pack(side=tk.LEFT, padx=5)
+            del_btn.pack(side=tk.LEFT, padx=5)
+            frame.pack(fill="x", pady=2)
+            row.update({"frame": frame, "type_var": type_var, "count_var": count_var, "type_combo": type_combo, "blank": blank})
+            building_rows.append(row)
+
+            def on_type_change(*_args, r=row):
+                selected = r["type_var"].get()
+                if selected:
+                    for other in building_rows:
+                        if other is not r and other["type_var"].get() == selected:
+                            r["type_var"].set("")
+                            return
+                if r.get("blank") and r["type_var"].get():
+                    r["blank"] = False
+                    add_blank_building_row_if_needed()
+                update_building_options()
+
+            type_var.trace_add("write", on_type_change)
+            update_building_options()
+
+        def remove_building_row(row):
+            if row in building_rows:
+                row["frame"].destroy()
+                building_rows.remove(row)
+                add_blank_building_row_if_needed()
+                update_building_options()
+
+        def add_blank_building_row_if_needed():
+            if not any(r.get("blank") for r in building_rows):
+                create_building_row(blank=True)
+            update_building_options()
+
         for c in node_data.get("craftsmen", []):
             ctype = c.get("type", "")
             count = c.get("count", 1)
@@ -2248,6 +2307,11 @@ class FeodalSimulator:
             acount = a.get("count", 0)
             create_animal_row(atype, acount)
 
+        for b in node_data.get("buildings", []):
+            btype = b.get("type", "")
+            bcount = b.get("count", 0)
+            create_building_row(btype, bcount)
+
         add_blank_row_if_needed()
         update_craftsman_options()
         add_blank_soldier_row_if_needed()
@@ -2256,6 +2320,8 @@ class FeodalSimulator:
         update_character_options()
         add_blank_animal_row_if_needed()
         update_animal_options()
+        add_blank_building_row_if_needed()
+        update_building_options()
 
         def refresh_settlement_visibility(*args):
             if res_var.get() == "Bosättning":
@@ -2283,6 +2349,11 @@ class FeodalSimulator:
                 character_frame.grid()
             else:
                 character_frame.grid_remove()
+
+            if res_var.get() == "Byggnader":
+                building_frame.grid()
+            else:
+                building_frame.grid_remove()
 
         res_var.trace_add("write", refresh_settlement_visibility)
         refresh_settlement_visibility()
@@ -2340,6 +2411,11 @@ class FeodalSimulator:
                 for r in animal_rows
                 if r["type_var"].get()
             ]
+            node_data["buildings"] = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in building_rows
+                if r["type_var"].get()
+            ]
             temp_data = dict(node_data)
             if res_var.get() == "Vildmark":
                 try:
@@ -2378,6 +2454,7 @@ class FeodalSimulator:
             old_soldiers = node_data.get("soldiers", [])
             old_characters = node_data.get("characters", [])
             old_animals = node_data.get("animals", [])
+            old_buildings = node_data.get("buildings", [])
             old_area = node_data.get("tunnland", 0)
 
             new_custom = custom_var.get().strip()
@@ -2432,6 +2509,11 @@ class FeodalSimulator:
             new_animals = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
                 for r in animal_rows
+                if r["type_var"].get()
+            ]
+            new_buildings = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in building_rows
                 if r["type_var"].get()
             ]
             new_soldiers = [
@@ -2515,6 +2597,9 @@ class FeodalSimulator:
             if old_animals != new_animals:
                 node_data["animals"] = new_animals
                 changes = True
+            if old_buildings != new_buildings:
+                node_data["buildings"] = new_buildings
+                changes = True
 
             if changes:
                 self.world_manager.update_population_totals()
@@ -2566,7 +2651,33 @@ class FeodalSimulator:
                 for r in craftsman_rows
                 if r["type_var"].get()
             ]
-
+            new_soldiers = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in soldier_rows
+                if r["type_var"].get()
+            ]
+            new_characters = [
+                {
+                    "type": r["type_var"].get(),
+                    "ruler_id": (
+                        int(r["ruler_var"].get().split(":")[0])
+                        if r["type_var"].get() == "Härskare" and r["ruler_var"].get()
+                        else None
+                    ),
+                }
+                for r in character_rows
+                if r["type_var"].get()
+            ]
+            new_animals = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in animal_rows
+                if r["type_var"].get()
+            ]
+            new_buildings = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in building_rows
+                if r["type_var"].get()
+            ]
             if res_var.get() == "Vildmark":
                 new_pop = 0
             else:
@@ -2592,6 +2703,7 @@ class FeodalSimulator:
                 or new_soldiers != node_data.get("soldiers", [])
                 or new_characters != node_data.get("characters", [])
                 or new_animals != node_data.get("animals", [])
+                or new_buildings != node_data.get("buildings", [])
                 or current_sub != node_data.get("num_subfiefs", 0)
             )
 
