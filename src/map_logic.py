@@ -144,16 +144,19 @@ class StaticMapLogic:
         self.map_static_positions = {}
         self.static_grid_occupied = [[None] * self.cols for _ in range(self.rows)]
 
-        row = 0
+        border_pad = 1  # keep groups away from the map edges
+        row = border_pad
         FUR_GAP = 5
         HER_GAP = 2
         for _fur_id, h_dict in groups.items():
-            col = 0
+            col = border_pad
             fur_height = 0
             for _her_id, j_list in h_dict.items():
+                cluster_rows = int(math.ceil(math.sqrt(len(j_list)))) or 1
+                cluster_cols = int(math.ceil(len(j_list) / cluster_rows)) or 1
                 for j_idx, jid in enumerate(sorted(j_list)):
-                    r = row + j_idx
-                    c = col
+                    r = row + (j_idx // cluster_cols)
+                    c = col + (j_idx % cluster_cols)
                     while r >= self.rows:
                         self.static_grid_occupied.append([None] * self.cols)
                         self.rows += 1
@@ -163,8 +166,8 @@ class StaticMapLogic:
                         self.cols += 1
                     self.map_static_positions[jid] = (r, c)
                     self.static_grid_occupied[r][c] = jid
-                fur_height = max(fur_height, len(j_list))
-                col += 1 + HER_GAP
+                fur_height = max(fur_height, cluster_rows)
+                col += cluster_cols + HER_GAP
             row += fur_height + FUR_GAP
 
     # --------------------------------------------------
