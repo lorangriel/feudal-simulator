@@ -233,6 +233,31 @@ class StaticMapLogic:
         y = cy + self.hex_size * math.sin(angle_rad)
         return x, y
 
+    def hex_side_points(
+        self, r: int, c: int, direction: int
+    ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        """Return the endpoint coordinates for a hexagon side.
+
+        ``direction`` should be ``1-6`` with ``1`` at the north side and
+        increasing clockwise. The points are ordered counter-clockwise around the
+        hexagon.
+        """
+        cx, cy = self.hex_center(r, c)
+        angles = {
+            1: (60, 120),
+            2: (0, 60),
+            3: (300, 0),
+            4: (240, 300),
+            5: (180, 240),
+            6: (120, 180),
+        }
+        a1, a2 = angles.get(direction, (0, 0))
+        x1 = cx + self.hex_size * math.cos(math.radians(a1))
+        y1 = cy + self.hex_size * math.sin(math.radians(a1))
+        x2 = cx + self.hex_size * math.cos(math.radians(a2))
+        y2 = cy + self.hex_size * math.sin(math.radians(a2))
+        return (x1, y1), (x2, y2)
+
     def direction_index(self, r1: int, c1: int, r2: int, c2: int) -> int:
         """Return direction index (1-6) from (r1, c1) to (r2, c2)."""
         cx1, cy1 = self.hex_center(r1, c1)

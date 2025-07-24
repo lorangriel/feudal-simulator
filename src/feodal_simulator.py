@@ -3030,6 +3030,24 @@ class FeodalSimulator:
                 width=width,
                 tags=("border_line", tag),
             )
+
+            # Add an invisible polygon covering the gap so right-clicking is easier
+            pos1 = self.map_static_positions.get(id1)
+            pos2 = self.map_static_positions.get(id2)
+            if pos1 and pos2:
+                r1, c1 = pos1
+                r2, c2 = pos2
+                direction = self.map_logic.direction_index(r1, c1, r2, c2)
+                p1, p2 = self.map_logic.hex_side_points(r1, c1, direction)
+                opp = ((direction + 2) % MAX_NEIGHBORS) + 1
+                p3, p4 = self.map_logic.hex_side_points(r2, c2, opp)
+                self.static_map_canvas.create_polygon(
+                    *p1, *p2, *p3, *p4,
+                    fill="",
+                    outline="",
+                    tags=("border_line", tag),
+                )
+
             self.static_map_canvas.tag_bind(tag, "<ButtonPress-3>", self.on_border_right_click)
 
     def on_border_right_click(self, event):
