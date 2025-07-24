@@ -2853,6 +2853,7 @@ class FeodalSimulator:
         btn_fr.pack(fill="x", pady=5)
         ttk.Button(btn_fr, text="< Tillbaka", command=self.show_no_world_view).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_fr, text="Gruppera Hierarki", command=self.on_hierarchy_layout).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_fr, text="Spara positioner", command=self.save_static_positions).pack(side=tk.LEFT, padx=5)
 
         self.static_scale = 1.0
         self.static_map_canvas.bind("<MouseWheel>", self.on_static_map_zoom) # Windows/macOS
@@ -3110,6 +3111,18 @@ class FeodalSimulator:
             self.save_current_world()
             self.draw_static_border_lines()
         self.add_status_message(message)
+
+    def save_static_positions(self):
+        """Store current hex positions on each node and save to file."""
+        if not self.world_data:
+            return
+        for nid, (r, c) in self.map_static_positions.items():
+            node = self.world_data.get("nodes", {}).get(str(nid))
+            if node is not None:
+                node["hex_row"] = r
+                node["hex_col"] = c
+        self.save_current_world()
+        self.add_status_message("Positioner sparade")
 
     def open_dynamic_map_view(self):
         """Opens the dynamic map view."""
