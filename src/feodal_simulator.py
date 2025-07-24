@@ -3021,17 +3021,8 @@ class FeodalSimulator:
         self.static_map_canvas.delete("border_line")
         for x1, y1, x2, y2, color, width, id1, id2 in self.map_logic.border_lines_with_ids():
             tag = f"border_{min(id1, id2)}_{max(id1, id2)}"
-            self.static_map_canvas.create_line(
-                x1,
-                y1,
-                x2,
-                y2,
-                fill=color,
-                width=width,
-                tags=("border_line", tag),
-            )
 
-            # Add an invisible polygon covering the gap so right-clicking is easier
+            # Fill the border area polygon first so the line appears on top
             pos1 = self.map_static_positions.get(id1)
             pos2 = self.map_static_positions.get(id2)
             if pos1 and pos2:
@@ -3042,12 +3033,26 @@ class FeodalSimulator:
                 opp = ((direction + 2) % MAX_NEIGHBORS) + 1
                 p3, p4 = self.map_logic.hex_side_points(r2, c2, opp)
                 self.static_map_canvas.create_polygon(
-                    *p1, *p2, *p3, *p4,
-                    fill="",
+                    *p1,
+                    *p2,
+                    *p3,
+                    *p4,
+                    fill=color,
                     outline="",
                     tags=("border_line", tag),
                 )
 
+            self.static_map_canvas.create_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                fill=color,
+                width=width,
+                tags=("border_line", tag),
+            )
+
+            # Bind right-click to open border menu when clicking inside polygon
             self.static_map_canvas.tag_bind(tag, "<ButtonPress-3>", self.on_border_right_click)
 
     def on_border_right_click(self, event):
