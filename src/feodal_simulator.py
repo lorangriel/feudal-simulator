@@ -3018,8 +3018,9 @@ class FeodalSimulator:
         """Draws border lines between neighboring Jarldoms on the static map."""
         if not self.static_map_canvas:
             return
-
-        for x1, y1, x2, y2, color, width in self.map_logic.border_lines():
+        self.static_map_canvas.delete("border_line")
+        for x1, y1, x2, y2, color, width, id1, id2 in self.map_logic.border_lines_with_ids():
+            tag = f"border_{min(id1, id2)}_{max(id1, id2)}"
             self.static_map_canvas.create_line(
                 x1,
                 y1,
@@ -3027,8 +3028,38 @@ class FeodalSimulator:
                 y2,
                 fill=color,
                 width=width,
-                tags="border_line",
+                tags=("border_line", tag),
             )
+            self.static_map_canvas.tag_bind(tag, "<ButtonPress-3>", self.on_border_right_click)
+
+    def on_border_right_click(self, event):
+        item = self.static_map_canvas.find_withtag("current")
+        if not item:
+            return
+        tags = self.static_map_canvas.gettags(item)
+        pair_tag = next((t for t in tags if t.startswith("border_")), None)
+        if not pair_tag:
+            return
+        try:
+            _prefix, id1_str, id2_str = pair_tag.split("_")
+            id1 = int(id1_str)
+            id2 = int(id2_str)
+        except ValueError:
+            return
+
+        menu = tk.Menu(self.static_map_canvas, tearoff=0)
+        for bt in BORDER_TYPES:
+            menu.add_command(
+                label=bt,
+                command=lambda bt_val=bt, n1=id1, n2=id2: self.set_border_type(n1, n2, bt_val)
+            )
+        menu.post(event.x_root, event.y_root)
+
+    def set_border_type(self, id1: int, id2: int, border_type: str) -> None:
+        changed = self.world_manager.set_border_between(id1, id2, border_type)
+        if changed:
+            self.save_current_world()
+            self.draw_static_border_lines()
 
     def reset_hex_highlights(self):
         """Resets hex colors on the static map to their default values."""
