@@ -131,7 +131,7 @@ class Node:
         animals: List[dict] = []
         if data.get("res_type") == "Soldater" or "soldiers" in data:
             soldiers = parse_list_of_dict("soldiers", count_field=True)
-        if data.get("res_type") == "Djur" or "animals" in data:
+        if data.get("res_type") == "Djur":
             animals = parse_list_of_dict("animals", count_field=True)
         characters = parse_list_of_dict("characters", count_field=False)
         buildings = parse_list_of_dict("buildings", count_field=True)

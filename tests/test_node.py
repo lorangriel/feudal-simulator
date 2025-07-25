@@ -174,6 +174,21 @@ def test_node_animal_large_count():
     assert back["animals"] == [{"type": "Oxe", "count": 654321}]
 
 
+def test_node_ignores_animals_for_non_djur():
+    raw = {
+        "node_id": 32,
+        "parent_id": 1,
+        "res_type": "Resurs",
+        "animals": [{"type": "Oxe", "count": 2}],
+    }
+
+    node = Node.from_dict(raw)
+    assert node.animals == []
+
+    back = node.to_dict()
+    assert "animals" not in back
+
+
 def test_node_vildmark_tunnland_roundtrip():
     raw = {
         "node_id": 40,
