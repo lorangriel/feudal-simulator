@@ -206,6 +206,28 @@ def test_node_vildmark_tunnland_roundtrip():
     assert back["population"] == 0
 
 
+def test_node_mark_land_roundtrip():
+    raw = {
+        "node_id": 41,
+        "parent_id": 1,
+        "res_type": "Mark",
+        "total_land": 20,
+        "forest_land": 15,
+        "cleared_land": 5,
+    }
+
+    node = Node.from_dict(raw)
+
+    assert node.total_land == 20
+    assert node.forest_land == 15
+    assert node.cleared_land == 5
+
+    back = node.to_dict()
+    assert back["total_land"] == 20
+    assert back["forest_land"] == 15
+    assert back["cleared_land"] == 5
+
+
 def test_node_water_fields_roundtrip():
     raw = {
         "node_id": 70,
