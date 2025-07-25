@@ -1942,6 +1942,16 @@ class FeodalSimulator:
         gamekeeper_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        parent_forest = 0
+        parent_id = node_data.get("parent_id")
+        if parent_id and self.world_data:
+            parent = self.world_data.get("nodes", {}).get(str(parent_id))
+            if parent:
+                try:
+                    parent_forest = int(parent.get("forest_land", 0) or 0)
+                except (ValueError, TypeError):
+                    parent_forest = 0
+
         max_hunters = max(0, parent_forest // 10)
         hunter_label = ttk.Label(editor_frame, text="Jägare:")
         hunter_var = tk.StringVar(value=str(node_data.get("hunters", 0)))
