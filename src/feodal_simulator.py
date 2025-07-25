@@ -21,6 +21,8 @@ from constants import (
     ANIMAL_TYPES,
     CHARACTER_TYPES,
     DAGSVERKEN_LEVELS,
+    WATER_QUALITY_LEVELS,
+    MAX_FISHING_BOATS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -1891,6 +1893,28 @@ class FeodalSimulator:
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        water_label = ttk.Label(editor_frame, text="Vattenkvalitet:")
+        water_var = tk.StringVar(value=node_data.get("water_quality", "Normalt"))
+        water_combo = ttk.Combobox(
+            editor_frame, textvariable=water_var, values=WATER_QUALITY_LEVELS, state="readonly"
+        )
+        water_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        water_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        boats_label = ttk.Label(editor_frame, text="Fiskebåtar:")
+        boats_var = tk.StringVar(value=str(node_data.get("fishing_boats", 0)))
+        boats_combo = ttk.Combobox(
+            editor_frame,
+            textvariable=boats_var,
+            values=[str(i) for i in range(MAX_FISHING_BOATS + 1)],
+            state="readonly",
+            width=5,
+        )
+        boats_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        boats_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
         def refresh_area_visibility(*args):
             if res_var.get() == "Vildmark":
                 area_label.grid()
@@ -1903,8 +1927,22 @@ class FeodalSimulator:
                 pop_label.grid()
                 pop_entry.grid()
 
+        def refresh_water_visibility(*_):
+            if res_var.get() in {"Hav", "Flod"}:
+                water_label.grid()
+                water_combo.grid()
+                boats_label.grid()
+                boats_combo.grid()
+            else:
+                water_label.grid_remove()
+                water_combo.grid_remove()
+                boats_label.grid_remove()
+                boats_combo.grid_remove()
+
         res_var.trace_add("write", refresh_area_visibility)
         refresh_area_visibility()
+        res_var.trace_add("write", refresh_water_visibility)
+        refresh_water_visibility()
 
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
@@ -2432,6 +2470,15 @@ class FeodalSimulator:
                 for r in building_rows
                 if r["type_var"].get()
             ]
+            if res_var.get() in {"Hav", "Flod"}:
+                node_data["water_quality"] = water_var.get()
+                try:
+                    node_data["fishing_boats"] = int(boats_var.get() or "0", 10)
+                except (tk.TclError, ValueError):
+                    node_data["fishing_boats"] = 0
+            else:
+                node_data.pop("water_quality", None)
+                node_data.pop("fishing_boats", None)
             temp_data = dict(node_data)
             if res_var.get() == "Vildmark":
                 try:
@@ -2472,6 +2519,8 @@ class FeodalSimulator:
             old_animals = node_data.get("animals", [])
             old_buildings = node_data.get("buildings", [])
             old_area = node_data.get("tunnland", 0)
+            old_quality = node_data.get("water_quality", "Normalt")
+            old_boats = int(node_data.get("fishing_boats", 0))
 
             new_custom = custom_var.get().strip()
             try:
@@ -2500,6 +2549,11 @@ class FeodalSimulator:
                 new_burghers = int(burgher_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_burghers = 0
+            new_quality = water_var.get()
+            try:
+                new_boats = int(boats_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_boats = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
@@ -2619,6 +2673,20 @@ class FeodalSimulator:
             if old_buildings != new_buildings:
                 node_data["buildings"] = new_buildings
                 changes = True
+            if new_type in {"Hav", "Flod"}:
+                if old_quality != new_quality:
+                    node_data["water_quality"] = new_quality
+                    changes = True
+                if old_boats != new_boats:
+                    node_data["fishing_boats"] = new_boats
+                    changes = True
+            else:
+                if "water_quality" in node_data:
+                    del node_data["water_quality"]
+                    changes = True
+                if "fishing_boats" in node_data:
+                    del node_data["fishing_boats"]
+                    changes = True
 
             if changes:
                 self.world_manager.update_population_totals()
@@ -2665,6 +2733,11 @@ class FeodalSimulator:
                 new_burghers = int(burgher_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_burghers = 0
+            new_quality = water_var.get()
+            try:
+                new_boats = int(boats_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_boats = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
@@ -2727,6 +2800,8 @@ class FeodalSimulator:
                 or new_animals != node_data.get("animals", [])
                 or new_buildings != node_data.get("buildings", [])
                 or current_sub != node_data.get("num_subfiefs", 0)
+                or new_quality != node_data.get("water_quality", "Normalt")
+                or new_boats != int(node_data.get("fishing_boats", 0))
             )
 
         del_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
