@@ -2407,11 +2407,14 @@ class FeodalSimulator:
                 for r in character_rows
                 if r["type_var"].get()
             ]
-            node_data["animals"] = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in animal_rows
-                if r["type_var"].get()
-            ]
+            if res_var.get() == "Djur":
+                node_data["animals"] = [
+                    {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                    for r in animal_rows
+                    if r["type_var"].get()
+                ]
+            else:
+                node_data.pop("animals", None)
             node_data["buildings"] = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
                 for r in building_rows
@@ -2507,11 +2510,14 @@ class FeodalSimulator:
                 for r in character_rows
                 if r["type_var"].get()
             ]
-            new_animals = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in animal_rows
-                if r["type_var"].get()
-            ]
+            if new_type == "Djur":
+                new_animals = [
+                    {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                    for r in animal_rows
+                    if r["type_var"].get()
+                ]
+            else:
+                new_animals = []
             new_buildings = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
                 for r in building_rows
@@ -2532,11 +2538,6 @@ class FeodalSimulator:
                     ),
                 }
                 for r in character_rows
-                if r["type_var"].get()
-            ]
-            new_animals = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in animal_rows
                 if r["type_var"].get()
             ]
 
@@ -2595,9 +2596,14 @@ class FeodalSimulator:
             if old_soldiers != new_soldiers:
                 node_data["soldiers"] = new_soldiers
                 changes = True
-            if old_animals != new_animals:
-                node_data["animals"] = new_animals
-                changes = True
+            if new_type == "Djur":
+                if old_animals != new_animals:
+                    node_data["animals"] = new_animals
+                    changes = True
+            else:
+                if "animals" in node_data:
+                    del node_data["animals"]
+                    changes = True
             if old_buildings != new_buildings:
                 node_data["buildings"] = new_buildings
                 changes = True
@@ -2669,11 +2675,14 @@ class FeodalSimulator:
                 for r in character_rows
                 if r["type_var"].get()
             ]
-            new_animals = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in animal_rows
-                if r["type_var"].get()
-            ]
+            if res_var.get() == "Djur":
+                new_animals = [
+                    {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                    for r in animal_rows
+                    if r["type_var"].get()
+                ]
+            else:
+                new_animals = []
             new_buildings = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
                 for r in building_rows
