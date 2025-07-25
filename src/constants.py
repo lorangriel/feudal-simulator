@@ -104,3 +104,15 @@ DAGSVERKEN_LEVELS = [
     "många",
     "galet många",
 ]
+
+# Water quality levels for sea and river resources
+WATER_QUALITY_LEVELS = [
+    "Kassat",
+    "mindre bra",
+    "Normalt",
+    "ganska bra",
+    "bäst",
+]
+
+# Maximum number of fishing boats allowed
+MAX_FISHING_BOATS = 20

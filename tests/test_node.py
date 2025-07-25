@@ -206,6 +206,42 @@ def test_node_vildmark_tunnland_roundtrip():
     assert back["population"] == 0
 
 
+def test_node_water_fields_roundtrip():
+    raw = {
+        "node_id": 70,
+        "parent_id": 1,
+        "res_type": "Hav",
+        "water_quality": "ganska bra",
+        "fishing_boats": 5,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.water_quality == "ganska bra"
+    assert node.fishing_boats == 5
+
+    back = node.to_dict()
+    assert back["water_quality"] == "ganska bra"
+    assert back["fishing_boats"] == 5
+
+
+def test_node_water_fields_ignored_for_other_types():
+    raw = {
+        "node_id": 71,
+        "parent_id": 1,
+        "res_type": "Vildmark",
+        "water_quality": "bäst",
+        "fishing_boats": 10,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.water_quality == "Normalt"
+    assert node.fishing_boats == 0
+
+    back = node.to_dict()
+    assert "water_quality" not in back
+    assert "fishing_boats" not in back
+
+
 def test_node_characters_roundtrip():
     raw = {
         "node_id": 50,

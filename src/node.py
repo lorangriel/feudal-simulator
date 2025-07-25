@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR, DAGSVERKEN_LEVELS
+from constants import (
+    MAX_NEIGHBORS,
+    NEIGHBOR_NONE_STR,
+    DAGSVERKEN_LEVELS,
+    WATER_QUALITY_LEVELS,
+    MAX_FISHING_BOATS,
+)
 
 
 @dataclass
@@ -37,6 +43,8 @@ class Node:
     characters: List[dict] = field(default_factory=list)
     animals: List[dict] = field(default_factory=list)
     buildings: List[dict] = field(default_factory=list)
+    water_quality: str = "Normalt"
+    fishing_boats: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> "Node":
@@ -136,6 +144,19 @@ class Node:
         characters = parse_list_of_dict("characters", count_field=False)
         buildings = parse_list_of_dict("buildings", count_field=True)
 
+        water_quality = "Normalt"
+        fishing_boats = 0
+        if res_type in {"Hav", "Flod"}:
+            wq_raw = data.get("water_quality", "Normalt")
+            water_quality = (
+                wq_raw if isinstance(wq_raw, str) and wq_raw in WATER_QUALITY_LEVELS else "Normalt"
+            )
+            try:
+                fishing_boats = int(data.get("fishing_boats", 0) or 0)
+            except (ValueError, TypeError):
+                fishing_boats = 0
+            fishing_boats = max(0, min(fishing_boats, MAX_FISHING_BOATS))
+
         return cls(
             node_id=node_id,
             parent_id=parent_id,
@@ -159,6 +180,8 @@ class Node:
             characters=characters,
             animals=animals,
             buildings=buildings,
+            water_quality=water_quality,
+            fishing_boats=fishing_boats,
         )
 
     def to_dict(self) -> dict:
@@ -208,6 +231,10 @@ class Node:
                 {"type": a.get("type", ""), "count": a.get("count", 1)}
                 for a in self.animals
             ]
+
+        if self.res_type in {"Hav", "Flod"}:
+            data["water_quality"] = self.water_quality
+            data["fishing_boats"] = self.fishing_boats
 
         return data
 
