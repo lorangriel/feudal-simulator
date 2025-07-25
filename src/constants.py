@@ -105,8 +105,8 @@ DAGSVERKEN_LEVELS = [
     "galet många",
 ]
 
-# Water quality levels for sea and river resources
-WATER_QUALITY_LEVELS = [
+# Fish quality levels for sea and river resources
+FISH_QUALITY_LEVELS = [
     "Kassat",
     "mindre bra",
     "Normalt",

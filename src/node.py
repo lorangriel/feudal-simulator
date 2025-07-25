@@ -5,7 +5,7 @@ from constants import (
     MAX_NEIGHBORS,
     NEIGHBOR_NONE_STR,
     DAGSVERKEN_LEVELS,
-    WATER_QUALITY_LEVELS,
+    FISH_QUALITY_LEVELS,
     MAX_FISHING_BOATS,
 )
 
@@ -43,7 +43,7 @@ class Node:
     characters: List[dict] = field(default_factory=list)
     animals: List[dict] = field(default_factory=list)
     buildings: List[dict] = field(default_factory=list)
-    water_quality: str = "Normalt"
+    fish_quality: str = "Normalt"
     fishing_boats: int = 0
 
     @classmethod
@@ -144,12 +144,12 @@ class Node:
         characters = parse_list_of_dict("characters", count_field=False)
         buildings = parse_list_of_dict("buildings", count_field=True)
 
-        water_quality = "Normalt"
+        fish_quality = "Normalt"
         fishing_boats = 0
         if res_type in {"Hav", "Flod"}:
-            wq_raw = data.get("water_quality", "Normalt")
-            water_quality = (
-                wq_raw if isinstance(wq_raw, str) and wq_raw in WATER_QUALITY_LEVELS else "Normalt"
+            wq_raw = data.get("fish_quality", data.get("water_quality", "Normalt"))
+            fish_quality = (
+                wq_raw if isinstance(wq_raw, str) and wq_raw in FISH_QUALITY_LEVELS else "Normalt"
             )
             try:
                 fishing_boats = int(data.get("fishing_boats", 0) or 0)
@@ -180,7 +180,7 @@ class Node:
             characters=characters,
             animals=animals,
             buildings=buildings,
-            water_quality=water_quality,
+            fish_quality=fish_quality,
             fishing_boats=fishing_boats,
         )
 
@@ -233,7 +233,7 @@ class Node:
             ]
 
         if self.res_type in {"Hav", "Flod"}:
-            data["water_quality"] = self.water_quality
+            data["fish_quality"] = self.fish_quality
             data["fishing_boats"] = self.fishing_boats
 
         return data
