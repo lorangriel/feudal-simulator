@@ -2034,7 +2034,8 @@ class FeodalSimulator:
 
         animal_rows: list[dict] = []
 
-        ttk.Label(editor_frame, text="Karaktärer:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
+        character_label = ttk.Label(editor_frame, text="Karaktärer:")
+        character_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
         character_frame = ttk.Frame(editor_frame)
         character_frame.grid(row=row_idx, column=1, sticky="w", pady=(10, 3))
         row_idx += 1
@@ -2354,8 +2355,10 @@ class FeodalSimulator:
                 animal_frame.grid_remove()
 
             if res_var.get() == "Karaktärer":
+                character_label.grid()
                 character_frame.grid()
             else:
+                character_label.grid_remove()
                 character_frame.grid_remove()
 
             if res_var.get() == "Byggnader":
