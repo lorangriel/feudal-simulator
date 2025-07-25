@@ -48,6 +48,8 @@ class Node:
     buildings: List[dict] = field(default_factory=list)
     fish_quality: str = "Normalt"
     fishing_boats: int = 0
+    hunters: int = 0
+    gamekeeper_id: Optional[int] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Node":
@@ -97,7 +99,7 @@ class Node:
         computed_pop = free_peasants + unfree_peasants + thralls + burghers
         res_type_raw = data.get("res_type", "Resurs")
         res_type = res_type_raw if isinstance(res_type_raw, str) and res_type_raw else "Resurs"
-        if res_type == "Vildmark":
+        if res_type in {"Vildmark", "Jaktmark"}:
             population = 0
         elif computed_pop:
             population = computed_pop
@@ -152,6 +154,12 @@ class Node:
 
         fish_quality = "Normalt"
         fishing_boats = 0
+        hunters = 0
+        gamekeeper_id = data.get("gamekeeper_id")
+        if isinstance(gamekeeper_id, str) and gamekeeper_id.isdigit():
+            gamekeeper_id = int(gamekeeper_id)
+        elif gamekeeper_id is not None and not isinstance(gamekeeper_id, int):
+            gamekeeper_id = None
         if res_type in {"Hav", "Flod"}:
             wq_raw = data.get("fish_quality", data.get("water_quality", "Normalt"))
             fish_quality = (
@@ -162,6 +170,11 @@ class Node:
             except (ValueError, TypeError):
                 fishing_boats = 0
             fishing_boats = max(0, min(fishing_boats, MAX_FISHING_BOATS))
+        if res_type == "Jaktmark":
+            try:
+                hunters = int(data.get("hunters", 0) or 0)
+            except (ValueError, TypeError):
+                hunters = 0
 
         return cls(
             node_id=node_id,
@@ -191,6 +204,8 @@ class Node:
             buildings=buildings,
             fish_quality=fish_quality,
             fishing_boats=fishing_boats,
+            hunters=hunters,
+            gamekeeper_id=gamekeeper_id,
         )
 
     def to_dict(self) -> dict:
@@ -247,6 +262,10 @@ class Node:
         if self.res_type in {"Hav", "Flod"}:
             data["fish_quality"] = self.fish_quality
             data["fishing_boats"] = self.fishing_boats
+
+        if self.res_type == "Jaktmark":
+            data["hunters"] = self.hunters
+            data["gamekeeper_id"] = self.gamekeeper_id
 
         return data
 

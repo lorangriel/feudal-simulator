@@ -113,6 +113,16 @@ class WorldInterface(ABC):
                 if "tunnland" not in node:
                     node["tunnland"] = 0
                     updated = True
+            elif res_type == "Jaktmark":
+                if "tunnland" not in node:
+                    node["tunnland"] = 0
+                    updated = True
+                if "hunters" not in node:
+                    node["hunters"] = 0
+                    updated = True
+                if "gamekeeper_id" not in node:
+                    node["gamekeeper_id"] = None
+                    updated = True
             elif res_type == "Mark":
                 for key in ("total_land", "forest_land", "cleared_land"):
                     if key not in node:
@@ -191,6 +201,16 @@ class WorldInterface(ABC):
                         if key not in node:
                             node[key] = 0
                             updated = True
+                elif res_type == "Jaktmark":
+                    if "tunnland" not in node:
+                        node["tunnland"] = 0
+                        updated = True
+                    if "hunters" not in node:
+                        node["hunters"] = 0
+                        updated = True
+                    if "gamekeeper_id" not in node:
+                        node["gamekeeper_id"] = None
+                        updated = True
                 else:
                     for key in ("total_land", "forest_land", "cleared_land"):
                         if key in node:
