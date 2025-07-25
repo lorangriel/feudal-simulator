@@ -2018,14 +2018,16 @@ class FeodalSimulator:
         craft_frame = ttk.Frame(settlement_frame)
         craft_frame.grid(row=5, column=1, sticky="w", pady=(10, 3))
 
-        ttk.Label(editor_frame, text="Soldater:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
+        soldier_label = ttk.Label(editor_frame, text="Soldater:")
+        soldier_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
         soldier_frame = ttk.Frame(editor_frame)
         soldier_frame.grid(row=row_idx, column=1, sticky="w", pady=(10, 3))
         row_idx += 1
 
         soldier_rows: list[dict] = []
 
-        ttk.Label(editor_frame, text="Djur:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
+        animal_label = ttk.Label(editor_frame, text="Djur:")
+        animal_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
         animal_frame = ttk.Frame(editor_frame)
         animal_frame.grid(row=row_idx, column=1, sticky="w", pady=(10, 3))
         row_idx += 1
@@ -2039,7 +2041,8 @@ class FeodalSimulator:
 
         character_rows: list[dict] = []
 
-        ttk.Label(editor_frame, text="Byggnader:").grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
+        building_label = ttk.Label(editor_frame, text="Byggnader:")
+        building_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
         building_frame = ttk.Frame(editor_frame)
         building_frame.grid(row=row_idx, column=1, sticky="w", pady=(10, 3))
         row_idx += 1
@@ -2337,13 +2340,17 @@ class FeodalSimulator:
                 settlement_frame.grid_remove()
 
             if res_var.get() == "Soldater":
+                soldier_label.grid()
                 soldier_frame.grid()
             else:
+                soldier_label.grid_remove()
                 soldier_frame.grid_remove()
 
             if res_var.get() == "Djur":
+                animal_label.grid()
                 animal_frame.grid()
             else:
+                animal_label.grid_remove()
                 animal_frame.grid_remove()
 
             if res_var.get() == "Karaktärer":
@@ -2352,8 +2359,10 @@ class FeodalSimulator:
                 character_frame.grid_remove()
 
             if res_var.get() == "Byggnader":
+                building_label.grid()
                 building_frame.grid()
             else:
+                building_label.grid_remove()
                 building_frame.grid_remove()
 
         res_var.trace_add("write", refresh_settlement_visibility)
