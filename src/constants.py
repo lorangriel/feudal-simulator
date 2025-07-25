@@ -31,6 +31,7 @@ JARLDOM_RESOURCE_TYPES = [
     "Gods",
     "Bosättning",
     "Vildmark",
+    "Mark",
     "Flod",
     "Hav",
     "Soldater",

@@ -38,6 +38,9 @@ class Node:
     thralls: int = 0
     burghers: int = 0
     tunnland: int = 0  # Area for wilderness resources measured in tunnland
+    total_land: int = 0  # Total land area for 'Mark' resources
+    forest_land: int = 0
+    cleared_land: int = 0
     craftsmen: List[dict] = field(default_factory=list)
     soldiers: List[dict] = field(default_factory=list)
     characters: List[dict] = field(default_factory=list)
@@ -87,6 +90,9 @@ class Node:
         thralls = int(data.get("thralls", 0) or 0)
         burghers = int(data.get("burghers", 0) or 0)
         tunnland = int(data.get("tunnland", 0) or 0)
+        total_land = int(data.get("total_land", 0) or 0)
+        forest_land = int(data.get("forest_land", 0) or 0)
+        cleared_land = int(data.get("cleared_land", 0) or 0)
         base_pop = int(data.get("population", 0) or 0)
         computed_pop = free_peasants + unfree_peasants + thralls + burghers
         res_type_raw = data.get("res_type", "Resurs")
@@ -175,6 +181,9 @@ class Node:
             thralls=thralls,
             burghers=burghers,
             tunnland=tunnland,
+            total_land=total_land,
+            forest_land=forest_land,
+            cleared_land=cleared_land,
             craftsmen=craftsmen,
             soldiers=soldiers,
             characters=characters,
@@ -206,6 +215,9 @@ class Node:
             "thralls": self.thralls,
             "burghers": self.burghers,
             "tunnland": self.tunnland,
+            "total_land": self.total_land,
+            "forest_land": self.forest_land,
+            "cleared_land": self.cleared_land,
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen

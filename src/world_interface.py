@@ -108,10 +108,16 @@ class WorldInterface(ABC):
             if "children" not in node:
                 node["children"] = []
                 updated = True
-            if node.get("res_type") == "Vildmark":
+            res_type = node.get("res_type")
+            if res_type == "Vildmark":
                 if "tunnland" not in node:
                     node["tunnland"] = 0
                     updated = True
+            elif res_type == "Mark":
+                for key in ("total_land", "forest_land", "cleared_land"):
+                    if key not in node:
+                        node[key] = 0
+                        updated = True
             else:
                 if "population" not in node:
                     node["population"] = 0
@@ -178,6 +184,18 @@ class WorldInterface(ABC):
                     if "animals" in node:
                         del node["animals"]
                         updated = True
+
+                # Land fields only for Mark resources
+                if res_type == "Mark":
+                    for key in ("total_land", "forest_land", "cleared_land"):
+                        if key not in node:
+                            node[key] = 0
+                            updated = True
+                else:
+                    for key in ("total_land", "forest_land", "cleared_land"):
+                        if key in node:
+                            del node[key]
+                            updated = True
 
                 for key in ("characters", "buildings"):
                     if key not in node or not isinstance(node[key], list):

@@ -119,6 +119,7 @@ def test_validate_world_data_resource_fields_by_type():
                 "soldiers": [],
                 "animals": [],
             },
+            "4": {"node_id": 4, "parent_id": None, "res_type": "Mark"},
         },
         "characters": {},
     }
@@ -129,12 +130,16 @@ def test_validate_world_data_resource_fields_by_type():
     node1 = world["nodes"]["1"]
     node2 = world["nodes"]["2"]
     node3 = world["nodes"]["3"]
+    node4 = world["nodes"]["4"]
     assert "soldiers" in node1 and node1["soldiers"] == []
     assert "animals" not in node1
     assert "animals" in node2 and node2["animals"] == []
     assert "soldiers" not in node2
     assert "soldiers" not in node3
     assert "animals" not in node3
+    assert "total_land" in node4 and "forest_land" in node4 and "cleared_land" in node4
+    assert "soldiers" not in node4
+    assert "animals" not in node4
 
 
 def test_update_neighbors_for_node_bidirectional():
