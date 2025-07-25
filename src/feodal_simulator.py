@@ -1326,6 +1326,16 @@ class FeodalSimulator:
         editor_frame.grid_columnconfigure(1, weight=1) # Allow entry column to expand
 
         row_idx = 0
+
+        parent_forest = 0
+        parent_id = node_data.get("parent_id")
+        if parent_id and self.world_data:
+            parent = self.world_data.get("nodes", {}).get(str(parent_id))
+            if parent:
+                try:
+                    parent_forest = int(parent.get("forest_land", 0) or 0)
+                except (ValueError, TypeError):
+                    parent_forest = 0
         # Name (uses 'name' field for these levels)
         ttk.Label(editor_frame, text="Namn:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         name_var = tk.StringVar(value=node_data.get("name", ""))
@@ -1915,8 +1925,33 @@ class FeodalSimulator:
         boats_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        gamekeeper_label = ttk.Label(editor_frame, text="Jägarmästare:")
+        gamekeeper_var = tk.StringVar()
+        gk_options = ["Ingen karaktär"]
+        if self.world_data and "characters" in self.world_data:
+            for cid_str, cdata in self.world_data["characters"].items():
+                if cdata.get("type") == "Jägarmästare":
+                    name = cdata.get("name", f"ID {cid_str}")
+                    gk_options.append(f"{cid_str}: {name}")
+                    if node_data.get("gamekeeper_id") is not None and str(node_data.get("gamekeeper_id")) == str(cid_str):
+                        gamekeeper_var.set(f"{cid_str}: {name}")
+        if not gamekeeper_var.get():
+            gamekeeper_var.set("Ingen karaktär")
+        gamekeeper_combo = ttk.Combobox(editor_frame, textvariable=gamekeeper_var, values=gk_options, state="readonly", width=40)
+        gamekeeper_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        gamekeeper_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        max_hunters = max(0, parent_forest // 10)
+        hunter_label = ttk.Label(editor_frame, text="Jägare:")
+        hunter_var = tk.StringVar(value=str(node_data.get("hunters", 0)))
+        hunter_combo = ttk.Combobox(editor_frame, textvariable=hunter_var, values=[str(i) for i in range(max_hunters + 1)], state="readonly", width=5)
+        hunter_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        hunter_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
         def refresh_area_visibility(*args):
-            if res_var.get() == "Vildmark":
+            if res_var.get() in {"Vildmark", "Jaktmark"}:
                 area_label.grid()
                 area_entry.grid()
                 pop_label.grid_remove()
@@ -1939,10 +1974,24 @@ class FeodalSimulator:
                 boats_label.grid_remove()
                 boats_combo.grid_remove()
 
+        def refresh_hunt_visibility(*_):
+            if res_var.get() == "Jaktmark":
+                gamekeeper_label.grid()
+                gamekeeper_combo.grid()
+                hunter_label.grid()
+                hunter_combo.grid()
+            else:
+                gamekeeper_label.grid_remove()
+                gamekeeper_combo.grid_remove()
+                hunter_label.grid_remove()
+                hunter_combo.grid_remove()
+
         res_var.trace_add("write", refresh_area_visibility)
         refresh_area_visibility()
         res_var.trace_add("write", refresh_water_visibility)
         refresh_water_visibility()
+        res_var.trace_add("write", refresh_hunt_visibility)
+        refresh_hunt_visibility()
 
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
@@ -2480,7 +2529,7 @@ class FeodalSimulator:
                 node_data.pop("fish_quality", None)
                 node_data.pop("fishing_boats", None)
             temp_data = dict(node_data)
-            if res_var.get() == "Vildmark":
+            if res_var.get() in {"Vildmark", "Jaktmark"}:
                 try:
                     node_data["tunnland"] = int(area_var.get() or "0", 10)
                 except (tk.TclError, ValueError):
@@ -2521,6 +2570,8 @@ class FeodalSimulator:
             old_area = node_data.get("tunnland", 0)
             old_quality = node_data.get("fish_quality", node_data.get("water_quality", "Normalt"))
             old_boats = int(node_data.get("fishing_boats", 0))
+            old_gamekeeper = node_data.get("gamekeeper_id")
+            old_hunters = int(node_data.get("hunters", 0))
 
             new_custom = custom_var.get().strip()
             try:
@@ -2554,6 +2605,14 @@ class FeodalSimulator:
                 new_boats = int(boats_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_boats = 0
+            jk_sel = gamekeeper_var.get()
+            new_gamekeeper = None
+            if jk_sel and jk_sel != "Ingen karaktär" and ":" in jk_sel:
+                new_gamekeeper = int(jk_sel.split(":")[0])
+            try:
+                new_hunters = int(hunter_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_hunters = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
@@ -2687,6 +2746,12 @@ class FeodalSimulator:
                 if "fishing_boats" in node_data:
                     del node_data["fishing_boats"]
                     changes = True
+            if old_gamekeeper != new_gamekeeper:
+                node_data["gamekeeper_id"] = new_gamekeeper
+                changes = True
+            if old_hunters != new_hunters:
+                node_data["hunters"] = new_hunters
+                changes = True
 
             if changes:
                 self.world_manager.update_population_totals()
@@ -2787,8 +2852,8 @@ class FeodalSimulator:
             return (
                 res_var.get().strip() != node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0])
                 or custom_var.get().strip() != node_data.get("custom_name", "")
-                or (res_var.get() != "Vildmark" and new_pop != node_data.get("population", 0))
-                or (res_var.get() == "Vildmark" and manual_area != node_data.get("tunnland", 0))
+                or (res_var.get() not in {"Vildmark", "Jaktmark"} and new_pop != node_data.get("population", 0))
+                or (res_var.get() in {"Vildmark", "Jaktmark"} and manual_area != node_data.get("tunnland", 0))
                 or settlement_type_var.get().strip() != node_data.get("settlement_type", "By")
                 or new_free != int(node_data.get("free_peasants", 0))
                 or new_unfree != int(node_data.get("unfree_peasants", 0))
@@ -2802,6 +2867,8 @@ class FeodalSimulator:
                 or current_sub != node_data.get("num_subfiefs", 0)
                 or new_quality != node_data.get("fish_quality", node_data.get("water_quality", "Normalt"))
                 or new_boats != int(node_data.get("fishing_boats", 0))
+                or new_gamekeeper != node_data.get("gamekeeper_id")
+                or new_hunters != int(node_data.get("hunters", 0))
             )
 
         del_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)

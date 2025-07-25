@@ -142,6 +142,23 @@ def test_validate_world_data_resource_fields_by_type():
     assert "animals" not in node4
 
 
+def test_validate_world_data_jaktmark_defaults():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "res_type": "Jaktmark"}
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 6
+    nodes_updated, _ = manager.validate_world_data()
+    assert nodes_updated > 0
+    node = world["nodes"]["1"]
+    assert "tunnland" in node
+    assert "hunters" in node and node["hunters"] == 0
+    assert "gamekeeper_id" in node
+
+
 def test_update_neighbors_for_node_bidirectional():
     world = {
         "nodes": {

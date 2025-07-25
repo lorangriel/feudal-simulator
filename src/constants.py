@@ -15,6 +15,7 @@ RES_TYPES = [
     # Character Types (People resources, often singular with ruler)
     "Officer", "Riddare med väpnare", "Falkenerare", "Fogde", "Härold",
     "Livmedikus", "Förvaltare", "Duvhanterare", "Malmletare", "Munskänk",
+    "Jägarmästare",
     "Härskare",
     # Settlement Types
     "By", "Stad", "Nybygge",
@@ -31,6 +32,7 @@ JARLDOM_RESOURCE_TYPES = [
     "Gods",
     "Bosättning",
     "Vildmark",
+    "Jaktmark",
     "Mark",
     "Flod",
     "Hav",
@@ -49,6 +51,7 @@ SOLDIER_TYPES = {
 CHARACTER_TYPES = {
     "Officer", "Riddare med väpnare", "Falkenerare", "Fogde", "Härold",
     "Livmedikus", "Förvaltare", "Duvhanterare", "Malmletare", "Munskänk",
+    "Jägarmästare",
     "Härskare"
 }
 SETTLEMENT_TYPES = {"By", "Stad", "Nybygge"}

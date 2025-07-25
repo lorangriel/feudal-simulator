@@ -206,6 +206,28 @@ def test_node_vildmark_tunnland_roundtrip():
     assert back["population"] == 0
 
 
+def test_node_jaktmark_roundtrip():
+    raw = {
+        "node_id": 45,
+        "parent_id": 1,
+        "res_type": "Jaktmark",
+        "tunnland": 12,
+        "hunters": 3,
+        "gamekeeper_id": "5",
+    }
+
+    node = Node.from_dict(raw)
+    assert node.tunnland == 12
+    assert node.hunters == 3
+    assert node.gamekeeper_id == 5
+    assert node.population == 0
+
+    back = node.to_dict()
+    assert back["tunnland"] == 12
+    assert back["hunters"] == 3
+    assert back["gamekeeper_id"] == 5
+
+
 def test_node_mark_land_roundtrip():
     raw = {
         "node_id": 41,
