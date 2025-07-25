@@ -21,7 +21,7 @@ from constants import (
     ANIMAL_TYPES,
     CHARACTER_TYPES,
     DAGSVERKEN_LEVELS,
-    WATER_QUALITY_LEVELS,
+    FISH_QUALITY_LEVELS,
     MAX_FISHING_BOATS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
@@ -1893,13 +1893,13 @@ class FeodalSimulator:
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
-        water_label = ttk.Label(editor_frame, text="Vattenkvalitet:")
-        water_var = tk.StringVar(value=node_data.get("water_quality", "Normalt"))
-        water_combo = ttk.Combobox(
-            editor_frame, textvariable=water_var, values=WATER_QUALITY_LEVELS, state="readonly"
+        water_label = ttk.Label(editor_frame, text="Fiskekvalitet:")
+        fish_var = tk.StringVar(value=node_data.get("fish_quality", node_data.get("water_quality", "Normalt")))
+        fish_combo = ttk.Combobox(
+            editor_frame, textvariable=fish_var, values=FISH_QUALITY_LEVELS, state="readonly"
         )
         water_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        water_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        fish_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         boats_label = ttk.Label(editor_frame, text="Fiskebåtar:")
@@ -1930,12 +1930,12 @@ class FeodalSimulator:
         def refresh_water_visibility(*_):
             if res_var.get() in {"Hav", "Flod"}:
                 water_label.grid()
-                water_combo.grid()
+                fish_combo.grid()
                 boats_label.grid()
                 boats_combo.grid()
             else:
                 water_label.grid_remove()
-                water_combo.grid_remove()
+                fish_combo.grid_remove()
                 boats_label.grid_remove()
                 boats_combo.grid_remove()
 
@@ -2471,13 +2471,13 @@ class FeodalSimulator:
                 if r["type_var"].get()
             ]
             if res_var.get() in {"Hav", "Flod"}:
-                node_data["water_quality"] = water_var.get()
+                node_data["fish_quality"] = fish_var.get()
                 try:
                     node_data["fishing_boats"] = int(boats_var.get() or "0", 10)
                 except (tk.TclError, ValueError):
                     node_data["fishing_boats"] = 0
             else:
-                node_data.pop("water_quality", None)
+                node_data.pop("fish_quality", None)
                 node_data.pop("fishing_boats", None)
             temp_data = dict(node_data)
             if res_var.get() == "Vildmark":
@@ -2519,7 +2519,7 @@ class FeodalSimulator:
             old_animals = node_data.get("animals", [])
             old_buildings = node_data.get("buildings", [])
             old_area = node_data.get("tunnland", 0)
-            old_quality = node_data.get("water_quality", "Normalt")
+            old_quality = node_data.get("fish_quality", node_data.get("water_quality", "Normalt"))
             old_boats = int(node_data.get("fishing_boats", 0))
 
             new_custom = custom_var.get().strip()
@@ -2549,7 +2549,7 @@ class FeodalSimulator:
                 new_burghers = int(burgher_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_burghers = 0
-            new_quality = water_var.get()
+            new_quality = fish_var.get()
             try:
                 new_boats = int(boats_var.get() or "0", 10)
             except (tk.TclError, ValueError):
@@ -2675,14 +2675,14 @@ class FeodalSimulator:
                 changes = True
             if new_type in {"Hav", "Flod"}:
                 if old_quality != new_quality:
-                    node_data["water_quality"] = new_quality
+                    node_data["fish_quality"] = new_quality
                     changes = True
                 if old_boats != new_boats:
                     node_data["fishing_boats"] = new_boats
                     changes = True
             else:
-                if "water_quality" in node_data:
-                    del node_data["water_quality"]
+                if "fish_quality" in node_data:
+                    del node_data["fish_quality"]
                     changes = True
                 if "fishing_boats" in node_data:
                     del node_data["fishing_boats"]
@@ -2733,7 +2733,7 @@ class FeodalSimulator:
                 new_burghers = int(burgher_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_burghers = 0
-            new_quality = water_var.get()
+            new_quality = fish_var.get()
             try:
                 new_boats = int(boats_var.get() or "0", 10)
             except (tk.TclError, ValueError):
@@ -2800,7 +2800,7 @@ class FeodalSimulator:
                 or new_animals != node_data.get("animals", [])
                 or new_buildings != node_data.get("buildings", [])
                 or current_sub != node_data.get("num_subfiefs", 0)
-                or new_quality != node_data.get("water_quality", "Normalt")
+                or new_quality != node_data.get("fish_quality", node_data.get("water_quality", "Normalt"))
                 or new_boats != int(node_data.get("fishing_boats", 0))
             )
 
