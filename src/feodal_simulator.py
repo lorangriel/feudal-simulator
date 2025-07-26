@@ -3166,6 +3166,7 @@ class FeodalSimulator:
         ttk.Button(btn_fr, text="< Tillbaka", command=self.show_no_world_view).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_fr, text="Gruppera Hierarki", command=self.on_hierarchy_layout).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_fr, text="Spara positioner", command=self.save_static_positions).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_fr, text="Rensa länkar", command=self.clear_all_neighbor_links).pack(side=tk.LEFT, padx=5)
 
         self.static_scale = 1.0
         self.static_map_canvas.bind("<MouseWheel>", self.on_static_map_zoom) # Windows/macOS
@@ -3596,6 +3597,32 @@ class FeodalSimulator:
                 self.world_manager.update_neighbors_for_node(nid, list(empty))
 
         self.auto_link_adjacent_hexes()
+
+    def clear_all_neighbor_links(self) -> None:
+        """Remove all neighbor links between Jarldoms after confirmation."""
+        if not self.world_data:
+            return
+        if not messagebox.askyesno(
+            "Rensa länkar?",
+            "Detta tar bort alla grannlänkar. Vill du fortsätta?",
+            icon="warning",
+            parent=self.root,
+        ):
+            return
+
+        empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
+        for nid_str, node in self.world_data.get("nodes", {}).items():
+            try:
+                nid = int(nid_str)
+            except ValueError:
+                continue
+            if self.get_depth_of_node(nid) == 3:
+                self.world_manager.update_neighbors_for_node(nid, list(empty))
+
+        self.save_current_world()
+        if self.static_map_canvas and self.static_map_canvas.winfo_exists():
+            self.draw_static_border_lines()
+        self.add_status_message("Alla grannlänkar rensade.")
 
     def save_static_positions(self):
         """Store current hex positions on each node and save to file."""
