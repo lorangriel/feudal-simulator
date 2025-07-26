@@ -165,11 +165,7 @@ class FeodalSimulator:
         self.map_drag_start_node_id = None
         self.map_drag_start_coords = None
         self.map_drag_line_id = None
-        self.map_active_node_tag = None # To potentially highlight hovered hex
-        # For hex relocation drag
-        self.hex_drag_node_id = None
-        self.hex_drag_start = None
-
+        self.map_active_node_tag = None  # To potentially highlight hovered hex
 
         # --- Initial View ---
         self.show_no_world_view() # Show placeholder in right frame
@@ -227,15 +223,12 @@ class FeodalSimulator:
         """Destroys all widgets in the right frame."""
         # Important: Unbind map drag events if map exists
         if self.static_map_canvas:
-            self.static_map_canvas.unbind("<ButtonPress-3>")
-            self.static_map_canvas.unbind("<B3-Motion>")
-            self.static_map_canvas.unbind("<ButtonRelease-3>")
-            self.static_map_canvas.unbind("<Motion>") # For hover effects if added
-            self.static_map_canvas = None # Clear reference
+            self.static_map_canvas.unbind("<Motion>")  # For hover effects if added
+            self.static_map_canvas = None  # Clear reference
 
         for widget in self.right_frame.winfo_children():
             widget.destroy()
-        self.map_drag_start_node_id = None # Reset drag state
+        self.map_drag_start_node_id = None  # Reset drag state
         self.map_drag_line_id = None
         self.hex_drag_node_id = None
         self.hex_drag_start = None
@@ -3474,11 +3467,23 @@ class FeodalSimulator:
             item = self.static_map_canvas.find_closest(event.x, event.y)[0]
             tags = self.static_map_canvas.gettags(item)
             target_node_tag = next((tag for tag in tags if tag.startswith("node_")), None)
+            target_hex_tag = next((t for t in tags if t.startswith("hex_")), None)
             if target_node_tag:
                 try:
                     target_node_id = int(target_node_tag.split("_")[1])
                     if target_node_id != self.map_drag_start_node_id:
                         self.attempt_link_neighbors(self.map_drag_start_node_id, target_node_id)
+                except ValueError:
+                    pass
+            elif target_hex_tag:
+                try:
+                    _p, r_str, c_str = target_hex_tag.split("_")
+                    r = int(r_str)
+                    c = int(c_str)
+                    if self.static_grid_occupied[r][c] is None:
+                        if self.move_node_to_hex(self.map_drag_start_node_id, r, c):
+                            self.draw_static_hexgrid()
+                            self.draw_static_border_lines()
                 except ValueError:
                     pass
 
