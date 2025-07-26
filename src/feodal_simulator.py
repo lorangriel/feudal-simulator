@@ -3580,7 +3580,8 @@ class FeodalSimulator:
             self.map_logic.map_static_positions = self.map_static_positions
             self.map_logic.static_grid_occupied = self.static_grid_occupied
 
-        self.recalculate_map_neighbors()
+        empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
+        self.world_manager.update_neighbors_for_node(node_id, list(empty))
         return True
 
     def recalculate_map_neighbors(self) -> None:
