@@ -235,3 +235,37 @@ def test_auto_link_adjacent_hexes_adds_neighbors():
     n102 = world["nodes"]["102"]["neighbors"][0]
     assert n101["id"] == 102 and n101["border"] == "liten väg"
     assert n102["id"] == 101 and n102["border"] == "liten väg"
+
+
+def test_move_node_to_hex_relinks_neighbors():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "10": {"node_id": 10, "parent_id": 1, "neighbors": []},
+            "20": {"node_id": 20, "parent_id": 1, "neighbors": []},
+        },
+        "characters": {},
+    }
+    sim = make_simulator(world)
+    sim.static_rows = 4
+    sim.static_cols = 4
+    sim.hex_spacing = 15
+    sim.map_logic = fs.StaticMapLogic(world, rows=4, cols=4, hex_size=30, spacing=15)
+    sim.get_depth_of_node = lambda nid: 3 if nid in (10, 20) else 0
+    sim.world_manager.get_depth_of_node = sim.get_depth_of_node
+    sim.map_static_positions = {10: (0, 0), 20: (1, 0)}
+    sim.static_grid_occupied = [[None] * 4 for _ in range(4)]
+    sim.static_grid_occupied[0][0] = 10
+    sim.static_grid_occupied[1][0] = 20
+    sim.map_logic.map_static_positions = dict(sim.map_static_positions)
+    sim.map_logic.static_grid_occupied = [row[:] for row in sim.static_grid_occupied]
+
+    fs.FeodalSimulator.auto_link_adjacent_hexes(sim)
+    assert any(nb.get("id") == 20 for nb in world["nodes"]["10"]["neighbors"])
+
+    sim.move_node_to_hex(20, 3, 3)
+
+    assert sim.map_static_positions[20] == (3, 3)
+    assert sim.static_grid_occupied[1][0] is None
+    assert all(nb.get("id") is None for nb in world["nodes"]["10"]["neighbors"])
+    assert all(nb.get("id") is None for nb in world["nodes"]["20"]["neighbors"])
