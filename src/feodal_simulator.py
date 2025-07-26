@@ -3582,6 +3582,33 @@ class FeodalSimulator:
 
         empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
         self.world_manager.update_neighbors_for_node(node_id, list(empty))
+
+        # Remove references from any other node pointing at ``node_id``
+        if self.world_data:
+            nodes_dict = self.world_data.get("nodes", {})
+            for nid_str, node in list(nodes_dict.items()):
+                try:
+                    nid = int(nid_str)
+                except ValueError:
+                    continue
+                if nid == node_id:
+                    continue
+                neighbors = node.get("neighbors", [])
+                if len(neighbors) < MAX_NEIGHBORS:
+                    neighbors.extend(
+                        {"id": None, "border": NEIGHBOR_NONE_STR}
+                        for _ in range(MAX_NEIGHBORS - len(neighbors))
+                    )
+                    node["neighbors"] = neighbors
+                changed = False
+                for nb in neighbors:
+                    if nb.get("id") == node_id:
+                        nb["id"] = None
+                        nb["border"] = NEIGHBOR_NONE_STR
+                        changed = True
+                if changed:
+                    self.world_manager.update_neighbors_for_node(nid, list(neighbors))
+
         return True
 
     def recalculate_map_neighbors(self) -> None:
