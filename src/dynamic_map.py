@@ -19,6 +19,7 @@ class DynamicMapCanvas:
         self.canvas = None
         self.dynamic_scale = 1.0
         self.positions = {}  # node_id -> (x, y)
+        self.tooltip = None
 
     def set_world_data(self, world_data):
         """Replace the internal reference to ``world_data``."""
@@ -69,6 +70,7 @@ class DynamicMapCanvas:
     def draw_dynamic_map(self):
         """Draws Jarldoms and connections on the dynamic map."""
         self.canvas.delete("all")
+        self.hide_tooltip()
 
         jarldomes: List[Node] = []
         if self.world_data and "nodes" in self.world_data:
@@ -135,6 +137,8 @@ class DynamicMapCanvas:
                     self.simulator.show_node_view(clicked_node)
 
             self.canvas.tag_bind(tag_dyn, "<Double-Button-1>", on_click_node)
+            self.canvas.tag_bind(tag_dyn, "<Enter>", lambda e, n=nd: self.show_node_tooltip(e, n))
+            self.canvas.tag_bind(tag_dyn, "<Leave>", self.hide_tooltip)
 
             node_polygons[jid] = {"cx": x, "cy": y, "polygon_id": poly_id}
 
@@ -179,4 +183,34 @@ class DynamicMapCanvas:
 
                             self.canvas.create_line(A_cx, A_cy, B_cx, B_cy, fill=color, width=width)
                             drawn_pairs.add(tuple(sorted((A_id, B_id))))
+
+    def show_node_tooltip(self, event, node: Node) -> None:
+        """Display a small popup with information about ``node``."""
+        display_name = self.simulator.get_display_name_for_node(node, 3)
+        population = node.calculate_population()
+        text = f"{display_name}\nBefolkning: {population}"
+        self._show_tooltip(event, text)
+
+    def _show_tooltip(self, event, text: str) -> None:
+        self.hide_tooltip()
+        self.tooltip = tk.Toplevel(self.canvas)
+        self.tooltip.wm_overrideredirect(True)
+        label = ttk.Label(
+            self.tooltip,
+            text=text,
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+            justify=tk.LEFT,
+        )
+        label.pack()
+        self.tooltip.update_idletasks()
+        x = event.x_root + 10
+        y = event.y_root + 10
+        self.tooltip.wm_geometry(f"+{x}+{y}")
+
+    def hide_tooltip(self, event=None) -> None:
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
 
