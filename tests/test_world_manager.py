@@ -231,3 +231,36 @@ def test_population_totals_refresh_after_edit():
     manager.update_population_totals()
     assert world["nodes"]["2"]["population"] == 5
     assert world["nodes"]["1"]["population"] == 5
+
+
+def test_set_border_between_updates_both_nodes():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "neighbors": [{"id": 2, "border": NEIGHBOR_NONE_STR}] + [{"id": None, "border": NEIGHBOR_NONE_STR}] * (MAX_NEIGHBORS - 1),
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": None,
+                "neighbors": [{"id": 1, "border": NEIGHBOR_NONE_STR}] + [{"id": None, "border": NEIGHBOR_NONE_STR}] * (MAX_NEIGHBORS - 1),
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+
+    changed = manager.set_border_between(1, 2, "v\u00e4g")
+    assert changed
+    assert world["nodes"]["1"]["neighbors"][0]["border"] == "v\u00e4g"
+    assert world["nodes"]["2"]["neighbors"][0]["border"] == "v\u00e4g"
+
+    changed = manager.set_border_between(1, 2, "v\u00e4g")
+    assert not changed
+
+    changed = manager.set_border_between(1, 2, "bogus")
+    assert changed
+    assert world["nodes"]["1"]["neighbors"][0]["border"] == NEIGHBOR_NONE_STR
+    assert world["nodes"]["2"]["neighbors"][0]["border"] == NEIGHBOR_NONE_STR

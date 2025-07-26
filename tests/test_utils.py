@@ -45,3 +45,18 @@ def test_generate_character_name_deterministic():
     female = utils.generate_character_name("f")
     assert male == "Mate Alen"
     assert female == "Mianeni Alen"
+
+
+def test_parse_int_10_valid_and_invalid():
+    class Bad:
+        def __str__(self):
+            raise RuntimeError("boom")
+
+    assert utils.parse_int_10("42") == 42
+    assert utils.parse_int_10(" 7 ") == 7
+    assert utils.parse_int_10(5) == 5
+    assert utils.parse_int_10("abc") == 0
+    assert utils.parse_int_10("") == 0
+    assert utils.parse_int_10(None) == 0
+    # Object raising in __str__ should yield 0
+    assert utils.parse_int_10(Bad()) == 0
