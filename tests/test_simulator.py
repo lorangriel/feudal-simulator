@@ -269,3 +269,44 @@ def test_move_node_to_hex_relinks_neighbors():
     assert sim.static_grid_occupied[1][0] is None
     assert all(nb.get("id") is None for nb in world["nodes"]["10"]["neighbors"])
     assert all(nb.get("id") is None for nb in world["nodes"]["20"]["neighbors"])
+
+
+def test_clear_all_neighbor_links(monkeypatch):
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "10": {
+                "node_id": 10,
+                "parent_id": 1,
+                "neighbors": [{"id": 20, "border": "v\u00e4g"}] + [
+                    {"id": None, "border": fs.NEIGHBOR_NONE_STR}
+                    for _ in range(fs.MAX_NEIGHBORS - 1)
+                ],
+            },
+            "20": {
+                "node_id": 20,
+                "parent_id": 1,
+                "neighbors": [{"id": 10, "border": "v\u00e4g"}] + [
+                    {"id": None, "border": fs.NEIGHBOR_NONE_STR}
+                    for _ in range(fs.MAX_NEIGHBORS - 1)
+                ],
+            },
+        },
+        "characters": {},
+    }
+
+    sim = make_simulator(world)
+    sim.root = object()
+    sim.static_map_canvas = None
+    sim.get_depth_of_node = lambda nid: 3 if nid in (10, 20) else 0
+    sim.world_manager.get_depth_of_node = sim.get_depth_of_node
+    calls = []
+    sim.save_current_world = lambda: calls.append("saved")
+    sim.draw_static_border_lines = lambda: calls.append("drawn")
+    monkeypatch.setattr(fs.messagebox, "askyesno", lambda *a, **k: True)
+
+    fs.FeodalSimulator.clear_all_neighbor_links(sim)
+
+    assert all(nb.get("id") is None for nb in world["nodes"]["10"]["neighbors"])
+    assert all(nb.get("id") is None for nb in world["nodes"]["20"]["neighbors"])
+    assert "saved" in calls
