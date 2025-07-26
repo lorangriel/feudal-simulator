@@ -165,7 +165,8 @@ class FeodalSimulator:
         self.map_drag_start_node_id = None
         self.map_drag_start_coords = None
         self.map_drag_line_id = None
-        self.map_active_node_tag = None # To potentially highlight hovered hex
+        self.map_active_node_tag = None  # To potentially highlight hovered hex
+
 
 
         # --- Initial View ---
@@ -224,15 +225,12 @@ class FeodalSimulator:
         """Destroys all widgets in the right frame."""
         # Important: Unbind map drag events if map exists
         if self.static_map_canvas:
-            self.static_map_canvas.unbind("<ButtonPress-3>")
-            self.static_map_canvas.unbind("<B3-Motion>")
-            self.static_map_canvas.unbind("<ButtonRelease-3>")
-            self.static_map_canvas.unbind("<Motion>") # For hover effects if added
-            self.static_map_canvas = None # Clear reference
+            self.static_map_canvas.unbind("<Motion>")  # For hover effects if added
+            self.static_map_canvas = None  # Clear reference
 
         for widget in self.right_frame.winfo_children():
             widget.destroy()
-        self.map_drag_start_node_id = None # Reset drag state
+        self.map_drag_start_node_id = None  # Reset drag state
         self.map_drag_line_id = None
 
 
@@ -3464,6 +3462,7 @@ class FeodalSimulator:
             item = self.static_map_canvas.find_closest(event.x, event.y)[0]
             tags = self.static_map_canvas.gettags(item)
             target_node_tag = next((tag for tag in tags if tag.startswith("node_")), None)
+            target_hex_tag = next((t for t in tags if t.startswith("hex_")), None)
             if target_node_tag:
                 try:
                     target_node_id = int(target_node_tag.split("_")[1])
@@ -3471,11 +3470,22 @@ class FeodalSimulator:
                         self.attempt_link_neighbors(self.map_drag_start_node_id, target_node_id)
                 except ValueError:
                     pass
+            elif target_hex_tag:
+                try:
+                    _p, r_str, c_str = target_hex_tag.split("_")
+                    r = int(r_str)
+                    c = int(c_str)
+                    if self.static_grid_occupied[r][c] is None:
+                        if self.move_node_to_hex(self.map_drag_start_node_id, r, c):
+                            self.draw_static_hexgrid()
+                            self.draw_static_border_lines()
+                except ValueError:
+                    pass
 
             # Clean up drag line
-            if self.map_drag_line:
-                self.static_map_canvas.delete(self.map_drag_line)
-                self.map_drag_line = None
+            if self.map_drag_line_id:
+                self.static_map_canvas.delete(self.map_drag_line_id)
+                self.map_drag_line_id = None
             self.map_drag_start_node_id = None
             self.map_drag_start_coords = None
             self.reset_hex_highlights()
@@ -3498,6 +3508,44 @@ class FeodalSimulator:
             self.save_current_world()
             self.draw_static_border_lines()
         self.add_status_message(message)
+
+    # --------------------------------------------------
+    # Hex relocation helpers
+    # --------------------------------------------------
+    def move_node_to_hex(self, node_id: int, r: int, c: int) -> bool:
+        """Move ``node_id`` to ``(r, c)`` if free and update neighbors."""
+        if node_id not in self.map_static_positions:
+            return False
+        if r < 0 or r >= self.static_rows or c < 0 or c >= self.static_cols:
+            return False
+        if self.static_grid_occupied[r][c] is not None:
+            return False
+
+        old_r, old_c = self.map_static_positions[node_id]
+        self.static_grid_occupied[old_r][old_c] = None
+        self.static_grid_occupied[r][c] = node_id
+        self.map_static_positions[node_id] = (r, c)
+        if self.map_logic:
+            self.map_logic.map_static_positions = self.map_static_positions
+            self.map_logic.static_grid_occupied = self.static_grid_occupied
+
+        self.recalculate_map_neighbors()
+        return True
+
+    def recalculate_map_neighbors(self) -> None:
+        """Clear all Jarldom neighbor links and relink adjacent hexes."""
+        if not (self.world_data and self.map_logic):
+            return
+        empty = [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]
+        for nid_str, node in self.world_data.get("nodes", {}).items():
+            try:
+                nid = int(nid_str)
+            except ValueError:
+                continue
+            if self.get_depth_of_node(nid) == 3:
+                self.world_manager.update_neighbors_for_node(nid, list(empty))
+
+        self.auto_link_adjacent_hexes()
 
     def save_static_positions(self):
         """Store current hex positions on each node and save to file."""
