@@ -167,8 +167,6 @@ class FeodalSimulator:
         self.map_drag_line_id = None
         self.map_active_node_tag = None  # To potentially highlight hovered hex
 
-
-
         # --- Initial View ---
         self.show_no_world_view() # Show placeholder in right frame
 
@@ -232,6 +230,8 @@ class FeodalSimulator:
             widget.destroy()
         self.map_drag_start_node_id = None  # Reset drag state
         self.map_drag_line_id = None
+        self.hex_drag_node_id = None
+        self.hex_drag_start = None
 
 
     def show_no_world_view(self):
@@ -3177,6 +3177,11 @@ class FeodalSimulator:
         self.static_map_canvas.bind("<B1-Motion>", self.on_static_map_mouse_motion)
         self.static_map_canvas.bind("<ButtonRelease-1>", self.on_static_map_button_release)
 
+        # --- Drag hexes to new positions ---
+        self.static_map_canvas.bind("<ButtonPress-3>", self.on_hex_drag_start)
+        self.static_map_canvas.bind("<B3-Motion>", self.on_hex_drag_motion)
+        self.static_map_canvas.bind("<ButtonRelease-3>", self.on_hex_drag_end)
+
         self.draw_static_hexgrid()
         self.draw_static_border_lines()
 
@@ -3489,6 +3494,51 @@ class FeodalSimulator:
             self.map_drag_start_node_id = None
             self.map_drag_start_coords = None
             self.reset_hex_highlights()
+
+    # --------------------------------------------------
+    # Hex drag and drop (right mouse button)
+    # --------------------------------------------------
+    def on_hex_drag_start(self, event):
+        item = self.static_map_canvas.find_closest(event.x, event.y)[0]
+        tags = self.static_map_canvas.gettags(item)
+        hex_tag = next((t for t in tags if t.startswith("hex_")), None)
+        if not hex_tag:
+            return
+        try:
+            _prefix, r_str, c_str = hex_tag.split("_")
+            r = int(r_str)
+            c = int(c_str)
+        except ValueError:
+            return
+        nid = self.static_grid_occupied[r][c]
+        if nid is not None:
+            self.hex_drag_node_id = nid
+            self.hex_drag_start = (r, c)
+
+    def on_hex_drag_motion(self, event):
+        # Optional visual feedback could be added here
+        pass
+
+    def on_hex_drag_end(self, event):
+        if self.hex_drag_node_id is None:
+            return
+        item = self.static_map_canvas.find_closest(event.x, event.y)[0]
+        tags = self.static_map_canvas.gettags(item)
+        hex_tag = next((t for t in tags if t.startswith("hex_")), None)
+        target = None
+        if hex_tag:
+            try:
+                _p, r_str, c_str = hex_tag.split("_")
+                target = (int(r_str), int(c_str))
+            except ValueError:
+                target = None
+        if target and self.static_grid_occupied[target[0]][target[1]] is None:
+            moved = self.move_node_to_hex(self.hex_drag_node_id, target[0], target[1])
+            if moved:
+                self.draw_static_hexgrid()
+                self.draw_static_border_lines()
+        self.hex_drag_node_id = None
+        self.hex_drag_start = None
 
     def attempt_link_neighbors(self, node_id1, node_id2):
         """Attempts to link two Jarldoms as neighbors."""
