@@ -35,6 +35,12 @@ def test_node_from_dict_normalizes_fields():
     assert node.burghers == 0
     assert node.craftsmen == []
     assert node.dagsverken == "normalt"
+    assert node.work_available == 0
+    assert node.work_needed == 0
+    assert node.storage_silver == 0
+    assert node.storage_basic == 0
+    assert node.storage_luxury == 0
+    assert node.jarldom_area == 0
 
 
 def test_node_settlement_roundtrip():
@@ -87,6 +93,35 @@ def test_node_dagsverken_roundtrip():
 
     back = node.to_dict()
     assert back["dagsverken"] == "många"
+
+
+def test_node_jarldom_extra_fields_roundtrip():
+    raw = {
+        "node_id": 61,
+        "parent_id": 1,
+        "work_available": 5,
+        "work_needed": 7,
+        "storage_silver": 10,
+        "storage_basic": 3,
+        "storage_luxury": 1,
+        "jarldom_area": 50,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.work_available == 5
+    assert node.work_needed == 7
+    assert node.storage_silver == 10
+    assert node.storage_basic == 3
+    assert node.storage_luxury == 1
+    assert node.jarldom_area == 50
+
+    back = node.to_dict()
+    assert back["work_available"] == 5
+    assert back["work_needed"] == 7
+    assert back["storage_silver"] == 10
+    assert back["storage_basic"] == 3
+    assert back["storage_luxury"] == 1
+    assert back["jarldom_area"] == 50
 
 
 def test_node_population_calculated_from_categories():

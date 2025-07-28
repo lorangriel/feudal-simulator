@@ -85,6 +85,15 @@ def test_validate_world_data_basic():
     assert node2["children"] == []
     assert node2["ruler_id"] is None
     assert world["characters"]["10"]["char_id"] == 10
+    for key in (
+        "work_available",
+        "work_needed",
+        "storage_silver",
+        "storage_basic",
+        "storage_luxury",
+        "jarldom_area",
+    ):
+        assert key in node2 and node2[key] == 0
 
 
 def test_validate_world_data_vildmark_defaults():

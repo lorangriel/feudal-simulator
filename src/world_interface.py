@@ -170,6 +170,17 @@ class WorldInterface(ABC):
                 if "dagsverken" not in node or node["dagsverken"] not in DAGSVERKEN_LEVELS:
                     node["dagsverken"] = "normalt"
                     updated = True
+                for key in (
+                    "work_available",
+                    "work_needed",
+                    "storage_silver",
+                    "storage_basic",
+                    "storage_luxury",
+                    "jarldom_area",
+                ):
+                    if key not in node:
+                        node[key] = 0
+                        updated = True
             elif depth >= 4:
                 if "res_type" not in node:
                     node["res_type"] = "Resurs"

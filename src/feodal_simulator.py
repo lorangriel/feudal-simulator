@@ -20,7 +20,6 @@ from constants import (
     SOLDIER_TYPES,
     ANIMAL_TYPES,
     CHARACTER_TYPES,
-    DAGSVERKEN_LEVELS,
     FISH_QUALITY_LEVELS,
     MAX_FISHING_BOATS,
 )
@@ -1503,6 +1502,16 @@ class FeodalSimulator:
         node_data["res_type"] = "Resurs" # Internal type is always Resurs
         if "neighbors" not in node_data or not isinstance(node_data["neighbors"], list):
             node_data["neighbors"] = []
+        for key in (
+            "work_available",
+            "work_needed",
+            "storage_silver",
+            "storage_basic",
+            "storage_luxury",
+            "jarldom_area",
+        ):
+            if key not in node_data:
+                node_data[key] = 0
         # Ensure neighbor list has correct length and structure
         validated_neighbors = []
         current_neighbors = node_data["neighbors"]
@@ -1690,11 +1699,37 @@ class FeodalSimulator:
 
         row_idx += 1
 
-        # Work duty level
-        ttk.Label(editor_frame, text="Dagsverken:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        dags_var = tk.StringVar(value=node_data.get("dagsverken", "normalt"))
-        dags_combo = ttk.Combobox(editor_frame, textvariable=dags_var, values=DAGSVERKEN_LEVELS, state="readonly")
-        dags_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        # Work days available and needed
+        ttk.Label(editor_frame, text="Dagsverken Tillg.").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        work_av_var = tk.StringVar(value=str(node_data.get("work_available", 0)))
+        work_av_entry = ttk.Entry(editor_frame, textvariable=work_av_var, width=6)
+        work_av_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Dagsverken Behov:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        work_need_var = tk.StringVar(value=str(node_data.get("work_needed", 0)))
+        work_need_entry = ttk.Entry(editor_frame, textvariable=work_need_var, width=6)
+        work_need_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Lager Silver/Bas/Lyx:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        storage_frame = ttk.Frame(editor_frame)
+        storage_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        silver_var = tk.StringVar(value=str(node_data.get("storage_silver", 0)))
+        basic_var = tk.StringVar(value=str(node_data.get("storage_basic", 0)))
+        luxury_var = tk.StringVar(value=str(node_data.get("storage_luxury", 0)))
+        ttk.Entry(storage_frame, textvariable=silver_var, width=4).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(storage_frame, textvariable=basic_var, width=4).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(storage_frame, textvariable=luxury_var, width=4).pack(side=tk.LEFT, padx=2)
+
+        row_idx += 1
+
+        ttk.Label(editor_frame, text="Areal totalt:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        area_var = tk.StringVar(value=str(node_data.get("jarldom_area", 0)))
+        area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=8)
+        area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
 
         row_idx += 1
 
@@ -1732,7 +1767,30 @@ class FeodalSimulator:
                 node_data["num_subfiefs"] = target_subfiefs
             except (tk.TclError, ValueError):
                 node_data["num_subfiefs"] = 0
-            node_data["dagsverken"] = dags_var.get()
+            try:
+                node_data["work_available"] = int(work_av_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["work_available"] = 0
+            try:
+                node_data["work_needed"] = int(work_need_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["work_needed"] = 0
+            try:
+                node_data["storage_silver"] = int(silver_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["storage_silver"] = 0
+            try:
+                node_data["storage_basic"] = int(basic_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["storage_basic"] = 0
+            try:
+                node_data["storage_luxury"] = int(luxury_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["storage_luxury"] = 0
+            try:
+                node_data["jarldom_area"] = int(area_var.get() or "0")
+            except (tk.TclError, ValueError):
+                node_data["jarldom_area"] = 0
             node_data["res_type"] = "Resurs" # Ensure internal type is correct
 
             self.update_subfiefs_for_node(node_data)
@@ -1744,7 +1802,12 @@ class FeodalSimulator:
         def save_node_action():
             old_custom_name = node_data.get("custom_name", "")
             old_pop = node_data.get("population", 0)
-            old_dags = node_data.get("dagsverken", "normalt")
+            old_work_av = int(node_data.get("work_available", 0) or 0)
+            old_work_need = int(node_data.get("work_needed", 0) or 0)
+            old_silver = int(node_data.get("storage_silver", 0) or 0)
+            old_basic = int(node_data.get("storage_basic", 0) or 0)
+            old_lux = int(node_data.get("storage_luxury", 0) or 0)
+            old_area = int(node_data.get("jarldom_area", 0) or 0)
 
             new_custom_name = custom_name_var.get().strip()
             if not new_custom_name:
@@ -1754,7 +1817,30 @@ class FeodalSimulator:
                 new_pop = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
                 new_pop = 0
-            new_dags = dags_var.get()
+            try:
+                new_work_av = int(work_av_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_work_av = 0
+            try:
+                new_work_need = int(work_need_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_work_need = 0
+            try:
+                new_silver = int(silver_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_silver = 0
+            try:
+                new_basic = int(basic_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_basic = 0
+            try:
+                new_lux = int(luxury_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_lux = 0
+            try:
+                new_area = int(area_var.get() or "0")
+            except (tk.TclError, ValueError):
+                new_area = 0
             # num_subfiefs saved via its own button
 
             changes_made = False
@@ -1765,8 +1851,18 @@ class FeodalSimulator:
             if old_pop != new_pop:
                 node_data["population"] = new_pop; changes_made = True
                 status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
-            if old_dags != new_dags:
-                node_data["dagsverken"] = new_dags; changes_made = True
+            if old_work_av != new_work_av:
+                node_data["work_available"] = new_work_av; changes_made = True
+            if old_work_need != new_work_need:
+                node_data["work_needed"] = new_work_need; changes_made = True
+            if old_silver != new_silver:
+                node_data["storage_silver"] = new_silver; changes_made = True
+            if old_basic != new_basic:
+                node_data["storage_basic"] = new_basic; changes_made = True
+            if old_lux != new_lux:
+                node_data["storage_luxury"] = new_lux; changes_made = True
+            if old_area != new_area:
+                node_data["jarldom_area"] = new_area; changes_made = True
 
             # Handle ruler assignment
             selected_val = option_map.get(ruler_var.get())
@@ -1844,11 +1940,40 @@ class FeodalSimulator:
                 current_sub = int(sub_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 current_sub = 0
+            try:
+                cur_av = int(work_av_var.get() or "0")
+            except (tk.TclError, ValueError):
+                cur_av = 0
+            try:
+                cur_need = int(work_need_var.get() or "0")
+            except (tk.TclError, ValueError):
+                cur_need = 0
+            try:
+                cur_sil = int(silver_var.get() or "0")
+            except (tk.TclError, ValueError):
+                cur_sil = 0
+            try:
+                cur_basic = int(basic_var.get() or "0")
+            except (tk.TclError, ValueError):
+                cur_basic = 0
+            try:
+                cur_lux = int(luxury_var.get() or "0")
+            except (tk.TclError, ValueError):
+                cur_lux = 0
+            try:
+                cur_area = int(area_var.get() or "0")
+            except (tk.TclError, ValueError):
+                cur_area = 0
             return (
                 custom_name_var.get().strip() != node_data.get("custom_name", "")
                 or current_pop != node_data.get("population", 0)
                 or current_sub != node_data.get("num_subfiefs", 0)
-                or dags_var.get() != node_data.get("dagsverken", "normalt")
+                or cur_av != int(node_data.get("work_available", 0) or 0)
+                or cur_need != int(node_data.get("work_needed", 0) or 0)
+                or cur_sil != int(node_data.get("storage_silver", 0) or 0)
+                or cur_basic != int(node_data.get("storage_basic", 0) or 0)
+                or cur_lux != int(node_data.get("storage_luxury", 0) or 0)
+                or cur_area != int(node_data.get("jarldom_area", 0) or 0)
             )
 
         delete_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
