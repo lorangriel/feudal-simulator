@@ -33,6 +33,12 @@ class Node:
     res_type: str = "Resurs"
     settlement_type: str = "By"
     dagsverken: str = "normalt"
+    work_available: int = 0
+    work_needed: int = 0
+    storage_silver: int = 0
+    storage_basic: int = 0
+    storage_luxury: int = 0
+    jarldom_area: int = 0
     free_peasants: int = 0
     unfree_peasants: int = 0
     thralls: int = 0
@@ -176,6 +182,31 @@ class Node:
             except (ValueError, TypeError):
                 hunters = 0
 
+        try:
+            work_available = int(data.get("work_available", 0) or 0)
+        except (ValueError, TypeError):
+            work_available = 0
+        try:
+            work_needed = int(data.get("work_needed", 0) or 0)
+        except (ValueError, TypeError):
+            work_needed = 0
+        try:
+            storage_silver = int(data.get("storage_silver", 0) or 0)
+        except (ValueError, TypeError):
+            storage_silver = 0
+        try:
+            storage_basic = int(data.get("storage_basic", 0) or 0)
+        except (ValueError, TypeError):
+            storage_basic = 0
+        try:
+            storage_luxury = int(data.get("storage_luxury", 0) or 0)
+        except (ValueError, TypeError):
+            storage_luxury = 0
+        try:
+            jarldom_area = int(data.get("jarldom_area", 0) or 0)
+        except (ValueError, TypeError):
+            jarldom_area = 0
+
         return cls(
             node_id=node_id,
             parent_id=parent_id,
@@ -206,6 +237,12 @@ class Node:
             fishing_boats=fishing_boats,
             hunters=hunters,
             gamekeeper_id=gamekeeper_id,
+            work_available=work_available,
+            work_needed=work_needed,
+            storage_silver=storage_silver,
+            storage_basic=storage_basic,
+            storage_luxury=storage_luxury,
+            jarldom_area=jarldom_area,
         )
 
     def to_dict(self) -> dict:
@@ -233,6 +270,12 @@ class Node:
             "total_land": self.total_land,
             "forest_land": self.forest_land,
             "cleared_land": self.cleared_land,
+            "work_available": self.work_available,
+            "work_needed": self.work_needed,
+            "storage_silver": self.storage_silver,
+            "storage_basic": self.storage_basic,
+            "storage_luxury": self.storage_luxury,
+            "jarldom_area": self.jarldom_area,
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
