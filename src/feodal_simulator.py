@@ -2026,6 +2026,81 @@ class FeodalSimulator:
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        # --- Gods specific fields ---
+        manor_label = ttk.Label(editor_frame, text="Godsareal:")
+        manor_var = tk.StringVar(value=str(node_data.get("manor_land", 0)))
+        manor_entry = ttk.Entry(editor_frame, textvariable=manor_var, width=10)
+
+        cultivated_label = ttk.Label(editor_frame, text="Odlingsmark:")
+        cultivated_var = tk.StringVar(value=str(node_data.get("cultivated_land", 0)))
+        cultivated_entry = ttk.Entry(editor_frame, textvariable=cultivated_var, width=10)
+        cq_label = ttk.Label(editor_frame, text="Odlingskvalitet:")
+        cq_var = tk.StringVar(value=str(node_data.get("cultivated_quality", 3)))
+        cq_combo = ttk.Combobox(
+            editor_frame,
+            textvariable=cq_var,
+            values=[str(i) for i in range(1, 6)],
+            state="readonly",
+            width=5,
+        )
+
+        fallow_label = ttk.Label(editor_frame, text="Trädad mark:")
+        fallow_var = tk.StringVar(value=str(node_data.get("fallow_land", 0)))
+        fallow_entry = ttk.Entry(editor_frame, textvariable=fallow_var, width=10)
+        herd_label = ttk.Label(editor_frame, text="Boskap:")
+        herd_var = tk.StringVar(value="Ja" if node_data.get("has_herd") else "Nej")
+        herd_combo = ttk.Combobox(
+            editor_frame, textvariable=herd_var, values=["Ja", "Nej"], state="readonly", width=5
+        )
+
+        forest_label = ttk.Label(editor_frame, text="Skogsmark:")
+        forest_var = tk.StringVar(value=str(node_data.get("forest_land", 0)))
+        forest_entry = ttk.Entry(editor_frame, textvariable=forest_var, width=10)
+        hunt_label = ttk.Label(editor_frame, text="Jaktkvalitet:")
+        hunt_var = tk.StringVar(value=str(node_data.get("hunt_quality", 3)))
+        hunt_combo = ttk.Combobox(
+            editor_frame,
+            textvariable=hunt_var,
+            values=[str(i) for i in range(1, 6)],
+            state="readonly",
+            width=5,
+        )
+
+        law_label = ttk.Label(editor_frame, text="Jakträtt:")
+        law_var = tk.StringVar(value=str(node_data.get("hunting_law", 0)))
+        law_combo = ttk.Combobox(editor_frame, textvariable=law_var, state="readonly", width=5)
+
+        # Grid placement (initially hidden; visibility controlled below)
+        manor_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        manor_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        cultivated_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        c_frame = ttk.Frame(editor_frame)
+        c_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        cultivated_entry.pack(side=tk.LEFT)
+        cq_combo.pack(side=tk.LEFT, padx=(5, 0))
+        cq_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        fallow_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        f_frame = ttk.Frame(editor_frame)
+        f_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        fallow_entry.pack(side=tk.LEFT)
+        herd_combo.pack(side=tk.LEFT, padx=(5, 0))
+        herd_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        forest_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        forest_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        hunt_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        hunt_combo.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        law_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        law_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
         water_label = ttk.Label(editor_frame, text="Fiskekvalitet:")
         fish_var = tk.StringVar(value=node_data.get("fish_quality", node_data.get("water_quality", "Normalt")))
         fish_combo = ttk.Combobox(
@@ -2119,12 +2194,119 @@ class FeodalSimulator:
                 hunter_label.grid_remove()
                 hunter_combo.grid_remove()
 
+        def update_law_options(*_):
+            try:
+                fl = int(forest_var.get() or "0")
+            except (ValueError, TypeError):
+                fl = 0
+            max_val = max(0, fl // 50)
+            law_combo.config(values=[str(i) for i in range(0, max_val + 1)])
+            try:
+                cur = int(law_var.get() or "0")
+            except (ValueError, TypeError):
+                cur = 0
+            if cur > max_val:
+                law_var.set(str(max_val))
+            if fl > 50 and res_var.get() == "Gods":
+                law_label.grid()
+                law_combo.grid()
+            else:
+                law_label.grid_remove()
+                law_combo.grid_remove()
+
+        def refresh_gods_visibility(*_):
+            if res_var.get() == "Gods":
+                manor_label.grid()
+                manor_entry.grid()
+                cultivated_label.grid()
+                c_frame.grid()
+                cq_label.grid()
+                fallow_label.grid()
+                f_frame.grid()
+                herd_label.grid()
+                forest_label.grid()
+                forest_entry.grid()
+                hunt_label.grid()
+                hunt_combo.grid()
+                update_law_options()
+            else:
+                manor_label.grid_remove()
+                manor_entry.grid_remove()
+                cultivated_label.grid_remove()
+                c_frame.grid_remove()
+                cq_label.grid_remove()
+                fallow_label.grid_remove()
+                f_frame.grid_remove()
+                herd_label.grid_remove()
+                forest_label.grid_remove()
+                forest_entry.grid_remove()
+                hunt_label.grid_remove()
+                hunt_combo.grid_remove()
+                law_label.grid_remove()
+                law_combo.grid_remove()
+
+        def handle_herd_toggle(*_):
+            val = herd_var.get()
+            existing_id = None
+            for cid in node_data.get("children", []):
+                cnode = self.world_data.get("nodes", {}).get(str(cid))
+                if cnode and cnode.get("res_type") == "Djur":
+                    existing_id = cid
+                    break
+            if val == "Ja" and existing_id is None:
+                open_items, selection = self.store_tree_state()
+                new_id = self.world_data.get("next_node_id", 1)
+                while str(new_id) in self.world_data.get("nodes", {}):
+                    new_id += 1
+                self.world_data["next_node_id"] = new_id + 1
+                new_node = {
+                    "node_id": new_id,
+                    "parent_id": node_id,
+                    "name": "Resurs",
+                    "custom_name": "",
+                    "res_type": "Djur",
+                    "children": [],
+                    "num_subfiefs": 0,
+                }
+                self.world_data.setdefault("nodes", {})[str(new_id)] = new_node
+                node_data.setdefault("children", []).append(new_id)
+                self.world_manager.clear_depth_cache()
+                self.world_manager.update_population_totals()
+                self.save_current_world()
+                self.populate_tree()
+                self.restore_tree_state(open_items, selection)
+            elif val == "Nej" and existing_id is not None:
+                child = self.world_data.get("nodes", {}).get(str(existing_id))
+                has_data = bool(child.get("animals")) or bool(child.get("custom_name")) or child.get("children")
+                if has_data:
+                    if not messagebox.askyesno(
+                        "Ta bort Djur",
+                        "Underresursen inneh\u00e5ller data och kommer tas bort. Forts\u00e4tt?",
+                        parent=self.root,
+                    ):
+                        herd_var.set("Ja")
+                        return
+                open_items, selection = self.store_tree_state()
+                self.delete_node_and_descendants(existing_id)
+                if existing_id in node_data.get("children", []):
+                    node_data["children"].remove(existing_id)
+                self.world_manager.clear_depth_cache()
+                self.world_manager.update_population_totals()
+                self.save_current_world()
+                self.populate_tree()
+                self.restore_tree_state(open_items, selection)
+
         res_var.trace_add("write", refresh_area_visibility)
         refresh_area_visibility()
         res_var.trace_add("write", refresh_water_visibility)
         refresh_water_visibility()
         res_var.trace_add("write", refresh_hunt_visibility)
         refresh_hunt_visibility()
+        res_var.trace_add("write", refresh_gods_visibility)
+        refresh_gods_visibility()
+        forest_var.trace_add("write", update_law_options)
+        update_law_options()
+        herd_var.trace_add("write", handle_herd_toggle)
 
         ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
@@ -2705,6 +2887,14 @@ class FeodalSimulator:
             old_boats = int(node_data.get("fishing_boats", 0))
             old_gamekeeper = node_data.get("gamekeeper_id")
             old_hunters = int(node_data.get("hunters", 0))
+            old_manor = int(node_data.get("manor_land", 0))
+            old_cultivated = int(node_data.get("cultivated_land", 0))
+            old_cq = int(node_data.get("cultivated_quality", 3))
+            old_fallow = int(node_data.get("fallow_land", 0))
+            old_has_herd = bool(node_data.get("has_herd", False))
+            old_forest = int(node_data.get("forest_land", 0))
+            old_hq = int(node_data.get("hunt_quality", 3))
+            old_law = int(node_data.get("hunting_law", 0))
 
             new_custom = custom_var.get().strip()
             try:
@@ -2738,6 +2928,35 @@ class FeodalSimulator:
                 new_boats = int(boats_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_boats = 0
+            try:
+                new_manor = int(manor_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_manor = 0
+            try:
+                new_cultivated = int(cultivated_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_cultivated = 0
+            try:
+                new_cq = int(cq_var.get() or "3", 10)
+            except (tk.TclError, ValueError):
+                new_cq = 3
+            try:
+                new_fallow = int(fallow_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_fallow = 0
+            new_has_herd = herd_var.get() == "Ja"
+            try:
+                new_forest = int(forest_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_forest = 0
+            try:
+                new_hq = int(hunt_var.get() or "3", 10)
+            except (tk.TclError, ValueError):
+                new_hq = 3
+            try:
+                new_law = int(law_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_law = 0
             jk_sel = gamekeeper_var.get()
             new_gamekeeper = None
             if jk_sel and jk_sel != "Ingen karaktär" and ":" in jk_sel:
@@ -2746,6 +2965,35 @@ class FeodalSimulator:
                 new_hunters = int(hunter_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_hunters = 0
+            try:
+                new_manor = int(manor_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_manor = 0
+            try:
+                new_cultivated = int(cultivated_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_cultivated = 0
+            try:
+                new_cq = int(cq_var.get() or "3", 10)
+            except (tk.TclError, ValueError):
+                new_cq = 3
+            try:
+                new_fallow = int(fallow_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_fallow = 0
+            new_has_herd = herd_var.get() == "Ja"
+            try:
+                new_forest = int(forest_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_forest = 0
+            try:
+                new_hq = int(hunt_var.get() or "3", 10)
+            except (tk.TclError, ValueError):
+                new_hq = 3
+            try:
+                new_law = int(law_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_law = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
@@ -2845,6 +3093,46 @@ class FeodalSimulator:
             if old_burghers != new_burghers:
                 node_data["burghers"] = new_burghers
                 changes = True
+            if new_type == "Gods":
+                if old_manor != new_manor:
+                    node_data["manor_land"] = new_manor
+                    changes = True
+                    diff = new_manor - old_manor
+                    jarldom_id = node_id
+                    while jarldom_id is not None and self.get_depth_of_node(jarldom_id) > 3:
+                        jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
+                        if not jnode:
+                            break
+                        jarldom_id = jnode.get("parent_id")
+                    if jarldom_id is not None:
+                        jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
+                        if jnode is not None:
+                            try:
+                                cur_area = int(jnode.get("jarldom_area", 0))
+                            except (ValueError, TypeError):
+                                cur_area = 0
+                            jnode["jarldom_area"] = cur_area - diff
+                if old_cultivated != new_cultivated:
+                    node_data["cultivated_land"] = new_cultivated
+                    changes = True
+                if old_cq != new_cq:
+                    node_data["cultivated_quality"] = new_cq
+                    changes = True
+                if old_fallow != new_fallow:
+                    node_data["fallow_land"] = new_fallow
+                    changes = True
+                if old_has_herd != new_has_herd:
+                    node_data["has_herd"] = new_has_herd
+                    changes = True
+                if old_forest != new_forest:
+                    node_data["forest_land"] = new_forest
+                    changes = True
+                if old_hq != new_hq:
+                    node_data["hunt_quality"] = new_hq
+                    changes = True
+                if old_law != new_law:
+                    node_data["hunting_law"] = new_law
+                    changes = True
             if old_craftsmen != new_craftsmen:
                 node_data["craftsmen"] = new_craftsmen
                 changes = True
@@ -2879,6 +3167,20 @@ class FeodalSimulator:
                 if "fishing_boats" in node_data:
                     del node_data["fishing_boats"]
                     changes = True
+            if new_type != "Gods":
+                for key in (
+                    "manor_land",
+                    "cultivated_land",
+                    "cultivated_quality",
+                    "fallow_land",
+                    "has_herd",
+                    "forest_land",
+                    "hunt_quality",
+                    "hunting_law",
+                ):
+                    if key in node_data:
+                        del node_data[key]
+                        changes = True
             if old_gamekeeper != new_gamekeeper:
                 node_data["gamekeeper_id"] = new_gamekeeper
                 changes = True
@@ -3002,6 +3304,14 @@ class FeodalSimulator:
                 or new_boats != int(node_data.get("fishing_boats", 0))
                 or new_gamekeeper != node_data.get("gamekeeper_id")
                 or new_hunters != int(node_data.get("hunters", 0))
+                or new_manor != int(node_data.get("manor_land", 0))
+                or new_cultivated != int(node_data.get("cultivated_land", 0))
+                or new_cq != int(node_data.get("cultivated_quality", 3))
+                or new_fallow != int(node_data.get("fallow_land", 0))
+                or new_has_herd != bool(node_data.get("has_herd", False))
+                or new_forest != int(node_data.get("forest_land", 0))
+                or new_hq != int(node_data.get("hunt_quality", 3))
+                or new_law != int(node_data.get("hunting_law", 0))
             )
 
         del_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)
