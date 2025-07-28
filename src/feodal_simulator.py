@@ -2033,11 +2033,12 @@ class FeodalSimulator:
 
         cultivated_label = ttk.Label(editor_frame, text="Odlingsmark:")
         cultivated_var = tk.StringVar(value=str(node_data.get("cultivated_land", 0)))
-        cultivated_entry = ttk.Entry(editor_frame, textvariable=cultivated_var, width=10)
+        c_frame = ttk.Frame(editor_frame)
+        cultivated_entry = ttk.Entry(c_frame, textvariable=cultivated_var, width=10)
         cq_label = ttk.Label(editor_frame, text="Odlingskvalitet:")
         cq_var = tk.StringVar(value=str(node_data.get("cultivated_quality", 3)))
         cq_combo = ttk.Combobox(
-            editor_frame,
+            c_frame,
             textvariable=cq_var,
             values=[str(i) for i in range(1, 6)],
             state="readonly",
@@ -2046,11 +2047,12 @@ class FeodalSimulator:
 
         fallow_label = ttk.Label(editor_frame, text="Trädad mark:")
         fallow_var = tk.StringVar(value=str(node_data.get("fallow_land", 0)))
-        fallow_entry = ttk.Entry(editor_frame, textvariable=fallow_var, width=10)
+        f_frame = ttk.Frame(editor_frame)
+        fallow_entry = ttk.Entry(f_frame, textvariable=fallow_var, width=10)
         herd_label = ttk.Label(editor_frame, text="Boskap:")
         herd_var = tk.StringVar(value="Ja" if node_data.get("has_herd") else "Nej")
         herd_combo = ttk.Combobox(
-            editor_frame, textvariable=herd_var, values=["Ja", "Nej"], state="readonly", width=5
+            f_frame, textvariable=herd_var, values=["Ja", "Nej"], state="readonly", width=5
         )
 
         forest_label = ttk.Label(editor_frame, text="Skogsmark:")
@@ -2076,7 +2078,6 @@ class FeodalSimulator:
         row_idx += 1
 
         cultivated_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        c_frame = ttk.Frame(editor_frame)
         c_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         cultivated_entry.pack(side=tk.LEFT)
         cq_combo.pack(side=tk.LEFT, padx=(5, 0))
@@ -2084,7 +2085,6 @@ class FeodalSimulator:
         row_idx += 1
 
         fallow_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        f_frame = ttk.Frame(editor_frame)
         f_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         fallow_entry.pack(side=tk.LEFT)
         herd_combo.pack(side=tk.LEFT, padx=(5, 0))
