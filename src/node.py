@@ -47,6 +47,13 @@ class Node:
     total_land: int = 0  # Total land area for 'Mark' resources
     forest_land: int = 0
     cleared_land: int = 0
+    manor_land: int = 0  # Total land area for 'Gods' resources
+    cultivated_land: int = 0
+    cultivated_quality: int = 3
+    fallow_land: int = 0
+    has_herd: bool = False
+    hunt_quality: int = 3
+    hunting_law: int = 0
     craftsmen: List[dict] = field(default_factory=list)
     soldiers: List[dict] = field(default_factory=list)
     characters: List[dict] = field(default_factory=list)
@@ -101,6 +108,28 @@ class Node:
         total_land = int(data.get("total_land", 0) or 0)
         forest_land = int(data.get("forest_land", 0) or 0)
         cleared_land = int(data.get("cleared_land", 0) or 0)
+        manor_land = int(data.get("manor_land", 0) or 0)
+        cultivated_land = int(data.get("cultivated_land", 0) or 0)
+        try:
+            cultivated_quality = int(data.get("cultivated_quality", 3) or 3)
+        except (ValueError, TypeError):
+            cultivated_quality = 3
+        cultivated_quality = max(1, min(cultivated_quality, 5))
+        fallow_land = int(data.get("fallow_land", 0) or 0)
+        herd_raw = data.get("has_herd", False)
+        if isinstance(herd_raw, str):
+            herd_raw = herd_raw.lower() in {"true", "1", "yes", "ja"}
+        has_herd = bool(herd_raw)
+        try:
+            hunt_quality = int(data.get("hunt_quality", 3) or 3)
+        except (ValueError, TypeError):
+            hunt_quality = 3
+        hunt_quality = max(1, min(hunt_quality, 5))
+        try:
+            hunting_law = int(data.get("hunting_law", 0) or 0)
+        except (ValueError, TypeError):
+            hunting_law = 0
+        hunting_law = max(0, min(hunting_law, 20))
         base_pop = int(data.get("population", 0) or 0)
         computed_pop = free_peasants + unfree_peasants + thralls + burghers
         res_type_raw = data.get("res_type", "Resurs")
@@ -228,6 +257,13 @@ class Node:
             total_land=total_land,
             forest_land=forest_land,
             cleared_land=cleared_land,
+            manor_land=manor_land,
+            cultivated_land=cultivated_land,
+            cultivated_quality=cultivated_quality,
+            fallow_land=fallow_land,
+            has_herd=has_herd,
+            hunt_quality=hunt_quality,
+            hunting_law=hunting_law,
             craftsmen=craftsmen,
             soldiers=soldiers,
             characters=characters,
@@ -309,6 +345,20 @@ class Node:
         if self.res_type == "Jaktmark":
             data["hunters"] = self.hunters
             data["gamekeeper_id"] = self.gamekeeper_id
+
+        if self.res_type == "Gods":
+            data.update(
+                {
+                    "manor_land": self.manor_land,
+                    "cultivated_land": self.cultivated_land,
+                    "cultivated_quality": self.cultivated_quality,
+                    "fallow_land": self.fallow_land,
+                    "has_herd": self.has_herd,
+                    "forest_land": self.forest_land,
+                    "hunt_quality": self.hunt_quality,
+                    "hunting_law": self.hunting_law,
+                }
+            )
 
         return data
 

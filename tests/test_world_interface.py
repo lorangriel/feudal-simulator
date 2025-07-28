@@ -168,6 +168,21 @@ def test_validate_world_data_jaktmark_defaults():
     assert "gamekeeper_id" in node
 
 
+def test_validate_world_data_gods_defaults():
+    world = {
+        "nodes": {"1": {"node_id": 1, "parent_id": None, "res_type": "Gods"}},
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 5
+    nodes_updated, _ = manager.validate_world_data()
+    assert nodes_updated > 0
+    node = world["nodes"]["1"]
+    assert "manor_land" in node
+    assert "cultivated_quality" in node and node["cultivated_quality"] == 3
+    assert "hunt_quality" in node and node["hunt_quality"] == 3
+
+
 def test_update_neighbors_for_node_bidirectional():
     world = {
         "nodes": {

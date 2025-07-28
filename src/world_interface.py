@@ -212,6 +212,45 @@ class WorldInterface(ABC):
                         if key not in node:
                             node[key] = 0
                             updated = True
+                elif res_type == "Gods":
+                    defaults = {
+                        "manor_land": 0,
+                        "cultivated_land": 0,
+                        "cultivated_quality": 3,
+                        "fallow_land": 0,
+                        "has_herd": False,
+                        "forest_land": 0,
+                        "hunt_quality": 3,
+                        "hunting_law": 0,
+                    }
+                    for key, val in defaults.items():
+                        if key not in node:
+                            node[key] = val
+                            updated = True
+                    try:
+                        cq = int(node.get("cultivated_quality", 3))
+                    except (ValueError, TypeError):
+                        cq = 3
+                    cq = max(1, min(cq, 5))
+                    if node.get("cultivated_quality") != cq:
+                        node["cultivated_quality"] = cq
+                        updated = True
+                    try:
+                        hq = int(node.get("hunt_quality", 3))
+                    except (ValueError, TypeError):
+                        hq = 3
+                    hq = max(1, min(hq, 5))
+                    if node.get("hunt_quality") != hq:
+                        node["hunt_quality"] = hq
+                        updated = True
+                    try:
+                        hl = int(node.get("hunting_law", 0))
+                    except (ValueError, TypeError):
+                        hl = 0
+                    hl = max(0, min(hl, 20))
+                    if node.get("hunting_law") != hl:
+                        node["hunting_law"] = hl
+                        updated = True
                 elif res_type == "Jaktmark":
                     if "tunnland" not in node:
                         node["tunnland"] = 0
@@ -223,7 +262,18 @@ class WorldInterface(ABC):
                         node["gamekeeper_id"] = None
                         updated = True
                 else:
-                    for key in ("total_land", "forest_land", "cleared_land"):
+                    for key in (
+                        "total_land",
+                        "forest_land",
+                        "cleared_land",
+                        "manor_land",
+                        "cultivated_land",
+                        "cultivated_quality",
+                        "fallow_land",
+                        "has_herd",
+                        "hunt_quality",
+                        "hunting_law",
+                    ):
                         if key in node:
                             del node[key]
                             updated = True

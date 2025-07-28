@@ -285,6 +285,42 @@ def test_node_mark_land_roundtrip():
     assert back["cleared_land"] == 5
 
 
+def test_node_gods_roundtrip():
+    raw = {
+        "node_id": 80,
+        "parent_id": 1,
+        "res_type": "Gods",
+        "manor_land": 100,
+        "cultivated_land": 60,
+        "cultivated_quality": 4,
+        "fallow_land": 20,
+        "has_herd": True,
+        "forest_land": 20,
+        "hunt_quality": 5,
+        "hunting_law": 2,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.manor_land == 100
+    assert node.cultivated_land == 60
+    assert node.cultivated_quality == 4
+    assert node.fallow_land == 20
+    assert node.has_herd is True
+    assert node.forest_land == 20
+    assert node.hunt_quality == 5
+    assert node.hunting_law == 2
+
+    back = node.to_dict()
+    assert back["manor_land"] == 100
+    assert back["cultivated_land"] == 60
+    assert back["cultivated_quality"] == 4
+    assert back["fallow_land"] == 20
+    assert back["has_herd"] is True
+    assert back["forest_land"] == 20
+    assert back["hunt_quality"] == 5
+    assert back["hunting_law"] == 2
+
+
 def test_node_water_fields_roundtrip():
     raw = {
         "node_id": 70,
