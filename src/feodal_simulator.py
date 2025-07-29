@@ -2038,7 +2038,7 @@ class FeodalSimulator:
         cq_label = ttk.Label(editor_frame, text="Odlingskvalitet:")
         cq_var = tk.StringVar(value=str(node_data.get("cultivated_quality", 3)))
         cq_combo = ttk.Combobox(
-            c_frame,
+            editor_frame,
             textvariable=cq_var,
             values=[str(i) for i in range(1, 6)],
             state="readonly",
@@ -2052,7 +2052,7 @@ class FeodalSimulator:
         herd_label = ttk.Label(editor_frame, text="Boskap:")
         herd_var = tk.StringVar(value="Ja" if node_data.get("has_herd") else "Nej")
         herd_combo = ttk.Combobox(
-            f_frame, textvariable=herd_var, values=["Ja", "Nej"], state="readonly", width=5
+            editor_frame, textvariable=herd_var, values=["Ja", "Nej"], state="readonly", width=5
         )
 
         forest_label = ttk.Label(editor_frame, text="Skogsmark:")
@@ -2068,7 +2068,7 @@ class FeodalSimulator:
             width=5,
         )
 
-        law_label = ttk.Label(editor_frame, text="Jakträtt:")
+        law_label = ttk.Label(editor_frame, text="Jaktlag:")
         law_var = tk.StringVar(value=str(node_data.get("hunting_law", 0)))
         law_combo = ttk.Combobox(editor_frame, textvariable=law_var, state="readonly", width=5)
 
@@ -2080,25 +2080,23 @@ class FeodalSimulator:
         cultivated_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         c_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         cultivated_entry.pack(side=tk.LEFT)
-        cq_combo.pack(side=tk.LEFT, padx=(5, 0))
         cq_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        cq_combo.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         fallow_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         f_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         fallow_entry.pack(side=tk.LEFT)
-        herd_combo.pack(side=tk.LEFT, padx=(5, 0))
         herd_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        herd_combo.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         forest_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         forest_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        hunt_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
-        hunt_combo.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
-        row_idx += 1
-
-        law_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        law_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        law_label.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        law_combo.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+        hunt_label.grid(row=row_idx, column=4, sticky="w", padx=5, pady=3)
+        hunt_combo.grid(row=row_idx, column=5, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         water_label = ttk.Label(editor_frame, text="Fiskekvalitet:")
@@ -2221,11 +2219,15 @@ class FeodalSimulator:
                 cultivated_label.grid()
                 c_frame.grid()
                 cq_label.grid()
+                cq_combo.grid()
                 fallow_label.grid()
                 f_frame.grid()
                 herd_label.grid()
+                herd_combo.grid()
                 forest_label.grid()
                 forest_entry.grid()
+                law_label.grid()
+                law_combo.grid()
                 hunt_label.grid()
                 hunt_combo.grid()
                 update_law_options()
@@ -2235,15 +2237,17 @@ class FeodalSimulator:
                 cultivated_label.grid_remove()
                 c_frame.grid_remove()
                 cq_label.grid_remove()
+                cq_combo.grid_remove()
                 fallow_label.grid_remove()
                 f_frame.grid_remove()
                 herd_label.grid_remove()
+                herd_combo.grid_remove()
                 forest_label.grid_remove()
                 forest_entry.grid_remove()
-                hunt_label.grid_remove()
-                hunt_combo.grid_remove()
                 law_label.grid_remove()
                 law_combo.grid_remove()
+                hunt_label.grid_remove()
+                hunt_combo.grid_remove()
 
         def handle_herd_toggle(*_):
             val = herd_var.get()
