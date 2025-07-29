@@ -79,6 +79,18 @@ class WorldManager(WorldInterface):
             nodes[str(nid)]["population"] = base_pop
 
         # Now accumulate child populations from deepest level upwards
+        parent_lookup: Dict[int, List[int]] = {}
+        for cid_str, cdata in nodes.items():
+            try:
+                cid = int(cid_str)
+            except ValueError:
+                continue
+            pid = cdata.get("parent_id")
+            if isinstance(pid, str) and pid.isdigit():
+                pid = int(pid)
+            if isinstance(pid, int):
+                parent_lookup.setdefault(pid, []).append(cid)
+
         for depth in range(max_depth, -1, -1):
             for nid, d in depth_map.items():
                 if d != depth:
@@ -87,7 +99,9 @@ class WorldManager(WorldInterface):
                 if not node:
                     continue
                 total = base_population.get(nid, 0)
-                for cid in node.get("children", []):
+                child_ids = set(node.get("children", []))
+                child_ids.update(parent_lookup.get(nid, []))
+                for cid in child_ids:
                     child = nodes.get(str(cid))
                     if not child:
                         continue
