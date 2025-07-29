@@ -1311,6 +1311,12 @@ class FeodalSimulator:
         delete_button = ttk.Button(parent_frame, text="Radera Nod (och underliggande)", command=do_delete, style="Danger.TButton")
         return delete_button
 
+    def _auto_save_field(self, node_data, key, value, refresh_tree=False):
+        node_data[key] = value
+        self.save_current_world()
+        if refresh_tree:
+            self.refresh_tree_item(node_data.get("node_id"))
+
 
     def _show_upper_level_node_editor(self, parent_frame, node_data, depth):
         """Editor for Kingdom, Furstendöme, Hertigdöme (Depth 0-2)."""
@@ -1338,6 +1344,7 @@ class FeodalSimulator:
         name_var = tk.StringVar(value=node_data.get("name", ""))
         name_entry = ttk.Entry(editor_frame, textvariable=name_var, width=40)
         name_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        name_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "name", name_var.get().strip(), True))
         row_idx += 1
 
         # Custom Name (Optional extra identifier)
@@ -1345,6 +1352,7 @@ class FeodalSimulator:
         custom_name_var = tk.StringVar(value=node_data.get("custom_name", ""))
         custom_name_entry = ttk.Entry(editor_frame, textvariable=custom_name_var, width=40)
         custom_name_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        custom_name_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "custom_name", custom_name_var.get().strip(), True))
         row_idx += 1
 
         # Population
@@ -1356,15 +1364,8 @@ class FeodalSimulator:
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
-        # Number of Subfiefs
-        ttk.Label(editor_frame, text="Antal Underförläningar (barnregioner):").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
-        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
-        sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        row_idx += 1
-
         # Inline help explaining subfiefs
-        help_text = "En underförläning är en region som lyder under denna. \nÄndra antalet för att skapa eller ta bort."
+        help_text = "En underförläning lyder under denna region.\nKlicka 'Skapa Nod' för att lägga till en." 
         ttk.Label(editor_frame, text=help_text, wraplength=300).grid(row=row_idx, column=0, columnspan=2, sticky="w", padx=5, pady=(0,5))
         row_idx += 1
 
@@ -1385,47 +1386,17 @@ class FeodalSimulator:
         button_frame.grid(row=row_idx, column=0, columnspan=2, pady=5)
         row_idx += 1
 
-        def update_subfiefs_action():
-            # Save potentially changed data before updating children
+        def create_subnode_action():
             node_data["name"] = name_var.get().strip()
             node_data["custom_name"] = custom_name_var.get().strip()
             try:
                 node_data["population"] = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
                 node_data["population"] = 0
-            try:
-                target_subfiefs = int(sub_var.get() or "0", 10)
-                if target_subfiefs < 0:
-                    target_subfiefs = 0
-                node_data["num_subfiefs"] = target_subfiefs
-            except (tk.TclError, ValueError):
-                node_data["num_subfiefs"] = 0
-            current_count = len(node_data.get("children", []))
-            if abs(target_subfiefs - current_count) > 1:
-                if not messagebox.askyesno(
-                        "Bekräfta",
-                        "Du är på väg att ändra antalet underförläningar med fler än en. Är du säker?",
-                        parent=self.root):
-                    return
-
-            self.update_subfiefs_for_node(node_data)
-            # The view will be refreshed by update_subfiefs_for_node finding this node again
-
-        ttk.Button(button_frame, text="Uppdatera Underförläningar", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
-
-        def add_subnode_action():
-            node_data["name"] = name_var.get().strip()
-            node_data["custom_name"] = custom_name_var.get().strip()
-            try:
-                node_data["population"] = int(pop_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["population"] = 0
-            new_count = node_data.get("num_subfiefs", 0) + 1
-            sub_var.set(new_count)
-            node_data["num_subfiefs"] = new_count
+            node_data["num_subfiefs"] = len(node_data.get("children", [])) + 1
             self.update_subfiefs_for_node(node_data)
 
-        ttk.Button(button_frame, text="Lägg till Underförläning", command=add_subnode_action).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Skapa Nod", command=create_subnode_action).pack(side=tk.LEFT, padx=5)
 
         def save_node_action():
             old_name = node_data.get("name", "")
@@ -1475,10 +1446,7 @@ class FeodalSimulator:
                 current_pop = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
                 current_pop = 0
-            try:
-                current_sub = int(sub_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                current_sub = 0
+            current_sub = len(node_data.get("children", []))
             return (
                 name_var.get().strip() != node_data.get("name", "")
                 or custom_name_var.get().strip() != node_data.get("custom_name", "")
@@ -1552,6 +1520,7 @@ class FeodalSimulator:
         custom_name_var = tk.StringVar(value=node_data.get("custom_name", ""))
         custom_name_entry = ttk.Entry(editor_frame, textvariable=custom_name_var, width=40)
         custom_name_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        custom_name_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "custom_name", custom_name_var.get().strip(), True))
         row_idx += 1
 
         # Population
@@ -1733,12 +1702,8 @@ class FeodalSimulator:
 
         row_idx += 1
 
-        # Number of Subfiefs (Resources under the Jarldom)
-        ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
-        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
-        sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        row_idx += 1
+        # Removed numeric control for subresources
+        row_idx += 0
 
         # --- Actions Frame ---
         ttk.Separator(editor_frame, orient=tk.HORIZONTAL).grid(row=row_idx, column=0, columnspan=2, sticky="ew", pady=(15, 10))
@@ -1748,55 +1713,6 @@ class FeodalSimulator:
         row_idx += 1
 
 
-        def update_subfiefs_action():
-            # Save potentially changed data before updating children
-            new_custom_name = custom_name_var.get().strip()
-            if not new_custom_name:
-                messagebox.showwarning("Namn Saknas", "Ett Jarldöme måste ha ett namn.", parent=self.root)
-                return
-            node_data["custom_name"] = new_custom_name
-
-            try:
-                node_data["population"] = int(pop_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["population"] = 0
-            try:
-                target_subfiefs = int(sub_var.get() or "0", 10)
-                if target_subfiefs < 0:
-                    target_subfiefs = 0
-                node_data["num_subfiefs"] = target_subfiefs
-            except (tk.TclError, ValueError):
-                node_data["num_subfiefs"] = 0
-            try:
-                node_data["work_available"] = int(work_av_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["work_available"] = 0
-            try:
-                node_data["work_needed"] = int(work_need_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["work_needed"] = 0
-            try:
-                node_data["storage_silver"] = int(silver_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["storage_silver"] = 0
-            try:
-                node_data["storage_basic"] = int(basic_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["storage_basic"] = 0
-            try:
-                node_data["storage_luxury"] = int(luxury_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["storage_luxury"] = 0
-            try:
-                node_data["jarldom_area"] = int(area_var.get() or "0")
-            except (tk.TclError, ValueError):
-                node_data["jarldom_area"] = 0
-            node_data["res_type"] = "Resurs" # Ensure internal type is correct
-
-            self.update_subfiefs_for_node(node_data)
-            # View refreshed by update function finding this node again
-
-        ttk.Button(action_button_frame, text="Uppdatera Underresurser", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
 
 
         def save_node_action():
@@ -1919,6 +1835,13 @@ class FeodalSimulator:
 
         ttk.Button(action_button_frame, text="Spara Jarldöme", command=save_node_action).pack(side=tk.LEFT, padx=5)
 
+        def create_subnode_action():
+            save_node_action()
+            node_data["num_subfiefs"] = len(node_data.get("children", [])) + 1
+            self.update_subfiefs_for_node(node_data)
+
+        ttk.Button(action_button_frame, text="Skapa Nod", command=create_subnode_action).pack(side=tk.LEFT, padx=5)
+
 
         # --- Neighbor Editing ---
         neighbor_button_frame = ttk.Frame(action_button_frame) # Add to same action row
@@ -1936,10 +1859,7 @@ class FeodalSimulator:
                 current_pop = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
                 current_pop = 0
-            try:
-                current_sub = int(sub_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                current_sub = 0
+            current_sub = len(node_data.get("children", []))
             try:
                 cur_av = int(work_av_var.get() or "0")
             except (tk.TclError, ValueError):
@@ -2009,6 +1929,7 @@ class FeodalSimulator:
         custom_var = tk.StringVar(value=node_data.get("custom_name", ""))
         custom_entry = ttk.Entry(editor_frame, textvariable=custom_var, width=40)
         custom_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        custom_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "custom_name", custom_var.get().strip(), True))
         row_idx += 1
 
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
@@ -2312,11 +2233,8 @@ class FeodalSimulator:
         update_law_options()
         herd_var.trace_add("write", handle_herd_toggle)
 
-        ttk.Label(editor_frame, text="Antal Underresurser:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        sub_var = tk.StringVar(value=str(node_data.get("num_subfiefs", 0)))
-        sub_spinbox = tk.Spinbox(editor_frame, from_=0, to=100, textvariable=sub_var, width=5, font=("Arial", 10))
-        sub_spinbox.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        row_idx += 1
+        # Removed numeric field for subresources
+        row_idx += 0
 
         settlement_row = row_idx
         settlement_frame = ttk.Frame(editor_frame)
@@ -2861,16 +2779,10 @@ class FeodalSimulator:
                     manual_pop = 0
                 temp_data["population"] = manual_pop
             node_data["population"] = self.calculate_population_from_fields(temp_data)
-            try:
-                target = int(sub_var.get() or "0", 10)
-                if target < 0:
-                    target = 0
-                node_data["num_subfiefs"] = target
-            except (tk.TclError, ValueError):
-                node_data["num_subfiefs"] = 0
+            node_data["num_subfiefs"] = len(node_data.get("children", [])) + 1
             self.update_subfiefs_for_node(node_data)
 
-        ttk.Button(action_frame, text="Uppdatera Underresurser", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Skapa Nod", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
 
         def save_node_action():
             old_custom = node_data.get("custom_name", "")
@@ -3217,10 +3129,7 @@ class FeodalSimulator:
                 manual_area = int(area_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 manual_area = 0
-            try:
-                current_sub = int(sub_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                current_sub = 0
+            current_sub = len(node_data.get("children", []))
             try:
                 new_free = int(free_var.get() or "0", 10)
             except (tk.TclError, ValueError):
