@@ -143,6 +143,7 @@ def test_validate_world_data_resource_fields_by_type():
     assert "soldiers" in node1 and node1["soldiers"] == []
     assert "animals" not in node1
     assert "animals" in node2 and node2["animals"] == []
+    assert "population" not in node2
     assert "soldiers" not in node2
     assert "soldiers" not in node3
     assert "animals" not in node3

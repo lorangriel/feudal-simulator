@@ -2083,6 +2083,11 @@ class FeodalSimulator:
                 area_entry.grid()
                 pop_label.grid_remove()
                 pop_entry.grid_remove()
+            elif res_var.get() == "Djur":
+                area_label.grid_remove()
+                area_entry.grid_remove()
+                pop_label.grid_remove()
+                pop_entry.grid_remove()
             else:
                 area_label.grid_remove()
                 area_entry.grid_remove()
@@ -2772,6 +2777,8 @@ class FeodalSimulator:
                 except (tk.TclError, ValueError):
                     node_data["tunnland"] = 0
                 temp_data["population"] = 0
+            elif res_var.get() == "Djur":
+                temp_data["population"] = 0
             else:
                 try:
                     manual_pop = int(pop_var.get() or "0")
@@ -2963,7 +2970,7 @@ class FeodalSimulator:
                 if r["type_var"].get()
             ]
 
-            if new_type == "Vildmark":
+            if new_type in {"Vildmark", "Djur"}:
                 new_pop = 0
             else:
                 new_pop = self.calculate_population_from_fields({
@@ -3061,6 +3068,9 @@ class FeodalSimulator:
             if new_type == "Djur":
                 if old_animals != new_animals:
                     node_data["animals"] = new_animals
+                    changes = True
+                if "population" in node_data:
+                    del node_data["population"]
                     changes = True
             else:
                 if "animals" in node_data:
@@ -3186,7 +3196,7 @@ class FeodalSimulator:
                 for r in building_rows
                 if r["type_var"].get()
             ]
-            if res_var.get() == "Vildmark":
+            if res_var.get() in {"Vildmark", "Djur"}:
                 new_pop = 0
             else:
                 new_pop = self.calculate_population_from_fields({
