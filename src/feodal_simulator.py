@@ -1361,7 +1361,7 @@ class FeodalSimulator:
         # Population
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        calculated_pop = self.calculate_population_from_fields(node_data)
+        calculated_pop = int(node_data.get("population", 0))
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
@@ -1529,7 +1529,7 @@ class FeodalSimulator:
         # Population
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        calculated_pop = self.calculate_population_from_fields(node_data)
+        calculated_pop = int(node_data.get("population", 0))
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
@@ -1937,7 +1937,7 @@ class FeodalSimulator:
 
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        calculated_pop = self.calculate_population_from_fields(node_data)
+        calculated_pop = int(node_data.get("population", 0))
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
