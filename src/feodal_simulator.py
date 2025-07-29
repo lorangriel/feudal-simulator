@@ -547,6 +547,9 @@ class FeodalSimulator:
             )
             self.save_current_world()
 
+        # Ensure population totals are consistent upon load
+        self.world_manager.update_population_totals()
+
         # Load any saved static map positions
         self.load_static_positions()
 

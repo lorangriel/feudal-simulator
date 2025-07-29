@@ -211,6 +211,34 @@ def test_load_world_uses_saved_positions():
     assert sim.map_static_positions[20] == (5, 1)
 
 
+def test_load_world_updates_population_totals():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {"node_id": 2, "parent_id": 1, "children": [3], "res_type": "Gods"},
+            "3": {
+                "node_id": 3,
+                "parent_id": 2,
+                "children": [],
+                "res_type": "Bosättning",
+                "free_peasants": 4,
+            },
+        },
+        "characters": {},
+    }
+    sim = LoadStubSimulator()
+    sim.world_manager = fs.WorldManager({})
+    sim.static_rows = 1
+    sim.static_cols = 1
+    sim.all_worlds = {"A": world}
+
+    fs.FeodalSimulator.load_world(sim, "A")
+
+    assert sim.world_data["nodes"]["1"]["population"] == 4
+    assert sim.world_data["nodes"]["2"]["population"] == 4
+    assert sim.world_data["nodes"]["3"]["population"] == 4
+
+
 def test_auto_link_adjacent_hexes_adds_neighbors():
     world = {
         "nodes": {
