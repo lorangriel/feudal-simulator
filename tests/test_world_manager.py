@@ -264,3 +264,29 @@ def test_set_border_between_updates_both_nodes():
     assert changed
     assert world["nodes"]["1"]["neighbors"][0]["border"] == NEIGHBOR_NONE_STR
     assert world["nodes"]["2"]["neighbors"][0]["border"] == NEIGHBOR_NONE_STR
+
+
+def test_population_totals_use_parent_links():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [4]},
+            "4": {"node_id": 4, "parent_id": 1, "children": [], "res_type": "Gods"},
+            "5": {
+                "node_id": 5,
+                "parent_id": 4,
+                "children": [],
+                "res_type": "Bosättning",
+                "free_peasants": 6,
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: {1: 0, 4: 1, 5: 2}[nid]
+
+    manager.update_population_totals()
+
+    assert world["nodes"]["5"]["population"] == 6
+    assert world["nodes"]["4"]["population"] == 6
+    assert world["nodes"]["1"]["population"] == 6
