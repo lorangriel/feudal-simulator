@@ -130,16 +130,22 @@ class Node:
         except (ValueError, TypeError):
             hunting_law = 0
         hunting_law = max(0, min(hunting_law, 20))
-        base_pop = int(data.get("population", 0) or 0)
+        pop_raw = data.get("population")
+        base_pop: int | None
+        try:
+            base_pop = int(pop_raw) if pop_raw is not None else None
+        except (ValueError, TypeError):
+            base_pop = None
+
         computed_pop = free_peasants + unfree_peasants + thralls + burghers
         res_type_raw = data.get("res_type", "Resurs")
         res_type = res_type_raw if isinstance(res_type_raw, str) and res_type_raw else "Resurs"
         if res_type in {"Vildmark", "Jaktmark"}:
             population = 0
-        elif computed_pop:
-            population = computed_pop
-        else:
+        elif pop_raw is not None and base_pop is not None:
             population = base_pop
+        else:
+            population = computed_pop
         craftsmen_raw = data.get("craftsmen", [])
         craftsmen: List[dict] = []
         if isinstance(craftsmen_raw, list):
@@ -363,11 +369,18 @@ class Node:
         return data
 
     def calculate_population(self) -> int:
-        """Return the total population for this node based on categories."""
-        total = (
+        """Return stored population, falling back to category totals."""
+        try:
+            stored = int(self.population)
+        except (ValueError, TypeError):
+            stored = 0
+
+        if stored:
+            return stored
+
+        return (
             self.free_peasants
             + self.unfree_peasants
             + self.thralls
             + self.burghers
         )
-        return total if total else self.population
