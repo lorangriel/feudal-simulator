@@ -128,6 +128,10 @@ class WorldInterface(ABC):
                     if key not in node:
                         node[key] = 0
                         updated = True
+            elif res_type == "Djur":
+                if "population" in node:
+                    del node["population"]
+                    updated = True
             else:
                 if "population" not in node:
                     node["population"] = 0
@@ -250,6 +254,10 @@ class WorldInterface(ABC):
                     hl = max(0, min(hl, 20))
                     if node.get("hunting_law") != hl:
                         node["hunting_law"] = hl
+                        updated = True
+                elif res_type == "Djur":
+                    if "population" in node:
+                        del node["population"]
                         updated = True
                 elif res_type == "Jaktmark":
                     if "tunnland" not in node:
