@@ -3672,9 +3672,26 @@ class FeodalSimulator:
                         outline_color = "red"
                         name = f"Fel: {node_id}"
 
-                poly_id = self.static_map_canvas.create_polygon(points, fill=fill_color, outline=outline_color, width=2, tags=(f"hex_{r}_{c}", f"node_{node_id}" if node_id else ""))
+                poly_id = self.static_map_canvas.create_polygon(
+                    points,
+                    fill=fill_color,
+                    outline=outline_color,
+                    width=2,
+                    tags=(
+                        f"hex_{r}_{c}",
+                        f"hex_poly_{r}_{c}",
+                        f"node_{node_id}" if node_id else "",
+                    ),
+                )
                 if name:
-                    text_id = self.static_map_canvas.create_text(center_x, center_y, text=name, fill="black", anchor="center", tags=(f"hex_{r}_{c}", f"node_{node_id}" if node_id else ""))
+                    text_id = self.static_map_canvas.create_text(
+                        center_x,
+                        center_y,
+                        text=name,
+                        fill="black",
+                        anchor="center",
+                        tags=(f"hex_{r}_{c}", f"node_{node_id}" if node_id else ""),
+                    )
 
                 # Bind double-click to open node view
                 if node_id:
@@ -3761,11 +3778,11 @@ class FeodalSimulator:
         for r in range(self.static_rows):
             for c in range(self.static_cols):
                 node_id = self.static_grid_occupied[r][c]
-                tag = f"hex_{r}_{c}"
+                poly_tag = f"hex_poly_{r}_{c}"
                 if node_id is None:
-                    self.static_map_canvas.itemconfig(tag, fill="#dddddd", outline="gray")
+                    self.static_map_canvas.itemconfig(poly_tag, fill="#dddddd", outline="gray")
                 else:
-                    self.static_map_canvas.itemconfig(tag, fill="#ccffcc", outline="green")
+                    self.static_map_canvas.itemconfig(poly_tag, fill="#ccffcc", outline="green")
 
     def highlight_neighbor_candidates(self, start_node_id):
         """Highlights potential neighbors when starting a link drag.
@@ -3803,14 +3820,16 @@ class FeodalSimulator:
                 r, c = pos
                 # Yellow highlight for nodes sharing the same parent
                 self.static_map_canvas.itemconfig(
-                    f"hex_{r}_{c}", fill="#ffffaa", outline="green"
+                    f"hex_poly_{r}_{c}", fill="#ffffaa", outline="green"
                 )
 
         for nid in neighbor_ids:
             pos = self.map_static_positions.get(nid)
             if pos:
                 r, c = pos
-                self.static_map_canvas.itemconfig(f"hex_{r}_{c}", fill="#ffcccc", outline="red")
+                self.static_map_canvas.itemconfig(
+                    f"hex_poly_{r}_{c}", fill="#ffcccc", outline="red"
+                )
 
     def on_static_map_button_press(self, event):
         """Handles mouse button press on the static map for drag start."""
