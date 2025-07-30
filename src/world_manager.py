@@ -161,7 +161,10 @@ class WorldManager(WorldInterface):
         return totals
 
     def calculate_total_resources(
-        self, node_id: int, visited: set[int] | None = None
+        self,
+        node_id: int,
+        visited: set[int] | None = None,
+        parent_lookup: Dict[int, List[int]] | None = None,
     ) -> Dict[str, Any]:
         """Recursively sum resources for ``node_id`` and store on each node.
 
@@ -169,6 +172,18 @@ class WorldManager(WorldInterface):
         """
 
         nodes = self.world_data.get("nodes", {})
+        if parent_lookup is None:
+            parent_lookup = {}
+            for cid_str, cdata in nodes.items():
+                try:
+                    cid = int(cid_str)
+                except ValueError:
+                    continue
+                pid = cdata.get("parent_id")
+                if isinstance(pid, str) and pid.isdigit():
+                    pid = int(pid)
+                if isinstance(pid, int):
+                    parent_lookup.setdefault(pid, []).append(cid)
 
         if visited is None:
             visited = set()
@@ -205,7 +220,7 @@ class WorldManager(WorldInterface):
             "buildings": {},
         }
 
-        # Node's own population
+        # Node's own population (ignoring aggregated child totals)
         try:
             pop = (
                 int(node.get("free_peasants", 0) or 0)
@@ -216,8 +231,9 @@ class WorldManager(WorldInterface):
         except (ValueError, TypeError):
             pop = 0
         if not pop:
+            base = node.get("_base_population")
             try:
-                pop = int(node.get("population", 0) or 0)
+                pop = int(base) if base is not None else int(node.get("population", 0) or 0)
             except (ValueError, TypeError):
                 pop = 0
         totals["population"] += pop
@@ -247,8 +263,10 @@ class WorldManager(WorldInterface):
                 c = 0
             add_count(totals["buildings"], t, c)
 
-        for child_id in node.get("children", []):
-            child_totals = self.calculate_total_resources(child_id, visited)
+        child_ids = set(node.get("children", []))
+        child_ids.update(parent_lookup.get(node_id, []))
+        for child_id in child_ids:
+            child_totals = self.calculate_total_resources(child_id, visited, parent_lookup)
             totals["population"] += child_totals.get("population", 0)
             for key in ("soldiers", "characters", "animals", "buildings"):
                 child_dict = child_totals.get(key, {})

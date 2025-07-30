@@ -131,6 +131,34 @@ def test_calculate_total_resources_cycle():
     assert world["nodes"]["2"]["total_resources"]["population"] == 5
 
 
+def test_total_resources_uses_base_population():
+    """Population totals should not double count aggregated values."""
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [4]},
+            "4": {"node_id": 4, "parent_id": 1, "children": [], "res_type": "Gods"},
+            "5": {
+                "node_id": 5,
+                "parent_id": 4,
+                "children": [],
+                "res_type": "Bosättning",
+                "free_peasants": 6,
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda nid: {1: 0, 4: 1, 5: 2}[nid]
+
+    manager.update_population_totals()
+    totals = manager.calculate_total_resources(1)
+
+    assert totals["population"] == 6
+    assert world["nodes"]["1"]["total_resources"]["population"] == 6
+    assert world["nodes"]["4"]["total_resources"]["population"] == 6
+
+
 def test_count_descendants_simple_hierarchy():
     world = {
         "nodes": {
