@@ -48,6 +48,7 @@ class FeodalSimulator:
         self.active_world_name = None
         self.world_data = None # Holds the data for the active world
         self.world_manager = WorldManager(self.world_data)
+        self.pending_save_callback: Callable[[], None] | None = None
 
         # --- Styling ---
         self.style = ttk.Style()
@@ -217,6 +218,14 @@ class FeodalSimulator:
         #else:
         #    print("Warning: Tried to save world, but no active world or data.")
 
+    def commit_pending_changes(self):
+        """If an editor save callback is pending, call it before switching views."""
+        if self.pending_save_callback:
+            try:
+                self.pending_save_callback()
+            finally:
+                self.pending_save_callback = None
+
 
     def _clear_right_frame(self):
         """Destroys all widgets in the right frame."""
@@ -235,6 +244,7 @@ class FeodalSimulator:
 
     def show_no_world_view(self):
         """Displays a placeholder when no world is loaded or no node is selected."""
+        self.commit_pending_changes()
         self._clear_right_frame()
         label_text = "Ingen värld är aktiv.\n\nAnvänd 'Hantera data' för att skapa eller ladda en värld."
         if self.active_world_name:
@@ -1190,6 +1200,7 @@ class FeodalSimulator:
     # --------------------------------------------------
     def show_node_view(self, node_data):
         """Displays the appropriate editor for the given node in the right frame."""
+        self.commit_pending_changes()
         self._clear_right_frame()
 
         if not isinstance(node_data, dict):
@@ -1438,6 +1449,7 @@ class FeodalSimulator:
 
 
         ttk.Button(button_frame, text="Spara Noddata", command=save_node_action).pack(side=tk.LEFT, padx=5)
+        self.pending_save_callback = save_node_action
 
         # --- Delete and Back Buttons Frame ---
         delete_back_frame = ttk.Frame(editor_frame)
@@ -1837,6 +1849,7 @@ class FeodalSimulator:
 
 
         ttk.Button(action_button_frame, text="Spara Jarldöme", command=save_node_action).pack(side=tk.LEFT, padx=5)
+        self.pending_save_callback = save_node_action
 
         def create_subnode_action():
             save_node_action()
@@ -3128,6 +3141,7 @@ class FeodalSimulator:
 
         save_button.configure(command=save_node_action)
         ttk.Button(action_frame, text="Spara Resurs", command=save_node_action).pack(side=tk.LEFT, padx=5)
+        self.pending_save_callback = save_node_action
 
         delete_back_frame = ttk.Frame(editor_frame)
         delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
