@@ -234,6 +234,14 @@ class FeodalSimulator:
             self.static_map_canvas.unbind("<Motion>")  # For hover effects if added
             self.static_map_canvas = None  # Clear reference
 
+        # If a dynamic map view is active, make sure to clear references
+        if self.dynamic_map_view:
+            try:
+                self.dynamic_map_view.hide_tooltip()
+            except Exception:
+                pass
+            self.dynamic_map_view = None
+
         for widget in self.right_frame.winfo_children():
             widget.destroy()
         self.map_drag_start_node_id = None  # Reset drag state
