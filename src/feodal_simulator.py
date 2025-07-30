@@ -1435,7 +1435,9 @@ class FeodalSimulator:
                 node_data["custom_name"] = new_custom_name; changes_made = True
                 status_details.append(f"Eget namn: '{old_custom_name}' -> '{new_custom_name}'")
             if old_pop != new_pop:
-                node_data["population"] = new_pop; changes_made = True
+                node_data["population"] = new_pop
+                node_data["_base_population"] = new_pop
+                changes_made = True
                 status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
 
             if changes_made:
@@ -1780,7 +1782,9 @@ class FeodalSimulator:
                 node_data["custom_name"] = new_custom_name; changes_made = True
                 status_details.append(f"Namn: '{old_custom_name}' -> '{new_custom_name}'")
             if old_pop != new_pop:
-                node_data["population"] = new_pop; changes_made = True
+                node_data["population"] = new_pop
+                node_data["_base_population"] = new_pop
+                changes_made = True
                 status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
             if old_work_av != new_work_av:
                 node_data["work_available"] = new_work_av; changes_made = True
@@ -3011,6 +3015,7 @@ class FeodalSimulator:
             else:
                 if old_pop != new_pop:
                     node_data["population"] = new_pop
+                    node_data["_base_population"] = new_pop
                     changes = True
                     details.append(f"Befolkning: {old_pop} -> {new_pop}")
             if old_type != new_type:
