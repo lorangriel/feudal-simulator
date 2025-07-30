@@ -2111,11 +2111,16 @@ class FeodalSimulator:
                 area_entry.grid()
                 pop_label.grid_remove()
                 pop_entry.grid_remove()
-            elif res_var.get() in {"Djur", "Gods"}:
+            elif res_var.get() == "Djur":
                 area_label.grid_remove()
                 area_entry.grid_remove()
                 pop_label.grid_remove()
                 pop_entry.grid_remove()
+            elif res_var.get() == "Gods":
+                area_label.grid_remove()
+                area_entry.grid_remove()
+                pop_label.grid()
+                pop_entry.grid()
             else:
                 area_label.grid_remove()
                 area_entry.grid_remove()
