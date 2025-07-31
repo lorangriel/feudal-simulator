@@ -22,6 +22,8 @@ from constants import (
     CHARACTER_TYPES,
     FISH_QUALITY_LEVELS,
     MAX_FISHING_BOATS,
+    DAGSVERKEN_LEVELS,
+    DAGSVERKEN_MULTIPLIERS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -2283,6 +2285,7 @@ class FeodalSimulator:
         unfree_var = tk.StringVar(value=str(node_data.get("unfree_peasants", 0)))
         thrall_var = tk.StringVar(value=str(node_data.get("thralls", 0)))
         burgher_var = tk.StringVar(value=str(node_data.get("burghers", 0)))
+        dagsverken_var = tk.StringVar(value=node_data.get("dagsverken", "normalt"))
 
         def update_population_display(*_args) -> None:
             """Update population field based on category counts."""
@@ -2376,9 +2379,17 @@ class FeodalSimulator:
             ttk.Label(settlement_frame, text=label).grid(row=idx, column=0, sticky="w", padx=5, pady=3)
             ttk.Entry(settlement_frame, textvariable=var, width=10).grid(row=idx, column=1, sticky="w", padx=5, pady=3)
 
-        ttk.Label(settlement_frame, text="Hantverkare:").grid(row=5, column=0, sticky="nw", padx=5, pady=(10, 3))
+        ttk.Label(settlement_frame, text="Dagsverken:").grid(row=5, column=0, sticky="w", padx=5, pady=3)
+        dagsverken_combo = ttk.Combobox(
+            settlement_frame,
+            textvariable=dagsverken_var,
+            values=list(DAGSVERKEN_LEVELS),
+            state="readonly",
+        )
+        dagsverken_combo.grid(row=5, column=1, sticky="w", padx=5, pady=3)
+        ttk.Label(settlement_frame, text="Hantverkare:").grid(row=6, column=0, sticky="nw", padx=5, pady=(10, 3))
         craft_frame = ttk.Frame(settlement_frame)
-        craft_frame.grid(row=5, column=1, sticky="w", pady=(10, 3))
+        craft_frame.grid(row=6, column=1, sticky="w", pady=(10, 3))
 
         soldier_label = ttk.Label(editor_frame, text="Soldater:")
         soldier_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
@@ -2743,6 +2754,7 @@ class FeodalSimulator:
             node_data["custom_name"] = custom_var.get().strip()
             node_data["res_type"] = res_var.get().strip()
             node_data["settlement_type"] = settlement_type_var.get().strip()
+            node_data["dagsverken"] = dagsverken_var.get().strip()
             try:
                 node_data["free_peasants"] = int(free_var.get() or "0", 10)
             except (tk.TclError, ValueError):
@@ -2833,6 +2845,7 @@ class FeodalSimulator:
             old_unfree = int(node_data.get("unfree_peasants", 0))
             old_thralls = int(node_data.get("thralls", 0))
             old_burghers = int(node_data.get("burghers", 0))
+            old_dags = node_data.get("dagsverken", "normalt")
             old_craftsmen = node_data.get("craftsmen", [])
             old_soldiers = node_data.get("soldiers", [])
             old_characters = node_data.get("characters", [])
@@ -2851,6 +2864,10 @@ class FeodalSimulator:
             old_forest = int(node_data.get("forest_land", 0))
             old_hq = int(node_data.get("hunt_quality", 3))
             old_law = int(node_data.get("hunting_law", 0))
+            
+            def calc_work(level: str, unfree: int, thralls: int) -> int:
+                mult = DAGSVERKEN_MULTIPLIERS.get(level, 80)
+                return mult * unfree + thralls * 300
 
             new_custom = custom_var.get().strip()
             try:
@@ -2879,6 +2896,7 @@ class FeodalSimulator:
                 new_burghers = int(burgher_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_burghers = 0
+            new_dags = dagsverken_var.get().strip()
             new_quality = fish_var.get()
             try:
                 new_boats = int(boats_var.get() or "0", 10)
@@ -2921,6 +2939,28 @@ class FeodalSimulator:
                 new_hunters = int(hunter_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_hunters = 0
+
+            old_contrib = 0
+            if old_type == "Bosättning":
+                old_contrib = calc_work(old_dags, old_unfree, old_thralls)
+            new_contrib = 0
+            if new_type == "Bosättning":
+                new_contrib = calc_work(new_dags, new_unfree, new_thralls)
+            work_diff = new_contrib - old_contrib
+            jarldom_id = node_id
+            while jarldom_id is not None and self.get_depth_of_node(jarldom_id) > 3:
+                jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
+                if not jnode:
+                    break
+                jarldom_id = jnode.get("parent_id")
+            if jarldom_id is not None and work_diff != 0:
+                jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
+                if jnode is not None:
+                    try:
+                        cur_av = int(jnode.get("work_available", 0))
+                    except (ValueError, TypeError):
+                        cur_av = 0
+                    jnode["work_available"] = cur_av + work_diff
             try:
                 new_manor = int(manor_var.get() or "0", 10)
             except (tk.TclError, ValueError):
@@ -3049,6 +3089,9 @@ class FeodalSimulator:
                 changes = True
             if old_burghers != new_burghers:
                 node_data["burghers"] = new_burghers
+                changes = True
+            if old_dags != new_dags:
+                node_data["dagsverken"] = new_dags
                 changes = True
             if new_type == "Gods":
                 if old_manor != new_manor:
@@ -3252,6 +3295,7 @@ class FeodalSimulator:
                 or new_unfree != int(node_data.get("unfree_peasants", 0))
                 or new_thralls != int(node_data.get("thralls", 0))
                 or new_burghers != int(node_data.get("burghers", 0))
+                or new_dags != node_data.get("dagsverken", "normalt")
                 or new_craftsmen != node_data.get("craftsmen", [])
                 or new_soldiers != node_data.get("soldiers", [])
                 or new_characters != node_data.get("characters", [])

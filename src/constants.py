@@ -106,8 +106,17 @@ DAGSVERKEN_LEVELS = [
     "få",
     "normalt",
     "många",
-    "galet många",
+    "tyranniskt många",
 ]
+
+# Mapping from dagsverken level to work days per unfree peasant
+DAGSVERKEN_MULTIPLIERS = {
+    "inga": 0,
+    "få": 40,
+    "normalt": 80,
+    "många": 100,
+    "tyranniskt många": 120,
+}
 
 # Fish quality levels for sea and river resources
 FISH_QUALITY_LEVELS = [
