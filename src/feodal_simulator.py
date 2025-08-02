@@ -2302,7 +2302,7 @@ class FeodalSimulator:
 
         for v in (free_var, unfree_var, thrall_var, burgher_var):
             v.trace_add("write", update_population_display)
-        update_population_display()
+
 
         craftsman_rows: list[dict] = []
 
