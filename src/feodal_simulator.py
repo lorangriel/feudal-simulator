@@ -45,6 +45,7 @@ class FeodalSimulator:
         self.root = root
         self.root.title("Förläningssimulator - Ingen värld")
         self.root.geometry("1150x800") # Increased size slightly
+        self.root.protocol("WM_DELETE_WINDOW", self.root.quit)
 
         self.all_worlds = load_worlds_from_file()
         self.active_world_name = None
@@ -78,6 +79,18 @@ class FeodalSimulator:
         # --- Main Layout ---
         self.main_frame = ttk.Frame(self.root, style="Content.TFrame")
         self.main_frame.pack(fill="both", expand=True)
+
+        # --- Menu Bar ---
+        menubar = tk.Menu(self.root)
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Avsluta", command=self.root.quit)
+        menubar.add_cascade(label="Arkiv", menu=file_menu)
+
+        about_menu = tk.Menu(menubar, tearoff=0)
+        about_menu.add_command(label="Programmet", command=self.show_about_program)
+        menubar.add_cascade(label="Om", menu=about_menu)
+
+        self.root.config(menu=menubar)
 
         # Top Menu Bar Frame
         top_menu_frame = ttk.Frame(self.main_frame, style="Tool.TFrame")
@@ -179,6 +192,13 @@ class FeodalSimulator:
                 self.load_world(only_world)
             except Exception as e:
                 print(f"Failed to auto-load world '{only_world}': {e}")
+
+    def show_about_program(self) -> None:
+        """Display information about the application."""
+        messagebox.showinfo(
+            "Om Programmet",
+            "Förläningssimulator\nEn enkel simulator av förläningar.",
+        )
 
     @staticmethod
     def calculate_population_from_fields(data: dict) -> int:
