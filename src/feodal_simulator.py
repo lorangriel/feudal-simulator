@@ -86,6 +86,11 @@ class FeodalSimulator:
         file_menu.add_command(label="Avsluta", command=self.root.quit)
         menubar.add_cascade(label="Arkiv", menu=file_menu)
 
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Hantera världar", command=self.show_manage_worlds_view)
+        edit_menu.add_command(label="Hantera karaktärer", command=self.show_manage_characters_view)
+        menubar.add_cascade(label="Ändra", menu=edit_menu)
+
         about_menu = tk.Menu(menubar, tearoff=0)
         about_menu.add_command(label="Programmet", command=self.show_about_program)
         menubar.add_cascade(label="Om", menu=about_menu)
