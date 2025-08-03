@@ -103,8 +103,6 @@ class FeodalSimulator:
         self.map_mode_base_button = ttk.Button(self.map_button_frame, text="Visa Karta", command=self.show_map_mode_buttons)
         self.map_mode_base_button.pack(side=tk.LEFT)
 
-        ttk.Button(top_menu_frame, text="✖", width=3, command=self.root.quit).pack(side=tk.RIGHT, padx=5, pady=5)
-
         # --- Main Panes ---
         # PanedWindow for resizable split
         self.paned_window = tk.PanedWindow(self.main_frame, orient=tk.HORIZONTAL, sashrelief=tk.RAISED, bg="#cccccc", sashwidth=8) # Thicker sash
