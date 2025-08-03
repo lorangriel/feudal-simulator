@@ -91,6 +91,11 @@ class FeodalSimulator:
         edit_menu.add_command(label="Hantera karaktärer", command=self.show_manage_characters_view)
         menubar.add_cascade(label="Ändra", menu=edit_menu)
 
+        view_menu = tk.Menu(menubar, tearoff=0)
+        view_menu.add_command(label="Dynamisk Karta", command=self.open_dynamic_map_view)
+        view_menu.add_command(label="Statisk Karta", command=self.show_static_map_view)
+        menubar.add_cascade(label="Visa", menu=view_menu)
+
         about_menu = tk.Menu(menubar, tearoff=0)
         about_menu.add_command(label="Programmet", command=self.show_about_program)
         menubar.add_cascade(label="Om", menu=about_menu)
