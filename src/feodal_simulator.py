@@ -45,6 +45,7 @@ class FeodalSimulator:
         self.root = root
         self.root.title("Förläningssimulator - Ingen värld")
         self.root.geometry("1150x800") # Increased size slightly
+        self.root.protocol("WM_DELETE_WINDOW", self.root.quit)
 
         self.all_worlds = load_worlds_from_file()
         self.active_world_name = None
