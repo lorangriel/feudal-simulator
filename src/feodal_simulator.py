@@ -79,6 +79,18 @@ class FeodalSimulator:
         self.main_frame = ttk.Frame(self.root, style="Content.TFrame")
         self.main_frame.pack(fill="both", expand=True)
 
+        # --- Menu Bar ---
+        menubar = tk.Menu(self.root)
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Avsluta", command=self.root.quit)
+        menubar.add_cascade(label="Arkiv", menu=file_menu)
+
+        about_menu = tk.Menu(menubar, tearoff=0)
+        about_menu.add_command(label="Programmet", command=self.show_about_program)
+        menubar.add_cascade(label="Om", menu=about_menu)
+
+        self.root.config(menu=menubar)
+
         # Top Menu Bar Frame
         top_menu_frame = ttk.Frame(self.main_frame, style="Tool.TFrame")
         top_menu_frame.pack(side=tk.TOP, fill="x", pady=(0, 5))
@@ -89,6 +101,8 @@ class FeodalSimulator:
         self.map_button_frame.pack(side=tk.LEFT, padx=5, pady=5)
         self.map_mode_base_button = ttk.Button(self.map_button_frame, text="Visa Karta", command=self.show_map_mode_buttons)
         self.map_mode_base_button.pack(side=tk.LEFT)
+
+        ttk.Button(top_menu_frame, text="✖", width=3, command=self.root.quit).pack(side=tk.RIGHT, padx=5, pady=5)
 
         # --- Main Panes ---
         # PanedWindow for resizable split
@@ -179,6 +193,13 @@ class FeodalSimulator:
                 self.load_world(only_world)
             except Exception as e:
                 print(f"Failed to auto-load world '{only_world}': {e}")
+
+    def show_about_program(self) -> None:
+        """Display information about the application."""
+        messagebox.showinfo(
+            "Om Programmet",
+            "Förläningssimulator\nEn enkel simulator av förläningar.",
+        )
 
     @staticmethod
     def calculate_population_from_fields(data: dict) -> int:
