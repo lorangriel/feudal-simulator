@@ -40,6 +40,20 @@ JARLDOM_RESOURCE_TYPES = [
     "Djur",
     "Karaktärer",
     "Byggnader",
+    "Väder",
+]
+
+# Weather options used for Väder nodes
+WEATHER_OPTIONS = [
+    "Normalt väder",
+    "Soligt",
+    "Regnigt",
+    "Stormigt",
+    "Torka",
+    "Värmebölja",
+    "Kallt",
+    "Snöfall",
+    "Dimma",
 ]
 
 # Categorized for easier handling in UI

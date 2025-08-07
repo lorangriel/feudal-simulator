@@ -63,6 +63,11 @@ class Node:
     fishing_boats: int = 0
     hunters: int = 0
     gamekeeper_id: Optional[int] = None
+    spring_weather: str = "Normalt väder"
+    summer_weather: str = "Normalt väder"
+    autumn_weather: str = "Normalt väder"
+    winter_weather: str = "Normalt väder"
+    weather_effect: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "Node":
@@ -201,6 +206,11 @@ class Node:
             gamekeeper_id = int(gamekeeper_id)
         elif gamekeeper_id is not None and not isinstance(gamekeeper_id, int):
             gamekeeper_id = None
+        spring_weather = data.get("spring_weather", "Normalt väder")
+        summer_weather = data.get("summer_weather", "Normalt väder")
+        autumn_weather = data.get("autumn_weather", "Normalt väder")
+        winter_weather = data.get("winter_weather", "Normalt väder")
+        weather_effect = data.get("weather_effect", "")
         if res_type in {"Hav", "Flod"}:
             wq_raw = data.get("fish_quality", data.get("water_quality", "Normalt"))
             fish_quality = (
@@ -279,6 +289,11 @@ class Node:
             fishing_boats=fishing_boats,
             hunters=hunters,
             gamekeeper_id=gamekeeper_id,
+            spring_weather=spring_weather,
+            summer_weather=summer_weather,
+            autumn_weather=autumn_weather,
+            winter_weather=winter_weather,
+            weather_effect=weather_effect,
             work_available=work_available,
             work_needed=work_needed,
             storage_silver=storage_silver,
@@ -351,6 +366,51 @@ class Node:
         if self.res_type == "Jaktmark":
             data["hunters"] = self.hunters
             data["gamekeeper_id"] = self.gamekeeper_id
+
+        if self.res_type == "Väder":
+            for key in [
+                "population",
+                "settlement_type",
+                "dagsverken",
+                "free_peasants",
+                "unfree_peasants",
+                "thralls",
+                "burghers",
+                "tunnland",
+                "total_land",
+                "forest_land",
+                "cleared_land",
+                "work_available",
+                "work_needed",
+                "storage_silver",
+                "storage_basic",
+                "storage_luxury",
+                "jarldom_area",
+                "craftsmen",
+                "characters",
+                "buildings",
+                "fish_quality",
+                "fishing_boats",
+                "hunters",
+                "gamekeeper_id",
+                "manor_land",
+                "cultivated_land",
+                "cultivated_quality",
+                "fallow_land",
+                "has_herd",
+                "hunt_quality",
+                "hunting_law",
+            ]:
+                data.pop(key, None)
+            data.update(
+                {
+                    "spring_weather": self.spring_weather,
+                    "summer_weather": self.summer_weather,
+                    "autumn_weather": self.autumn_weather,
+                    "winter_weather": self.winter_weather,
+                    "weather_effect": self.weather_effect,
+                }
+            )
 
         if self.res_type == "Gods":
             data.update(
