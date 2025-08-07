@@ -45,15 +45,15 @@ JARLDOM_RESOURCE_TYPES = [
 
 # Weather options used for Väder nodes
 WEATHER_OPTIONS = [
-    "Normalt väder",
-    "Soligt",
-    "Regnigt",
-    "Stormigt",
-    "Torka",
-    "Värmebölja",
-    "Kallt",
-    "Snöfall",
-    "Dimma",
+    "Ödeläggelse",
+    "Storm",
+    "Oväder",
+    "Ostadighet",
+    "Normalväder",
+    "Gynnsamhet",
+    "Solsken",
+    "Fruktbarhet",
+    "Mirakelväder",
 ]
 
 # Categorized for easier handling in UI
