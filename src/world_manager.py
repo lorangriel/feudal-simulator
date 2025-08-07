@@ -357,7 +357,7 @@ class WorldManager(WorldInterface):
             parts: List[str] = []
             if res_type and res_type != "Resurs":
                 parts.append(res_type)
-            if custom_name:
+            if custom_name and res_type != "Väder":
                 parts.append(custom_name)
             if ruler_str:
                 parts.append(f"({ruler_str})")
@@ -378,6 +378,10 @@ class WorldManager(WorldInterface):
 
     def update_subfiefs_for_node(self, node_data: Dict[str, Any]) -> None:
         current_children_ids = set(node_data.get("children", []))
+        if node_data.get("res_type") == "Väder":
+            node_data["children"] = []
+            node_data["num_subfiefs"] = 0
+            return
         target_count = node_data.get("num_subfiefs", 0)
         depth = self.get_depth_of_node(node_data["node_id"])
 

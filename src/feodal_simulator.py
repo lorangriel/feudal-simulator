@@ -1986,11 +1986,15 @@ class FeodalSimulator:
         save_button.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
         row_idx += 1
 
-        ttk.Label(editor_frame, text="Eget Namn:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        custom_label = ttk.Label(editor_frame, text="Eget Namn:")
+        custom_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         custom_var = tk.StringVar(value=node_data.get("custom_name", ""))
         custom_entry = ttk.Entry(editor_frame, textvariable=custom_var, width=40)
         custom_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
-        custom_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "custom_name", custom_var.get().strip(), True))
+        custom_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "custom_name", custom_var.get().strip(), True),
+        )
         row_idx += 1
 
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
@@ -2046,9 +2050,9 @@ class FeodalSimulator:
 
         weather_effect_label = ttk.Label(editor_frame, text="Väder Umbäranden:")
         weather_effect_var = tk.StringVar(value=node_data.get("weather_effect", ""))
-        weather_effect_entry = ttk.Entry(editor_frame, textvariable=weather_effect_var, width=40)
+        weather_effect_entry = ttk.Entry(editor_frame, textvariable=weather_effect_var, width=10)
         weather_effect_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        weather_effect_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        weather_effect_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         # --- Gods specific fields ---
@@ -2852,7 +2856,10 @@ class FeodalSimulator:
         row_idx += 1
 
         def update_subfiefs_action():
-            node_data["custom_name"] = custom_var.get().strip()
+            if res_var.get() == "Väder":
+                node_data["custom_name"] = ""
+            else:
+                node_data["custom_name"] = custom_var.get().strip()
             node_data["res_type"] = res_var.get().strip()
             node_data["settlement_type"] = settlement_type_var.get().strip()
             node_data["dagsverken"] = dagsverken_var.get().strip()
@@ -2947,7 +2954,8 @@ class FeodalSimulator:
                 node_data.pop("winter_weather", None)
                 node_data.pop("weather_effect", None)
 
-        ttk.Button(action_frame, text="Skapa Nod", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
+        skapa_button = ttk.Button(action_frame, text="Skapa Nod", command=update_subfiefs_action)
+        skapa_button.pack(side=tk.LEFT, padx=5)
 
         def save_node_action():
             old_custom = node_data.get("custom_name", "")
@@ -2987,7 +2995,7 @@ class FeodalSimulator:
                 mult = DAGSVERKEN_MULTIPLIERS.get(level, 80)
                 return mult * unfree + thralls * 300
 
-            new_custom = custom_var.get().strip()
+            new_custom = "" if res_var.get() == "Väder" else custom_var.get().strip()
             try:
                 manual_pop = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
@@ -3375,6 +3383,21 @@ class FeodalSimulator:
 
         save_button.configure(command=save_node_action)
         ttk.Button(action_frame, text="Spara Resurs", command=save_node_action).pack(side=tk.LEFT, padx=5)
+
+        def refresh_vader_controls(*_):
+            if res_var.get() == "Väder":
+                custom_label.grid_remove()
+                custom_entry.grid_remove()
+                custom_var.set("")
+                skapa_button.pack_forget()
+            else:
+                custom_label.grid()
+                custom_entry.grid()
+                if getattr(skapa_button, "winfo_manager", lambda: "")() == "":
+                    skapa_button.pack(side=tk.LEFT, padx=5)
+
+        res_var.trace_add("write", refresh_vader_controls)
+        refresh_vader_controls()
         self.pending_save_callback = save_node_action
 
         delete_back_frame = ttk.Frame(editor_frame)
