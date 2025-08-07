@@ -24,6 +24,7 @@ from constants import (
     MAX_FISHING_BOATS,
     DAGSVERKEN_LEVELS,
     DAGSVERKEN_MULTIPLIERS,
+    WEATHER_OPTIONS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -2007,6 +2008,49 @@ class FeodalSimulator:
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        spring_label = ttk.Label(editor_frame, text="Vårväder:")
+        spring_var = tk.StringVar(value=node_data.get("spring_weather", "Normalt väder"))
+        spring_combo = ttk.Combobox(
+            editor_frame, textvariable=spring_var, values=WEATHER_OPTIONS, state="readonly"
+        )
+        spring_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        spring_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        summer_label = ttk.Label(editor_frame, text="Sommarväder:")
+        summer_var = tk.StringVar(value=node_data.get("summer_weather", "Normalt väder"))
+        summer_combo = ttk.Combobox(
+            editor_frame, textvariable=summer_var, values=WEATHER_OPTIONS, state="readonly"
+        )
+        summer_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        summer_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        autumn_label = ttk.Label(editor_frame, text="Höstväder:")
+        autumn_var = tk.StringVar(value=node_data.get("autumn_weather", "Normalt väder"))
+        autumn_combo = ttk.Combobox(
+            editor_frame, textvariable=autumn_var, values=WEATHER_OPTIONS, state="readonly"
+        )
+        autumn_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        autumn_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        winter_label = ttk.Label(editor_frame, text="Vinterväder:")
+        winter_var = tk.StringVar(value=node_data.get("winter_weather", "Normalt väder"))
+        winter_combo = ttk.Combobox(
+            editor_frame, textvariable=winter_var, values=WEATHER_OPTIONS, state="readonly"
+        )
+        winter_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        winter_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
+        weather_effect_label = ttk.Label(editor_frame, text="Väder Umbäranden:")
+        weather_effect_var = tk.StringVar(value=node_data.get("weather_effect", ""))
+        weather_effect_entry = ttk.Entry(editor_frame, textvariable=weather_effect_var, width=40)
+        weather_effect_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        weather_effect_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        row_idx += 1
+
         # --- Gods specific fields ---
         manor_label = ttk.Label(editor_frame, text="Godsareal:")
         manor_var = tk.StringVar(value=str(node_data.get("manor_land", 0)))
@@ -2153,6 +2197,11 @@ class FeodalSimulator:
                 area_entry.grid_remove()
                 pop_label.grid()
                 pop_entry.grid()
+            elif res_var.get() == "Väder":
+                area_label.grid_remove()
+                area_entry.grid_remove()
+                pop_label.grid_remove()
+                pop_entry.grid_remove()
             else:
                 area_label.grid_remove()
                 area_entry.grid_remove()
@@ -2299,6 +2348,28 @@ class FeodalSimulator:
         refresh_hunt_visibility()
         res_var.trace_add("write", refresh_gods_visibility)
         refresh_gods_visibility()
+        def refresh_weather_visibility(*_):
+            widgets = [
+                spring_label,
+                spring_combo,
+                summer_label,
+                summer_combo,
+                autumn_label,
+                autumn_combo,
+                winter_label,
+                winter_combo,
+                weather_effect_label,
+                weather_effect_entry,
+            ]
+            if res_var.get() == "Väder":
+                for w in widgets:
+                    w.grid()
+            else:
+                for w in widgets:
+                    w.grid_remove()
+
+        res_var.trace_add("write", refresh_weather_visibility)
+        refresh_weather_visibility()
         forest_var.trace_add("write", update_law_options)
         update_law_options()
         herd_var.trace_add("write", handle_herd_toggle)
@@ -2852,7 +2923,7 @@ class FeodalSimulator:
                 except (tk.TclError, ValueError):
                     node_data["tunnland"] = 0
                 temp_data["population"] = 0
-            elif res_var.get() == "Djur":
+            elif res_var.get() in {"Djur", "Väder"}:
                 temp_data["population"] = 0
             else:
                 try:
@@ -2863,6 +2934,18 @@ class FeodalSimulator:
             node_data["population"] = self.calculate_population_from_fields(temp_data)
             node_data["num_subfiefs"] = len(node_data.get("children", [])) + 1
             self.update_subfiefs_for_node(node_data)
+            if res_var.get() == "Väder":
+                node_data["spring_weather"] = spring_var.get()
+                node_data["summer_weather"] = summer_var.get()
+                node_data["autumn_weather"] = autumn_var.get()
+                node_data["winter_weather"] = winter_var.get()
+                node_data["weather_effect"] = weather_effect_var.get().strip()
+            else:
+                node_data.pop("spring_weather", None)
+                node_data.pop("summer_weather", None)
+                node_data.pop("autumn_weather", None)
+                node_data.pop("winter_weather", None)
+                node_data.pop("weather_effect", None)
 
         ttk.Button(action_frame, text="Skapa Nod", command=update_subfiefs_action).pack(side=tk.LEFT, padx=5)
 
@@ -2894,6 +2977,11 @@ class FeodalSimulator:
             old_forest = int(node_data.get("forest_land", 0))
             old_hq = int(node_data.get("hunt_quality", 3))
             old_law = int(node_data.get("hunting_law", 0))
+            old_spring = node_data.get("spring_weather", "Normalt väder")
+            old_summer = node_data.get("summer_weather", "Normalt väder")
+            old_autumn = node_data.get("autumn_weather", "Normalt väder")
+            old_winter = node_data.get("winter_weather", "Normalt väder")
+            old_weather_effect = node_data.get("weather_effect", "")
             
             def calc_work(level: str, unfree: int, thralls: int) -> int:
                 mult = DAGSVERKEN_MULTIPLIERS.get(level, 80)
@@ -2969,6 +3057,11 @@ class FeodalSimulator:
                 new_hunters = int(hunter_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_hunters = 0
+            new_spring = spring_var.get()
+            new_summer = summer_var.get()
+            new_autumn = autumn_var.get()
+            new_winter = winter_var.get()
+            new_weather_effect = weather_effect_var.get().strip()
 
             old_contrib = 0
             if old_type == "Bosättning":
@@ -3073,7 +3166,7 @@ class FeodalSimulator:
                 if r["type_var"].get()
             ]
 
-            if new_type in {"Vildmark", "Djur"}:
+            if new_type in {"Vildmark", "Djur", "Väder"}:
                 new_pop = 0
             else:
                 new_pop = self.calculate_population_from_fields({
@@ -3186,6 +3279,56 @@ class FeodalSimulator:
             if old_buildings != new_buildings:
                 node_data["buildings"] = new_buildings
                 changes = True
+            if new_type == "Väder":
+                if old_spring != new_spring:
+                    node_data["spring_weather"] = new_spring
+                    changes = True
+                if old_summer != new_summer:
+                    node_data["summer_weather"] = new_summer
+                    changes = True
+                if old_autumn != new_autumn:
+                    node_data["autumn_weather"] = new_autumn
+                    changes = True
+                if old_winter != new_winter:
+                    node_data["winter_weather"] = new_winter
+                    changes = True
+                if old_weather_effect != new_weather_effect:
+                    node_data["weather_effect"] = new_weather_effect
+                    changes = True
+                for key in (
+                    "population",
+                    "tunnland",
+                    "hunters",
+                    "gamekeeper_id",
+                    "animals",
+                    "soldiers",
+                    "fish_quality",
+                    "fishing_boats",
+                    "manor_land",
+                    "cultivated_land",
+                    "cultivated_quality",
+                    "fallow_land",
+                    "has_herd",
+                    "forest_land",
+                    "hunt_quality",
+                    "hunting_law",
+                    "total_land",
+                    "cleared_land",
+                ):
+                    if key in node_data:
+                        del node_data[key]
+                        changes = True
+            else:
+                for key in (
+                    "spring_weather",
+                    "summer_weather",
+                    "autumn_weather",
+                    "winter_weather",
+                    "weather_effect",
+                ):
+                    if key in node_data:
+                        del node_data[key]
+                        changes = True
             if new_type in {"Hav", "Flod"}:
                 if old_quality != new_quality:
                     node_data["fish_quality"] = new_quality
@@ -3269,6 +3412,43 @@ class FeodalSimulator:
                 new_boats = int(boats_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_boats = 0
+            jk_sel = gamekeeper_var.get()
+            new_gamekeeper = None
+            if jk_sel and jk_sel != "Ingen karaktär" and ":" in jk_sel:
+                new_gamekeeper = int(jk_sel.split(":")[0])
+            try:
+                new_hunters = int(hunter_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_hunters = 0
+            try:
+                new_manor = int(manor_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_manor = 0
+            try:
+                new_cultivated = int(cultivated_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_cultivated = 0
+            try:
+                new_cq = int(cq_var.get() or "3", 10)
+            except (tk.TclError, ValueError):
+                new_cq = 3
+            try:
+                new_fallow = int(fallow_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_fallow = 0
+            new_has_herd = herd_var.get() == "Ja"
+            try:
+                new_forest = int(forest_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_forest = 0
+            try:
+                new_hq = int(hunt_var.get() or "3", 10)
+            except (tk.TclError, ValueError):
+                new_hq = 3
+            try:
+                new_law = int(law_var.get() or "0", 10)
+            except (tk.TclError, ValueError):
+                new_law = 0
             new_craftsmen = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
                 for r in craftsman_rows
@@ -3304,7 +3484,12 @@ class FeodalSimulator:
                 for r in building_rows
                 if r["type_var"].get()
             ]
-            if res_var.get() in {"Vildmark", "Djur"}:
+            new_spring = spring_var.get()
+            new_summer = summer_var.get()
+            new_autumn = autumn_var.get()
+            new_winter = winter_var.get()
+            new_weather_effect = weather_effect_var.get().strip()
+            if res_var.get() in {"Vildmark", "Djur", "Väder"}:
                 new_pop = 0
             else:
                 new_pop = self.calculate_population_from_fields({
@@ -3344,6 +3529,16 @@ class FeodalSimulator:
                 or new_forest != int(node_data.get("forest_land", 0))
                 or new_hq != int(node_data.get("hunt_quality", 3))
                 or new_law != int(node_data.get("hunting_law", 0))
+                or (
+                    res_var.get() == "Väder"
+                    and (
+                        new_spring != node_data.get("spring_weather", "Normalt väder")
+                        or new_summer != node_data.get("summer_weather", "Normalt väder")
+                        or new_autumn != node_data.get("autumn_weather", "Normalt väder")
+                        or new_winter != node_data.get("winter_weather", "Normalt väder")
+                        or new_weather_effect != node_data.get("weather_effect", "")
+                    )
+                )
             )
 
         del_button = self._create_delete_button(delete_back_frame, node_data, unsaved_changes)

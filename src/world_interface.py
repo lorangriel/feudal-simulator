@@ -269,6 +269,41 @@ class WorldInterface(ABC):
                     if "gamekeeper_id" not in node:
                         node["gamekeeper_id"] = None
                         updated = True
+                elif res_type == "Väder":
+                    defaults = {
+                        "spring_weather": "Normalt väder",
+                        "summer_weather": "Normalt väder",
+                        "autumn_weather": "Normalt väder",
+                        "winter_weather": "Normalt väder",
+                        "weather_effect": "",
+                    }
+                    for key, val in defaults.items():
+                        if key not in node:
+                            node[key] = val
+                            updated = True
+                    for key in (
+                        "population",
+                        "tunnland",
+                        "hunters",
+                        "gamekeeper_id",
+                        "animals",
+                        "soldiers",
+                        "total_land",
+                        "forest_land",
+                        "cleared_land",
+                        "manor_land",
+                        "cultivated_land",
+                        "cultivated_quality",
+                        "fallow_land",
+                        "has_herd",
+                        "hunt_quality",
+                        "hunting_law",
+                        "fish_quality",
+                        "fishing_boats",
+                    ):
+                        if key in node:
+                            del node[key]
+                            updated = True
                 else:
                     for key in (
                         "total_land",
