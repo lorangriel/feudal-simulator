@@ -11,6 +11,7 @@ from constants import (
     NEIGHBOR_OTHER_STR,
     DAGSVERKEN_LEVELS,
 )
+from weather import NORMAL_WEATHER
 
 
 class WorldInterface(ABC):
@@ -271,10 +272,10 @@ class WorldInterface(ABC):
                         updated = True
                 elif res_type == "Väder":
                     defaults = {
-                        "spring_weather": "Normalväder",
-                        "summer_weather": "Normalväder",
-                        "autumn_weather": "Normalväder",
-                        "winter_weather": "Normalväder",
+                        "spring_weather": NORMAL_WEATHER["spring"],
+                        "summer_weather": NORMAL_WEATHER["summer"],
+                        "autumn_weather": NORMAL_WEATHER["autumn"],
+                        "winter_weather": NORMAL_WEATHER["winter"],
                         "weather_effect": "",
                     }
                     for key, val in defaults.items():
