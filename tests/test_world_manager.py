@@ -318,3 +318,24 @@ def test_population_totals_use_parent_links():
     assert world["nodes"]["5"]["population"] == 6
     assert world["nodes"]["4"]["population"] == 6
     assert world["nodes"]["1"]["population"] == 6
+
+
+def test_update_subfiefs_skips_weather_nodes():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "res_type": "Väder",
+                "num_subfiefs": 3,
+            }
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    manager.update_subfiefs_for_node(world["nodes"]["1"])
+
+    assert world["nodes"]["1"]["children"] == []
+    assert world["nodes"]["1"]["num_subfiefs"] == 0

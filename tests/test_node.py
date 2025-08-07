@@ -389,3 +389,20 @@ def test_node_res_type_invalid_defaults_to_resurs():
 
     back = node.to_dict()
     assert back["res_type"] == "Resurs"
+
+
+def test_weather_node_clears_custom_name():
+    raw = {
+        "node_id": 99,
+        "parent_id": 1,
+        "res_type": "Väder",
+        "custom_name": "Storm",
+        "spring_weather": "Soligt",
+    }
+
+    node = Node.from_dict(raw)
+    assert node.custom_name == ""
+
+    back = node.to_dict()
+    assert "custom_name" not in back
+    assert back["spring_weather"] == "Soligt"

@@ -256,7 +256,7 @@ class Node:
             node_id=node_id,
             parent_id=parent_id,
             name=data.get("name", ""),
-            custom_name=data.get("custom_name", ""),
+            custom_name=data.get("custom_name", "") if res_type != "Väder" else "",
             population=population,
             ruler_id=ruler_id,
             num_subfiefs=int(data.get("num_subfiefs", 0)),
@@ -368,6 +368,7 @@ class Node:
             data["gamekeeper_id"] = self.gamekeeper_id
 
         if self.res_type == "Väder":
+            data.pop("custom_name", None)
             for key in [
                 "population",
                 "settlement_type",
