@@ -43,19 +43,6 @@ JARLDOM_RESOURCE_TYPES = [
     "Väder",
 ]
 
-# Weather options used for Väder nodes
-WEATHER_OPTIONS = [
-    "Ödeläggelse",
-    "Storm",
-    "Oväder",
-    "Ostadighet",
-    "Normalväder",
-    "Gynnsamhet",
-    "Solsken",
-    "Fruktbarhet",
-    "Mirakelväder",
-]
-
 # Categorized for easier handling in UI
 AREAL_TYPES = {"Jaktmark", "Odlingsmark", "Betesmark", "Fiskevatten"}
 SOLDIER_TYPES = {

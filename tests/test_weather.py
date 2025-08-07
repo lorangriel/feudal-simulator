@@ -14,16 +14,16 @@ def test_available_resource_types_excludes_weather():
 
 def test_roll_weather_table():
     with patch("random.randint", side_effect=[1, 1]):
-        total, w = roll_weather(modifier=-2)
+        total, w = roll_weather("spring", modifier=-2)
     assert total == 0
-    assert w.name == "Ödeläggelse"
+    assert w.name == "Storm och hagel (+3)"
 
     with patch("random.randint", side_effect=[6, 6]):
-        total, w = roll_weather()
+        total, w = roll_weather("spring")
     assert total == 12
-    assert w.name == "Fruktbarhet"
+    assert w.name == "God växtkraft (-2)"
 
     with patch("random.randint", side_effect=[6, 6]):
-        total, w = roll_weather(modifier=2)
+        total, w = roll_weather("spring", modifier=2)
     assert total == 14
-    assert w.name == "Mirakelväder"
+    assert w.name == "Exceptionellt vårväder (-3)"

@@ -23,7 +23,6 @@ from constants import (
     MAX_FISHING_BOATS,
     DAGSVERKEN_LEVELS,
     DAGSVERKEN_MULTIPLIERS,
-    WEATHER_OPTIONS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -37,7 +36,7 @@ from utils import (
 from dynamic_map import DynamicMapCanvas
 from map_logic import StaticMapLogic
 from world_manager import WorldManager
-from weather import roll_weather
+from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 
 # --------------------------------------------------
 # Main Application Class: FeodalSimulator
@@ -2016,36 +2015,56 @@ class FeodalSimulator:
         row_idx += 1
 
         spring_label = ttk.Label(editor_frame, text="Vårväder:")
-        spring_var = tk.StringVar(value=node_data.get("spring_weather", "Normalväder"))
+        spring_var = tk.StringVar(
+            value=node_data.get("spring_weather", NORMAL_WEATHER["spring"])
+        )
         spring_combo = ttk.Combobox(
-            editor_frame, textvariable=spring_var, values=WEATHER_OPTIONS, state="readonly"
+            editor_frame,
+            textvariable=spring_var,
+            values=get_weather_options("spring"),
+            state="readonly",
         )
         spring_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         spring_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         summer_label = ttk.Label(editor_frame, text="Sommarväder:")
-        summer_var = tk.StringVar(value=node_data.get("summer_weather", "Normalväder"))
+        summer_var = tk.StringVar(
+            value=node_data.get("summer_weather", NORMAL_WEATHER["summer"])
+        )
         summer_combo = ttk.Combobox(
-            editor_frame, textvariable=summer_var, values=WEATHER_OPTIONS, state="readonly"
+            editor_frame,
+            textvariable=summer_var,
+            values=get_weather_options("summer"),
+            state="readonly",
         )
         summer_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         summer_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         autumn_label = ttk.Label(editor_frame, text="Höstväder:")
-        autumn_var = tk.StringVar(value=node_data.get("autumn_weather", "Normalväder"))
+        autumn_var = tk.StringVar(
+            value=node_data.get("autumn_weather", NORMAL_WEATHER["autumn"])
+        )
         autumn_combo = ttk.Combobox(
-            editor_frame, textvariable=autumn_var, values=WEATHER_OPTIONS, state="readonly"
+            editor_frame,
+            textvariable=autumn_var,
+            values=get_weather_options("autumn"),
+            state="readonly",
         )
         autumn_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         autumn_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         winter_label = ttk.Label(editor_frame, text="Vinterväder:")
-        winter_var = tk.StringVar(value=node_data.get("winter_weather", "Normalväder"))
+        winter_var = tk.StringVar(
+            value=node_data.get("winter_weather", NORMAL_WEATHER["winter"])
+        )
         winter_combo = ttk.Combobox(
-            editor_frame, textvariable=winter_var, values=WEATHER_OPTIONS, state="readonly"
+            editor_frame,
+            textvariable=winter_var,
+            values=get_weather_options("winter"),
+            state="readonly",
         )
         winter_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         winter_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
@@ -2053,20 +2072,40 @@ class FeodalSimulator:
 
         weather_effect_label = ttk.Label(editor_frame, text="Väder Umbäranden:")
         weather_effect_var = tk.StringVar(value=node_data.get("weather_effect", ""))
-        weather_effect_entry = ttk.Entry(editor_frame, textvariable=weather_effect_var, width=10)
+        weather_effect_entry = ttk.Entry(
+            editor_frame, textvariable=weather_effect_var, width=10
+        )
         weather_effect_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         weather_effect_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
 
+        weather_rolls_var = tk.StringVar()
+
         def randomize_weather():
             total_modifier = 0
-            for var in (spring_var, summer_var, autumn_var, winter_var):
-                _, wtype = roll_weather()
+            rolls: list[str] = []
+            for var, season in (
+                (spring_var, "spring"),
+                (summer_var, "summer"),
+                (autumn_var, "autumn"),
+                (winter_var, "winter"),
+            ):
+                total, wtype = roll_weather(season)
                 var.set(wtype.name)
                 total_modifier += wtype.hardship_modifier
+                rolls.append(str(total))
             weather_effect_var.set(str(total_modifier))
+            weather_rolls_var.set(", ".join(rolls))
 
         slump_button = ttk.Button(editor_frame, text="Slumpa", command=randomize_weather)
         slump_button.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+
+        rolls_label = ttk.Label(editor_frame, text="Slag:")
+        rolls_entry = ttk.Entry(
+            editor_frame, textvariable=weather_rolls_var, width=12, state="readonly"
+        )
+        rolls_label.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+        rolls_entry.grid(row=row_idx, column=4, sticky="w", padx=5, pady=3)
+
         row_idx += 1
 
         # --- Gods specific fields ---
@@ -3000,10 +3039,10 @@ class FeodalSimulator:
             old_forest = int(node_data.get("forest_land", 0))
             old_hq = int(node_data.get("hunt_quality", 3))
             old_law = int(node_data.get("hunting_law", 0))
-            old_spring = node_data.get("spring_weather", "Normalväder")
-            old_summer = node_data.get("summer_weather", "Normalväder")
-            old_autumn = node_data.get("autumn_weather", "Normalväder")
-            old_winter = node_data.get("winter_weather", "Normalväder")
+            old_spring = node_data.get("spring_weather", NORMAL_WEATHER["spring"])
+            old_summer = node_data.get("summer_weather", NORMAL_WEATHER["summer"])
+            old_autumn = node_data.get("autumn_weather", NORMAL_WEATHER["autumn"])
+            old_winter = node_data.get("winter_weather", NORMAL_WEATHER["winter"])
             old_weather_effect = node_data.get("weather_effect", "")
             
             def calc_work(level: str, unfree: int, thralls: int) -> int:
@@ -3570,10 +3609,10 @@ class FeodalSimulator:
                 or (
                     res_var.get() == "Väder"
                     and (
-                        new_spring != node_data.get("spring_weather", "Normalväder")
-                        or new_summer != node_data.get("summer_weather", "Normalväder")
-                        or new_autumn != node_data.get("autumn_weather", "Normalväder")
-                        or new_winter != node_data.get("winter_weather", "Normalväder")
+                        new_spring != node_data.get("spring_weather", NORMAL_WEATHER["spring"])
+                        or new_summer != node_data.get("summer_weather", NORMAL_WEATHER["summer"])
+                        or new_autumn != node_data.get("autumn_weather", NORMAL_WEATHER["autumn"])
+                        or new_winter != node_data.get("winter_weather", NORMAL_WEATHER["winter"])
                         or new_weather_effect != node_data.get("weather_effect", "")
                     )
                 )
