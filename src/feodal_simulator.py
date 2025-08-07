@@ -37,6 +37,7 @@ from utils import (
 from dynamic_map import DynamicMapCanvas
 from map_logic import StaticMapLogic
 from world_manager import WorldManager
+from weather import roll_weather
 
 # --------------------------------------------------
 # Main Application Class: FeodalSimulator
@@ -2055,6 +2056,17 @@ class FeodalSimulator:
         weather_effect_entry = ttk.Entry(editor_frame, textvariable=weather_effect_var, width=10)
         weather_effect_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         weather_effect_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+
+        def randomize_weather():
+            total_modifier = 0
+            for var in (spring_var, summer_var, autumn_var, winter_var):
+                _, wtype = roll_weather()
+                var.set(wtype.name)
+                total_modifier += wtype.hardship_modifier
+            weather_effect_var.set(str(total_modifier))
+
+        slump_button = ttk.Button(editor_frame, text="Slumpa", command=randomize_weather)
+        slump_button.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
         row_idx += 1
 
         # --- Gods specific fields ---
