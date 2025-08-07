@@ -271,10 +271,10 @@ class WorldInterface(ABC):
                         updated = True
                 elif res_type == "Väder":
                     defaults = {
-                        "spring_weather": "Normalt väder",
-                        "summer_weather": "Normalt väder",
-                        "autumn_weather": "Normalt väder",
-                        "winter_weather": "Normalt väder",
+                        "spring_weather": "Normalväder",
+                        "summer_weather": "Normalväder",
+                        "autumn_weather": "Normalväder",
+                        "winter_weather": "Normalväder",
                         "weather_effect": "",
                     }
                     for key, val in defaults.items():

@@ -3,6 +3,8 @@ import random
 import tkinter as tk
 from tkinter import ttk
 
+from constants import JARLDOM_RESOURCE_TYPES
+
 
 def parse_int_10(value: str | int | None) -> int:
     """Return ``value`` parsed as a base-10 integer or 0 on failure."""
@@ -92,6 +94,25 @@ def roll_dice(expr: str, debug=False):
         dbg = f"Slår OB{dice_count}D{die_type} => [{dbg_rolls}] + {plus_mod} = {total}"
         return total, dbg
     return total, ""
+
+
+def available_resource_types(world_data: dict | None, current_node_id: int | None = None) -> list[str]:
+    """Return allowed resource types, hiding ``Väder`` if already in use."""
+    options = list(JARLDOM_RESOURCE_TYPES)
+    if not world_data:
+        return options
+    nodes = world_data.get("nodes", {})
+    for nid, ndata in nodes.items():
+        if ndata.get("res_type") == "Väder":
+            try:
+                if current_node_id is None or int(nid) != int(current_node_id):
+                    options = [o for o in options if o != "Väder"]
+                    break
+            except Exception:
+                if current_node_id is None or str(nid) != str(current_node_id):
+                    options = [o for o in options if o != "Väder"]
+                    break
+    return options
 
 
 def generate_swedish_village_name() -> str:

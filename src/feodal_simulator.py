@@ -13,7 +13,6 @@ from constants import (
     NEIGHBOR_NONE_STR,
     NEIGHBOR_OTHER_STR,
     MAX_NEIGHBORS,
-    JARLDOM_RESOURCE_TYPES,
     SETTLEMENT_TYPES,
     CRAFTSMAN_TYPES,
     BUILDING_TYPES,
@@ -33,6 +32,7 @@ from utils import (
     generate_swedish_village_name,
     generate_character_name,
     ScrollableFrame,
+    available_resource_types,
 )
 from dynamic_map import DynamicMapCanvas
 from map_logic import StaticMapLogic
@@ -1967,9 +1967,11 @@ class FeodalSimulator:
         """Editor for resource nodes at depth >=4."""
         node_id = node_data["node_id"]
 
-        # Ensure res_type exists
-        if "res_type" not in node_data or not node_data["res_type"]:
-            node_data["res_type"] = JARLDOM_RESOURCE_TYPES[0]
+        res_options = available_resource_types(self.world_data, node_id)
+        initial_res_type = node_data.get("res_type")
+        if not initial_res_type or initial_res_type not in res_options:
+            initial_res_type = res_options[0]
+            node_data["res_type"] = initial_res_type
 
         editor_frame = ttk.Frame(parent_frame)
         editor_frame.pack(fill="both", expand=True)
@@ -1979,8 +1981,8 @@ class FeodalSimulator:
         row_idx = 0
 
         ttk.Label(editor_frame, text="Resurstyp:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        res_var = tk.StringVar(value=node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0]))
-        res_combo = ttk.Combobox(editor_frame, textvariable=res_var, values=JARLDOM_RESOURCE_TYPES, state="readonly")
+        res_var = tk.StringVar(value=initial_res_type)
+        res_combo = ttk.Combobox(editor_frame, textvariable=res_var, values=res_options, state="readonly")
         res_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         save_button = ttk.Button(editor_frame, text="Spara Nod")
         save_button.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
@@ -2013,7 +2015,7 @@ class FeodalSimulator:
         row_idx += 1
 
         spring_label = ttk.Label(editor_frame, text="Vårväder:")
-        spring_var = tk.StringVar(value=node_data.get("spring_weather", "Normalt väder"))
+        spring_var = tk.StringVar(value=node_data.get("spring_weather", "Normalväder"))
         spring_combo = ttk.Combobox(
             editor_frame, textvariable=spring_var, values=WEATHER_OPTIONS, state="readonly"
         )
@@ -2022,7 +2024,7 @@ class FeodalSimulator:
         row_idx += 1
 
         summer_label = ttk.Label(editor_frame, text="Sommarväder:")
-        summer_var = tk.StringVar(value=node_data.get("summer_weather", "Normalt väder"))
+        summer_var = tk.StringVar(value=node_data.get("summer_weather", "Normalväder"))
         summer_combo = ttk.Combobox(
             editor_frame, textvariable=summer_var, values=WEATHER_OPTIONS, state="readonly"
         )
@@ -2031,7 +2033,7 @@ class FeodalSimulator:
         row_idx += 1
 
         autumn_label = ttk.Label(editor_frame, text="Höstväder:")
-        autumn_var = tk.StringVar(value=node_data.get("autumn_weather", "Normalt väder"))
+        autumn_var = tk.StringVar(value=node_data.get("autumn_weather", "Normalväder"))
         autumn_combo = ttk.Combobox(
             editor_frame, textvariable=autumn_var, values=WEATHER_OPTIONS, state="readonly"
         )
@@ -2040,7 +2042,7 @@ class FeodalSimulator:
         row_idx += 1
 
         winter_label = ttk.Label(editor_frame, text="Vinterväder:")
-        winter_var = tk.StringVar(value=node_data.get("winter_weather", "Normalt väder"))
+        winter_var = tk.StringVar(value=node_data.get("winter_weather", "Normalväder"))
         winter_combo = ttk.Combobox(
             editor_frame, textvariable=winter_var, values=WEATHER_OPTIONS, state="readonly"
         )
@@ -2985,10 +2987,10 @@ class FeodalSimulator:
             old_forest = int(node_data.get("forest_land", 0))
             old_hq = int(node_data.get("hunt_quality", 3))
             old_law = int(node_data.get("hunting_law", 0))
-            old_spring = node_data.get("spring_weather", "Normalt väder")
-            old_summer = node_data.get("summer_weather", "Normalt väder")
-            old_autumn = node_data.get("autumn_weather", "Normalt väder")
-            old_winter = node_data.get("winter_weather", "Normalt väder")
+            old_spring = node_data.get("spring_weather", "Normalväder")
+            old_summer = node_data.get("summer_weather", "Normalväder")
+            old_autumn = node_data.get("autumn_weather", "Normalväder")
+            old_winter = node_data.get("winter_weather", "Normalväder")
             old_weather_effect = node_data.get("weather_effect", "")
             
             def calc_work(level: str, unfree: int, thralls: int) -> int:
@@ -3524,7 +3526,7 @@ class FeodalSimulator:
                 })
 
             return (
-                res_var.get().strip() != node_data.get("res_type", JARLDOM_RESOURCE_TYPES[0])
+                res_var.get().strip() != initial_res_type
                 or custom_var.get().strip() != node_data.get("custom_name", "")
                 or (res_var.get() not in {"Vildmark", "Jaktmark"} and new_pop != node_data.get("population", 0))
                 or (res_var.get() in {"Vildmark", "Jaktmark"} and manual_area != node_data.get("tunnland", 0))
@@ -3555,10 +3557,10 @@ class FeodalSimulator:
                 or (
                     res_var.get() == "Väder"
                     and (
-                        new_spring != node_data.get("spring_weather", "Normalt väder")
-                        or new_summer != node_data.get("summer_weather", "Normalt väder")
-                        or new_autumn != node_data.get("autumn_weather", "Normalt väder")
-                        or new_winter != node_data.get("winter_weather", "Normalt väder")
+                        new_spring != node_data.get("spring_weather", "Normalväder")
+                        or new_summer != node_data.get("summer_weather", "Normalväder")
+                        or new_autumn != node_data.get("autumn_weather", "Normalväder")
+                        or new_winter != node_data.get("winter_weather", "Normalväder")
                         or new_weather_effect != node_data.get("weather_effect", "")
                     )
                 )

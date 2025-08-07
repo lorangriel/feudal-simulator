@@ -397,7 +397,7 @@ def test_weather_node_clears_custom_name():
         "parent_id": 1,
         "res_type": "Väder",
         "custom_name": "Storm",
-        "spring_weather": "Soligt",
+        "spring_weather": "Solsken",
     }
 
     node = Node.from_dict(raw)
@@ -405,4 +405,4 @@ def test_weather_node_clears_custom_name():
 
     back = node.to_dict()
     assert "custom_name" not in back
-    assert back["spring_weather"] == "Soligt"
+    assert back["spring_weather"] == "Solsken"

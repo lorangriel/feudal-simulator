@@ -63,10 +63,10 @@ class Node:
     fishing_boats: int = 0
     hunters: int = 0
     gamekeeper_id: Optional[int] = None
-    spring_weather: str = "Normalt väder"
-    summer_weather: str = "Normalt väder"
-    autumn_weather: str = "Normalt väder"
-    winter_weather: str = "Normalt väder"
+    spring_weather: str = "Normalväder"
+    summer_weather: str = "Normalväder"
+    autumn_weather: str = "Normalväder"
+    winter_weather: str = "Normalväder"
     weather_effect: str = ""
 
     @classmethod
@@ -206,10 +206,10 @@ class Node:
             gamekeeper_id = int(gamekeeper_id)
         elif gamekeeper_id is not None and not isinstance(gamekeeper_id, int):
             gamekeeper_id = None
-        spring_weather = data.get("spring_weather", "Normalt väder")
-        summer_weather = data.get("summer_weather", "Normalt väder")
-        autumn_weather = data.get("autumn_weather", "Normalt väder")
-        winter_weather = data.get("winter_weather", "Normalt väder")
+        spring_weather = data.get("spring_weather", "Normalväder")
+        summer_weather = data.get("summer_weather", "Normalväder")
+        autumn_weather = data.get("autumn_weather", "Normalväder")
+        winter_weather = data.get("winter_weather", "Normalväder")
         weather_effect = data.get("weather_effect", "")
         if res_type in {"Hav", "Flod"}:
             wq_raw = data.get("fish_quality", data.get("water_quality", "Normalt"))
