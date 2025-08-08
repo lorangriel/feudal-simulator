@@ -5,7 +5,13 @@ import math
 from typing import Any, Dict, List
 
 from utils import generate_swedish_village_name
-from constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR, BORDER_TYPES
+from constants import (
+    MAX_NEIGHBORS,
+    NEIGHBOR_NONE_STR,
+    BORDER_TYPES,
+    DAGSVERKEN_MULTIPLIERS,
+    THRALL_WORK_DAYS,
+)
 from node import Node
 from world_interface import WorldInterface
 
@@ -159,6 +165,37 @@ class WorldManager(WorldInterface):
 
         recurse(node_id)
         return totals
+
+    def calculate_work_available(self, node_id: int, visited: set[int] | None = None) -> int:
+        """Sum available work days for ``node_id`` and all descendants."""
+
+        nodes = self.world_data.get("nodes", {})
+        if visited is None:
+            visited = set()
+        if node_id in visited:
+            return 0
+        visited.add(node_id)
+        node = nodes.get(str(node_id))
+        if not node:
+            return 0
+        try:
+            thralls = int(node.get("thralls", 0) or 0)
+        except (ValueError, TypeError):
+            thralls = 0
+        try:
+            unfree = int(node.get("unfree_peasants", 0) or 0)
+        except (ValueError, TypeError):
+            unfree = 0
+        level = node.get("dagsverken", "normalt")
+        multiplier = DAGSVERKEN_MULTIPLIERS.get(level, 0)
+        total = thralls * THRALL_WORK_DAYS + unfree * multiplier
+        for child in node.get("children", []):
+            try:
+                cid = int(child)
+            except (ValueError, TypeError):
+                continue
+            total += self.calculate_work_available(cid, visited)
+        return total
 
     def calculate_total_resources(
         self,

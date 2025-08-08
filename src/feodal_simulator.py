@@ -1707,13 +1707,11 @@ class FeodalSimulator:
 
         # Work days available and needed
         ttk.Label(editor_frame, text="Dagsverken Tillg.").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        work_av_var = tk.StringVar(value=str(node_data.get("work_available", 0)))
-        work_av_entry = ttk.Entry(editor_frame, textvariable=work_av_var, width=6)
+        total_work = self.world_manager.calculate_work_available(node_id)
+        self._auto_save_field(node_data, "work_available", total_work, False)
+        work_av_var = tk.StringVar(value=str(total_work))
+        work_av_entry = ttk.Entry(editor_frame, textvariable=work_av_var, width=6, state="readonly")
         work_av_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        work_av_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "work_available", work_av_var.get().strip(), False),
-        )
 
         row_idx += 1
 
