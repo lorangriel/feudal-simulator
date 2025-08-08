@@ -131,6 +131,9 @@ DAGSVERKEN_UMBARANDE = {
 # Work days produced by a single thrall
 THRALL_WORK_DAYS = 300
 
+# Work days produced by a single day laborer
+DAY_LABORER_WORK_DAYS = 70
+
 # Fish quality levels for sea and river resources
 FISH_QUALITY_LEVELS = [
     "Kassat",

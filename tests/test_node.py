@@ -128,6 +128,23 @@ def test_node_jarldom_extra_fields_roundtrip():
     assert back["jarldom_area"] == 50
 
 
+def test_node_day_laborers_roundtrip():
+    raw = {
+        "node_id": 70,
+        "parent_id": 1,
+        "day_laborers_available": 5,
+        "day_laborers_hired": 3,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.day_laborers_available == 5
+    assert node.day_laborers_hired == 3
+
+    back = node.to_dict()
+    assert back["day_laborers_available"] == 5
+    assert back["day_laborers_hired"] == 3
+
+
 def test_node_population_calculated_from_categories():
     raw = {
         "node_id": 8,

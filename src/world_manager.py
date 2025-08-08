@@ -12,6 +12,7 @@ from constants import (
     DAGSVERKEN_MULTIPLIERS,
     DAGSVERKEN_UMBARANDE,
     THRALL_WORK_DAYS,
+    DAY_LABORER_WORK_DAYS,
 )
 from node import Node
 from world_interface import WorldInterface
@@ -187,9 +188,17 @@ class WorldManager(WorldInterface):
             unfree = int(node.get("unfree_peasants", 0) or 0)
         except (ValueError, TypeError):
             unfree = 0
+        try:
+            day_laborers = int(node.get("day_laborers_hired", 0) or 0)
+        except (ValueError, TypeError):
+            day_laborers = 0
         level = node.get("dagsverken", "normalt")
         multiplier = DAGSVERKEN_MULTIPLIERS.get(level, 0)
-        total = thralls * THRALL_WORK_DAYS + unfree * multiplier
+        total = (
+            thralls * THRALL_WORK_DAYS
+            + unfree * multiplier
+            + day_laborers * DAY_LABORER_WORK_DAYS
+        )
         for child in node.get("children", []):
             try:
                 cid = int(child)
