@@ -36,6 +36,7 @@ class Node:
     dagsverken: str = "normalt"
     work_available: int = 0
     work_needed: int = 0
+    umbarande: int = 0
     storage_silver: int = 0
     storage_basic: int = 0
     storage_luxury: int = 0
@@ -237,6 +238,10 @@ class Node:
         except (ValueError, TypeError):
             work_needed = 0
         try:
+            umbarande = int(data.get("umbarande", 0) or 0)
+        except (ValueError, TypeError):
+            umbarande = 0
+        try:
             storage_silver = int(data.get("storage_silver", 0) or 0)
         except (ValueError, TypeError):
             storage_silver = 0
@@ -297,6 +302,7 @@ class Node:
             weather_effect=weather_effect,
             work_available=work_available,
             work_needed=work_needed,
+            umbarande=umbarande,
             storage_silver=storage_silver,
             storage_basic=storage_basic,
             storage_luxury=storage_luxury,
@@ -330,6 +336,7 @@ class Node:
             "cleared_land": self.cleared_land,
             "work_available": self.work_available,
             "work_needed": self.work_needed,
+            "umbarande": self.umbarande,
             "storage_silver": self.storage_silver,
             "storage_basic": self.storage_basic,
             "storage_luxury": self.storage_luxury,
