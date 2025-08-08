@@ -119,6 +119,18 @@ DAGSVERKEN_MULTIPLIERS = {
     "tyranniskt många": 120,
 }
 
+# Umbärande modifiers for each dagsverken level
+DAGSVERKEN_UMBARANDE = {
+    "inga": -2,
+    "få": -1,
+    "normalt": 0,
+    "många": 1,
+    "tyranniskt många": 2,
+}
+
+# Work days produced by a single thrall
+THRALL_WORK_DAYS = 300
+
 # Fish quality levels for sea and river resources
 FISH_QUALITY_LEVELS = [
     "Kassat",
