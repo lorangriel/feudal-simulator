@@ -1501,14 +1501,6 @@ class FeodalSimulator:
         name_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "name", name_var.get().strip(), True))
         row_idx += 1
 
-        # Custom Name (Optional extra identifier)
-        ttk.Label(editor_frame, text="Eget Namn:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        custom_name_var = tk.StringVar(value=node_data.get("custom_name", ""))
-        custom_name_entry = ttk.Entry(editor_frame, textvariable=custom_name_var, width=40)
-        custom_name_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
-        custom_name_var.trace_add("write", lambda *_: self._auto_save_field(node_data, "custom_name", custom_name_var.get().strip(), True))
-        row_idx += 1
-
         # Population
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
@@ -1546,7 +1538,6 @@ class FeodalSimulator:
 
         def create_subnode_action():
             node_data["name"] = name_var.get().strip()
-            node_data["custom_name"] = custom_name_var.get().strip()
             try:
                 node_data["population"] = int(pop_var.get() or "0")
             except (tk.TclError, ValueError):
@@ -1569,7 +1560,6 @@ class FeodalSimulator:
             current_sub = len(node_data.get("children", []))
             return (
                 name_var.get().strip() != node_data.get("name", "")
-                or custom_name_var.get().strip() != node_data.get("custom_name", "")
                 or current_pop != node_data.get("population", 0)
                 or current_sub != node_data.get("num_subfiefs", 0)
             )
@@ -1999,17 +1989,6 @@ class FeodalSimulator:
         if res_var.get() == "Lager":
             self._show_lager_editor(editor_frame, node_data, row_idx)
             return
-
-        custom_label = ttk.Label(editor_frame, text="Eget Namn:")
-        custom_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        custom_var = tk.StringVar(value=node_data.get("custom_name", ""))
-        custom_entry = ttk.Entry(editor_frame, textvariable=custom_var, width=40)
-        custom_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
-        custom_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "custom_name", custom_var.get().strip(), True),
-        )
-        row_idx += 1
 
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
@@ -3122,8 +3101,6 @@ class FeodalSimulator:
         def update_subfiefs_action():
             if res_var.get() == "Väder":
                 node_data["custom_name"] = ""
-            else:
-                node_data["custom_name"] = custom_var.get().strip()
             node_data["res_type"] = res_var.get().strip()
             node_data["settlement_type"] = settlement_type_var.get().strip()
             node_data["dagsverken"] = dagsverken_var.get().strip()
@@ -3225,13 +3202,9 @@ class FeodalSimulator:
 
         def refresh_vader_controls(*_):
             if res_var.get() == "Väder":
-                custom_label.grid_remove()
-                custom_entry.grid_remove()
-                custom_var.set("")
+                node_data["custom_name"] = ""
                 skapa_button.pack_forget()
             else:
-                custom_label.grid()
-                custom_entry.grid()
                 if getattr(skapa_button, "winfo_manager", lambda: "")() == "":
                     skapa_button.pack(side=tk.LEFT, padx=5)
 
@@ -3363,7 +3336,6 @@ class FeodalSimulator:
 
             return (
                 res_var.get().strip() != initial_res_type
-                or custom_var.get().strip() != node_data.get("custom_name", "")
                 or (res_var.get() not in {"Vildmark", "Jaktmark"} and new_pop != node_data.get("population", 0))
                 or (res_var.get() in {"Vildmark", "Jaktmark"} and manual_area != node_data.get("tunnland", 0))
                 or settlement_type_var.get().strip() != node_data.get("settlement_type", "By")
