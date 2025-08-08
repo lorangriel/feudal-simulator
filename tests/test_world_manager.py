@@ -1,5 +1,5 @@
 from src.world_manager import WorldManager
-from src.constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR
+from src.constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR, DAGSVERKEN_MULTIPLIERS, THRALL_WORK_DAYS
 
 
 def test_attempt_link_neighbors_directional():
@@ -339,3 +339,59 @@ def test_update_subfiefs_skips_weather_nodes():
 
     assert world["nodes"]["1"]["children"] == []
     assert world["nodes"]["1"]["num_subfiefs"] == 0
+
+
+def test_calculate_work_available_excludes_other_jarldoms():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2, 3],
+                "thralls": 1,
+                "unfree_peasants": 1,
+                "dagsverken": "normalt",
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [4],
+                "unfree_peasants": 2,
+                "dagsverken": "många",
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "children": [],
+                "thralls": 1,
+                "dagsverken": "få",
+            },
+            "4": {
+                "node_id": 4,
+                "parent_id": 2,
+                "children": [],
+                "unfree_peasants": 1,
+                "dagsverken": "inga",
+            },
+            "5": {
+                "node_id": 5,
+                "parent_id": None,
+                "children": [],
+                "thralls": 10,
+                "unfree_peasants": 10,
+                "dagsverken": "många",
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    total = manager.calculate_work_available(1)
+    expected = (
+        THRALL_WORK_DAYS
+        + DAGSVERKEN_MULTIPLIERS["normalt"]
+        + DAGSVERKEN_MULTIPLIERS["många"] * 2
+        + THRALL_WORK_DAYS
+        + DAGSVERKEN_MULTIPLIERS["inga"]
+    )
+    assert total == expected
