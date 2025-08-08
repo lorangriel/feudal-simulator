@@ -260,6 +260,46 @@ class WorldInterface(ABC):
                     if "population" in node:
                         del node["population"]
                         updated = True
+                elif res_type == "Lager":
+                    defaults = {
+                        "lager_text": "",
+                        "storage_silver": 0,
+                        "storage_basic": 0,
+                        "storage_luxury": 0,
+                        "storage_timber": 0,
+                        "storage_coal": 0,
+                        "storage_iron_ore": 0,
+                        "storage_iron": 0,
+                        "storage_animal_feed": 0,
+                        "storage_skin": 0,
+                    }
+                    for key, val in defaults.items():
+                        if key not in node:
+                            node[key] = val
+                            updated = True
+                    for key in (
+                        "population",
+                        "tunnland",
+                        "hunters",
+                        "gamekeeper_id",
+                        "animals",
+                        "soldiers",
+                        "total_land",
+                        "forest_land",
+                        "cleared_land",
+                        "manor_land",
+                        "cultivated_land",
+                        "cultivated_quality",
+                        "fallow_land",
+                        "has_herd",
+                        "hunt_quality",
+                        "hunting_law",
+                        "fish_quality",
+                        "fishing_boats",
+                    ):
+                        if key in node:
+                            del node[key]
+                            updated = True
                 elif res_type == "Jaktmark":
                     if "tunnland" not in node:
                         node["tunnland"] = 0

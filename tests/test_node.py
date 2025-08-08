@@ -40,6 +40,13 @@ def test_node_from_dict_normalizes_fields():
     assert node.storage_silver == 0
     assert node.storage_basic == 0
     assert node.storage_luxury == 0
+    assert node.lager_text == ""
+    assert node.storage_timber == 0
+    assert node.storage_coal == 0
+    assert node.storage_iron_ore == 0
+    assert node.storage_iron == 0
+    assert node.storage_animal_feed == 0
+    assert node.storage_skin == 0
     assert node.jarldom_area == 0
     assert node.umbarande == 0
 
@@ -126,6 +133,40 @@ def test_node_jarldom_extra_fields_roundtrip():
     assert back["storage_basic"] == 3
     assert back["storage_luxury"] == 1
     assert back["jarldom_area"] == 50
+
+
+def test_node_lager_roundtrip():
+    raw = {
+        "node_id": 200,
+        "parent_id": 1,
+        "res_type": "Lager",
+        "lager_text": "notes",
+        "storage_basic": 1,
+        "storage_luxury": 2,
+        "storage_silver": 3,
+        "storage_timber": 4,
+        "storage_coal": 5,
+        "storage_iron_ore": 6,
+        "storage_iron": 7,
+        "storage_animal_feed": 8,
+        "storage_skin": 9,
+    }
+    node = Node.from_dict(raw)
+    assert node.lager_text == "notes"
+    assert node.storage_timber == 4
+    assert node.storage_coal == 5
+    assert node.storage_iron_ore == 6
+    assert node.storage_iron == 7
+    assert node.storage_animal_feed == 8
+    assert node.storage_skin == 9
+    back = node.to_dict()
+    assert back["lager_text"] == "notes"
+    assert back["storage_timber"] == 4
+    assert back["storage_coal"] == 5
+    assert back["storage_iron_ore"] == 6
+    assert back["storage_iron"] == 7
+    assert back["storage_animal_feed"] == 8
+    assert back["storage_skin"] == 9
 
 
 def test_node_day_laborers_roundtrip():
