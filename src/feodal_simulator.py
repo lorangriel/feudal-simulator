@@ -1368,6 +1368,14 @@ class FeodalSimulator:
 
     def _auto_save_field(self, node_data, key, value, refresh_tree=False):
         node_data[key] = value
+        if key in {
+            "population",
+            "free_peasants",
+            "unfree_peasants",
+            "thralls",
+            "burghers",
+        }:
+            self.world_manager.update_population_totals()
         self.save_current_world()
         if refresh_tree:
             self.refresh_tree_item(node_data.get("node_id"))
@@ -1417,6 +1425,10 @@ class FeodalSimulator:
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        pop_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "population", pop_var.get().strip(), True),
+        )
         row_idx += 1
 
         # Inline help explaining subfiefs
@@ -1452,47 +1464,6 @@ class FeodalSimulator:
             self.update_subfiefs_for_node(node_data)
 
         ttk.Button(button_frame, text="Skapa Nod", command=create_subnode_action).pack(side=tk.LEFT, padx=5)
-
-        def save_node_action():
-            old_name = node_data.get("name", "")
-            old_custom_name = node_data.get("custom_name", "")
-            old_pop = node_data.get("population", 0)
-            old_area = node_data.get("tunnland", 0)
-
-            new_name = name_var.get().strip()
-            new_custom_name = custom_name_var.get().strip()
-            try:
-                new_pop = int(pop_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_pop = 0
-            # num_subfiefs is saved via its own button
-
-            changes_made = False
-            status_details = []
-            if old_name != new_name:
-                node_data["name"] = new_name; changes_made = True
-                status_details.append(f"Namn: '{old_name}' -> '{new_name}'")
-            if old_custom_name != new_custom_name:
-                node_data["custom_name"] = new_custom_name; changes_made = True
-                status_details.append(f"Eget namn: '{old_custom_name}' -> '{new_custom_name}'")
-            if old_pop != new_pop:
-                node_data["population"] = new_pop
-                node_data["_base_population"] = new_pop
-                changes_made = True
-                status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
-
-            if changes_made:
-                self.world_manager.update_population_totals()
-                self.save_current_world()
-                status = f"Nod {node_id} uppdaterad: " + ", ".join(status_details)
-                self.add_status_message(status)
-                self.refresh_tree_item(node_id) # Update tree display name
-            else:
-                self.add_status_message(f"Nod {node_id}: Inga ändringar att spara.")
-
-
-        ttk.Button(button_frame, text="Spara Noddata", command=save_node_action).pack(side=tk.LEFT, padx=5)
-        self.pending_save_callback = save_node_action
 
         # --- Delete and Back Buttons Frame ---
         delete_back_frame = ttk.Frame(editor_frame)
@@ -1588,6 +1559,10 @@ class FeodalSimulator:
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        pop_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "population", pop_var.get().strip(), True),
+        )
 
         row_idx += 1
 
@@ -1686,6 +1661,8 @@ class FeodalSimulator:
                 node_data["ruler_id"] = str(sel)
             refresh_ruler_style()
             update_owner_nodes_list()
+            self.save_current_world()
+            self.refresh_tree_item(node_id)
 
         ruler_var.trace_add("write", on_ruler_change)
 
@@ -1731,6 +1708,10 @@ class FeodalSimulator:
         work_av_var = tk.StringVar(value=str(node_data.get("work_available", 0)))
         work_av_entry = ttk.Entry(editor_frame, textvariable=work_av_var, width=6)
         work_av_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        work_av_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "work_available", work_av_var.get().strip(), False),
+        )
 
         row_idx += 1
 
@@ -1738,6 +1719,10 @@ class FeodalSimulator:
         work_need_var = tk.StringVar(value=str(node_data.get("work_needed", 0)))
         work_need_entry = ttk.Entry(editor_frame, textvariable=work_need_var, width=6)
         work_need_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        work_need_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "work_needed", work_need_var.get().strip(), False),
+        )
 
         row_idx += 1
 
@@ -1750,6 +1735,18 @@ class FeodalSimulator:
         ttk.Entry(storage_frame, textvariable=silver_var, width=4).pack(side=tk.LEFT, padx=2)
         ttk.Entry(storage_frame, textvariable=basic_var, width=4).pack(side=tk.LEFT, padx=2)
         ttk.Entry(storage_frame, textvariable=luxury_var, width=4).pack(side=tk.LEFT, padx=2)
+        silver_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "storage_silver", silver_var.get().strip(), False),
+        )
+        basic_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "storage_basic", basic_var.get().strip(), False),
+        )
+        luxury_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "storage_luxury", luxury_var.get().strip(), False),
+        )
 
         row_idx += 1
 
@@ -1757,6 +1754,10 @@ class FeodalSimulator:
         area_var = tk.StringVar(value=str(node_data.get("jarldom_area", 0)))
         area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=8)
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        area_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "jarldom_area", area_var.get().strip(), False),
+        )
 
         row_idx += 1
 
@@ -1770,134 +1771,7 @@ class FeodalSimulator:
         action_button_frame.grid(row=row_idx, column=0, columnspan=2, pady=5)
         row_idx += 1
 
-
-
-
-        def save_node_action():
-            old_custom_name = node_data.get("custom_name", "")
-            old_pop = node_data.get("population", 0)
-            old_work_av = int(node_data.get("work_available", 0) or 0)
-            old_work_need = int(node_data.get("work_needed", 0) or 0)
-            old_silver = int(node_data.get("storage_silver", 0) or 0)
-            old_basic = int(node_data.get("storage_basic", 0) or 0)
-            old_lux = int(node_data.get("storage_luxury", 0) or 0)
-            old_area = int(node_data.get("jarldom_area", 0) or 0)
-
-            new_custom_name = custom_name_var.get().strip()
-            if not new_custom_name:
-                messagebox.showwarning("Namn Saknas", "Ett Jarldöme måste ha ett namn.", parent=self.root)
-                return
-            try:
-                new_pop = int(pop_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_pop = 0
-            try:
-                new_work_av = int(work_av_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_work_av = 0
-            try:
-                new_work_need = int(work_need_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_work_need = 0
-            try:
-                new_silver = int(silver_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_silver = 0
-            try:
-                new_basic = int(basic_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_basic = 0
-            try:
-                new_lux = int(luxury_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_lux = 0
-            try:
-                new_area = int(area_var.get() or "0")
-            except (tk.TclError, ValueError):
-                new_area = 0
-            # num_subfiefs saved via its own button
-
-            changes_made = False
-            status_details = []
-            if old_custom_name != new_custom_name:
-                node_data["custom_name"] = new_custom_name; changes_made = True
-                status_details.append(f"Namn: '{old_custom_name}' -> '{new_custom_name}'")
-            if old_pop != new_pop:
-                node_data["population"] = new_pop
-                node_data["_base_population"] = new_pop
-                changes_made = True
-                status_details.append(f"Befolkning: {old_pop} -> {new_pop}")
-            if old_work_av != new_work_av:
-                node_data["work_available"] = new_work_av; changes_made = True
-            if old_work_need != new_work_need:
-                node_data["work_needed"] = new_work_need; changes_made = True
-            if old_silver != new_silver:
-                node_data["storage_silver"] = new_silver; changes_made = True
-            if old_basic != new_basic:
-                node_data["storage_basic"] = new_basic; changes_made = True
-            if old_lux != new_lux:
-                node_data["storage_luxury"] = new_lux; changes_made = True
-            if old_area != new_area:
-                node_data["jarldom_area"] = new_area; changes_made = True
-
-            # Handle ruler assignment
-            selected_val = option_map.get(ruler_var.get())
-            if selected_val == "NEW":
-                # new ruler already created in callback
-                new_ruler_id = node_data.get("ruler_id")
-            elif selected_val is None:
-                new_ruler_id = None
-            else:
-                new_ruler_id = str(selected_val)
-
-            old_ruler_id = node_data.get("ruler_id")
-            if str(old_ruler_id) != str(new_ruler_id):
-                node_data["ruler_id"] = new_ruler_id
-                changes_made = True
-                status_details.append("Härskare uppdaterad")
-                if old_ruler_id is not None:
-                    old_char = self.world_data.get("characters", {}).get(str(old_ruler_id))
-                    if old_char and old_char.get("ruler_of") == node_id:
-                        old_char["ruler_of"] = None
-                if new_ruler_id is not None:
-                    new_char = self.world_data.get("characters", {}).get(str(new_ruler_id))
-                    if new_char:
-                        new_char["ruler_of"] = node_id
-
-            # Assign additional owner nodes
-            if new_ruler_id is not None:
-                extra_ids = []
-                for part in extra_owner_var.get().split(','):
-                    part = part.strip()
-                    if part.isdigit() and len(part) <= 4:
-                        extra_ids.append(int(part))
-                for eid in extra_ids:
-                    other = self.world_data.get("nodes", {}).get(str(eid))
-                    if other:
-                        if str(other.get("ruler_id")) != new_ruler_id:
-                            other["ruler_id"] = new_ruler_id
-                            self.refresh_tree_item(eid)
-
-            node_data["res_type"] = "Resurs" # Ensure internal type
-
-            if changes_made:
-                self.world_manager.update_population_totals()
-                self.save_current_world()
-                status = f"Jarldöme {node_id} uppdaterad: " + ", ".join(status_details)
-                self.add_status_message(status)
-                self.refresh_tree_item(node_id) # Update tree display name
-                # Also update map if visible
-                if self.static_map_canvas and self.static_map_canvas.winfo_exists():
-                    self.update_static_hex_label(node_id)
-            else:
-                self.add_status_message(f"Jarldöme {node_id}: Inga ändringar att spara.")
-
-
-        ttk.Button(action_button_frame, text="Spara Jarldöme", command=save_node_action).pack(side=tk.LEFT, padx=5)
-        self.pending_save_callback = save_node_action
-
         def create_subnode_action():
-            save_node_action()
             node_data["num_subfiefs"] = len(node_data.get("children", [])) + 1
             self.update_subfiefs_for_node(node_data)
 
@@ -1984,8 +1858,10 @@ class FeodalSimulator:
         res_var = tk.StringVar(value=initial_res_type)
         res_combo = ttk.Combobox(editor_frame, textvariable=res_var, values=res_options, state="readonly")
         res_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        save_button = ttk.Button(editor_frame, text="Spara Nod")
-        save_button.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        res_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "res_type", res_var.get().strip(), True),
+        )
         row_idx += 1
 
         custom_label = ttk.Label(editor_frame, text="Eget Namn:")
@@ -2005,6 +1881,10 @@ class FeodalSimulator:
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
         pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        pop_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "population", pop_var.get().strip(), True),
+        )
         row_idx += 1
 
         area_label = ttk.Label(editor_frame, text="Tunnland:")
@@ -2012,6 +1892,10 @@ class FeodalSimulator:
         area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=10)
         area_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        area_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "tunnland", area_var.get().strip(), False),
+        )
         row_idx += 1
 
         spring_label = ttk.Label(editor_frame, text="Vårväder:")
@@ -2026,6 +1910,10 @@ class FeodalSimulator:
         )
         spring_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         spring_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        spring_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "spring_weather", spring_var.get().strip(), False),
+        )
         row_idx += 1
 
         summer_label = ttk.Label(editor_frame, text="Sommarväder:")
@@ -2040,6 +1928,10 @@ class FeodalSimulator:
         )
         summer_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         summer_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        summer_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "summer_weather", summer_var.get().strip(), False),
+        )
         row_idx += 1
 
         autumn_label = ttk.Label(editor_frame, text="Höstväder:")
@@ -2054,6 +1946,10 @@ class FeodalSimulator:
         )
         autumn_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         autumn_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        autumn_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "autumn_weather", autumn_var.get().strip(), False),
+        )
         row_idx += 1
 
         winter_label = ttk.Label(editor_frame, text="Vinterväder:")
@@ -2068,6 +1964,10 @@ class FeodalSimulator:
         )
         winter_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         winter_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        winter_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "winter_weather", winter_var.get().strip(), False),
+        )
         row_idx += 1
 
         weather_effect_label = ttk.Label(editor_frame, text="Väder Umbäranden:")
@@ -2077,6 +1977,10 @@ class FeodalSimulator:
         )
         weather_effect_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         weather_effect_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        weather_effect_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "weather_effect", weather_effect_var.get().strip(), False),
+        )
 
         weather_rolls_var = tk.StringVar()
 
@@ -2112,11 +2016,19 @@ class FeodalSimulator:
         manor_label = ttk.Label(editor_frame, text="Godsareal:")
         manor_var = tk.StringVar(value=str(node_data.get("manor_land", 0)))
         manor_entry = ttk.Entry(editor_frame, textvariable=manor_var, width=10)
+        manor_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "manor_land", manor_var.get().strip(), False),
+        )
 
         cultivated_label = ttk.Label(editor_frame, text="Odlingsmark:")
         cultivated_var = tk.StringVar(value=str(node_data.get("cultivated_land", 0)))
         c_frame = ttk.Frame(editor_frame)
         cultivated_entry = ttk.Entry(c_frame, textvariable=cultivated_var, width=10)
+        cultivated_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "cultivated_land", cultivated_var.get().strip(), False),
+        )
         cq_label = ttk.Label(editor_frame, text="Odlingskvalitet:")
         cq_var = tk.StringVar(value=str(node_data.get("cultivated_quality", 3)))
         cq_combo = ttk.Combobox(
@@ -2126,20 +2038,36 @@ class FeodalSimulator:
             state="readonly",
             width=5,
         )
+        cq_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "cultivated_quality", cq_var.get().strip(), False),
+        )
 
         fallow_label = ttk.Label(editor_frame, text="Trädad mark:")
         fallow_var = tk.StringVar(value=str(node_data.get("fallow_land", 0)))
         f_frame = ttk.Frame(editor_frame)
         fallow_entry = ttk.Entry(f_frame, textvariable=fallow_var, width=10)
+        fallow_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "fallow_land", fallow_var.get().strip(), False),
+        )
         herd_label = ttk.Label(editor_frame, text="Boskap:")
         herd_var = tk.StringVar(value="Ja" if node_data.get("has_herd") else "Nej")
         herd_combo = ttk.Combobox(
             editor_frame, textvariable=herd_var, values=["Ja", "Nej"], state="readonly", width=5
         )
+        herd_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "has_herd", True if herd_var.get() == "Ja" else False, False),
+        )
 
         forest_label = ttk.Label(editor_frame, text="Skogsmark:")
         forest_var = tk.StringVar(value=str(node_data.get("forest_land", 0)))
         forest_entry = ttk.Entry(editor_frame, textvariable=forest_var, width=10)
+        forest_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "forest_land", forest_var.get().strip(), False),
+        )
         hunt_label = ttk.Label(editor_frame, text="Jaktkvalitet:")
         hunt_var = tk.StringVar(value=str(node_data.get("hunt_quality", 3)))
         hunt_combo = ttk.Combobox(
@@ -2149,10 +2077,18 @@ class FeodalSimulator:
             state="readonly",
             width=5,
         )
+        hunt_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "hunt_quality", hunt_var.get().strip(), False),
+        )
 
         law_label = ttk.Label(editor_frame, text="Jaktlag:")
         law_var = tk.StringVar(value=str(node_data.get("hunting_law", 0)))
         law_combo = ttk.Combobox(editor_frame, textvariable=law_var, state="readonly", width=5)
+        law_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "hunting_law", law_var.get().strip(), False),
+        )
 
         # Grid placement (initially hidden; visibility controlled below)
         manor_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
@@ -2188,6 +2124,10 @@ class FeodalSimulator:
         )
         water_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         fish_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        fish_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "fish_quality", fish_var.get().strip(), False),
+        )
         row_idx += 1
 
         boats_label = ttk.Label(editor_frame, text="Fiskebåtar:")
@@ -2198,6 +2138,10 @@ class FeodalSimulator:
             values=[str(i) for i in range(MAX_FISHING_BOATS + 1)],
             state="readonly",
             width=5,
+        )
+        boats_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "fishing_boats", boats_var.get().strip(), False),
         )
         boats_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         boats_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
@@ -2218,6 +2162,11 @@ class FeodalSimulator:
         gamekeeper_combo = ttk.Combobox(editor_frame, textvariable=gamekeeper_var, values=gk_options, state="readonly", width=40)
         gamekeeper_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         gamekeeper_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        def on_gamekeeper_change(*_):
+            val = gamekeeper_var.get()
+            gid = int(val.split(":")[0]) if val and val != "Ingen karaktär" and ":" in val else None
+            self._auto_save_field(node_data, "gamekeeper_id", gid, False)
+        gamekeeper_var.trace_add("write", on_gamekeeper_change)
         row_idx += 1
 
         parent_forest = 0
@@ -2236,6 +2185,10 @@ class FeodalSimulator:
         hunter_combo = ttk.Combobox(editor_frame, textvariable=hunter_var, values=[str(i) for i in range(max_hunters + 1)], state="readonly", width=5)
         hunter_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         hunter_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        hunter_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "hunters", hunter_var.get().strip(), False),
+        )
         row_idx += 1
 
         def refresh_area_visibility(*args):
@@ -2461,9 +2414,41 @@ class FeodalSimulator:
 
         for v in (free_var, unfree_var, thrall_var, burgher_var):
             v.trace_add("write", update_population_display)
+        settlement_type_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "settlement_type", settlement_type_var.get().strip(), False),
+        )
+        dagsverken_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "dagsverken", dagsverken_var.get().strip(), False),
+        )
+        free_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "free_peasants", free_var.get().strip(), False),
+        )
+        unfree_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "unfree_peasants", unfree_var.get().strip(), False),
+        )
+        thrall_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "thralls", thrall_var.get().strip(), False),
+        )
+        burgher_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "burghers", burgher_var.get().strip(), False),
+        )
 
 
         craftsman_rows: list[dict] = []
+
+        def save_craftsmen() -> None:
+            data = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in craftsman_rows
+                if r["type_var"].get()
+            ]
+            self._auto_save_field(node_data, "craftsmen", data, False)
 
         def update_craftsman_options() -> None:
             """Refresh available craftsman choices for each row."""
@@ -2510,6 +2495,8 @@ class FeodalSimulator:
                     add_blank_row_if_needed()
                 update_craftsman_options()
             type_var.trace_add("write", on_type_change)
+            type_var.trace_add("write", lambda *_: save_craftsmen())
+            count_var.trace_add("write", lambda *_: save_craftsmen())
             update_craftsman_options()
 
         def remove_craftsman_row(row):
@@ -2518,6 +2505,7 @@ class FeodalSimulator:
                 craftsman_rows.remove(row)
                 add_blank_row_if_needed()
                 update_craftsman_options()
+                save_craftsmen()
 
         def add_blank_row_if_needed():
             if len(craftsman_rows) < 9 and not any(r.get("blank") for r in craftsman_rows):
@@ -2558,6 +2546,14 @@ class FeodalSimulator:
 
         soldier_rows: list[dict] = []
 
+        def save_soldiers() -> None:
+            data = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in soldier_rows
+                if r["type_var"].get()
+            ]
+            self._auto_save_field(node_data, "soldiers", data, False)
+
         animal_label = ttk.Label(editor_frame, text="Djur:")
         animal_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
         animal_frame = ttk.Frame(editor_frame)
@@ -2565,6 +2561,14 @@ class FeodalSimulator:
         row_idx += 1
 
         animal_rows: list[dict] = []
+
+        def save_animals() -> None:
+            data = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in animal_rows
+                if r["type_var"].get()
+            ]
+            self._auto_save_field(node_data, "animals", data, False)
 
         character_label = ttk.Label(editor_frame, text="Karaktärer:")
         character_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
@@ -2574,6 +2578,21 @@ class FeodalSimulator:
 
         character_rows: list[dict] = []
 
+        def save_characters() -> None:
+            data = [
+                {
+                    "type": r["type_var"].get(),
+                    "ruler_id": (
+                        int(r["ruler_var"].get().split(":")[0])
+                        if r["type_var"].get() == "Härskare" and r["ruler_var"].get() and ":" in r["ruler_var"].get()
+                        else None
+                    ),
+                }
+                for r in character_rows
+                if r["type_var"].get()
+            ]
+            self._auto_save_field(node_data, "characters", data, False)
+
         building_label = ttk.Label(editor_frame, text="Byggnader:")
         building_label.grid(row=row_idx, column=0, sticky="nw", padx=5, pady=(10, 3))
         building_frame = ttk.Frame(editor_frame)
@@ -2581,6 +2600,14 @@ class FeodalSimulator:
         row_idx += 1
 
         building_rows: list[dict] = []
+
+        def save_buildings() -> None:
+            data = [
+                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                for r in building_rows
+                if r["type_var"].get()
+            ]
+            self._auto_save_field(node_data, "buildings", data, False)
 
         jarldom_options: list[str] = []
         if self.world_data and "nodes" in self.world_data:
@@ -2634,6 +2661,8 @@ class FeodalSimulator:
                 update_soldier_options()
 
             type_var.trace_add("write", on_type_change)
+            type_var.trace_add("write", lambda *_: save_soldiers())
+            count_var.trace_add("write", lambda *_: save_soldiers())
             update_soldier_options()
 
         def remove_soldier_row(row):
@@ -2642,6 +2671,7 @@ class FeodalSimulator:
                 soldier_rows.remove(row)
                 add_blank_soldier_row_if_needed()
                 update_soldier_options()
+                save_soldiers()
 
         def add_blank_soldier_row_if_needed():
             if not any(r.get("blank") for r in soldier_rows):
@@ -2678,8 +2708,9 @@ class FeodalSimulator:
                     r["blank"] = False
                     add_blank_animal_row_if_needed()
                 update_animal_options()
-
             type_var.trace_add("write", on_type_change)
+            type_var.trace_add("write", lambda *_: save_animals())
+            count_var.trace_add("write", lambda *_: save_animals())
             update_animal_options()
 
         def remove_animal_row(row):
@@ -2688,6 +2719,7 @@ class FeodalSimulator:
                 animal_rows.remove(row)
                 add_blank_animal_row_if_needed()
                 update_animal_options()
+                save_animals()
 
         def add_blank_animal_row_if_needed():
             if not any(r.get("blank") for r in animal_rows):
@@ -2751,8 +2783,9 @@ class FeodalSimulator:
                     add_blank_character_row_if_needed()
                 update_character_options()
                 refresh_ruler_visibility()
-
             type_var.trace_add("write", on_type_change)
+            type_var.trace_add("write", lambda *_: save_characters())
+            ruler_var.trace_add("write", lambda *_: save_characters())
             refresh_ruler_visibility()
             update_character_options()
 
@@ -2762,6 +2795,7 @@ class FeodalSimulator:
                 character_rows.remove(row)
                 add_blank_character_row_if_needed()
                 update_character_options()
+                save_characters()
 
         def add_blank_character_row_if_needed():
             if not any(r.get("blank") for r in character_rows):
@@ -2804,8 +2838,9 @@ class FeodalSimulator:
                     r["blank"] = False
                     add_blank_building_row_if_needed()
                 update_building_options()
-
             type_var.trace_add("write", on_type_change)
+            type_var.trace_add("write", lambda *_: save_buildings())
+            count_var.trace_add("write", lambda *_: save_buildings())
             update_building_options()
 
         def remove_building_row(row):
@@ -2814,6 +2849,7 @@ class FeodalSimulator:
                 building_rows.remove(row)
                 add_blank_building_row_if_needed()
                 update_building_options()
+                save_buildings()
 
         def add_blank_building_row_if_needed():
             if not any(r.get("blank") for r in building_rows):
@@ -3011,432 +3047,7 @@ class FeodalSimulator:
         skapa_button = ttk.Button(action_frame, text="Skapa Nod", command=update_subfiefs_action)
         skapa_button.pack(side=tk.LEFT, padx=5)
 
-        def save_node_action():
-            old_custom = node_data.get("custom_name", "")
-            old_pop = node_data.get("population", 0)
-            old_type = node_data.get("res_type", "")
-            old_settlement_type = node_data.get("settlement_type", "By")
-            old_free = int(node_data.get("free_peasants", 0))
-            old_unfree = int(node_data.get("unfree_peasants", 0))
-            old_thralls = int(node_data.get("thralls", 0))
-            old_burghers = int(node_data.get("burghers", 0))
-            old_dags = node_data.get("dagsverken", "normalt")
-            old_craftsmen = node_data.get("craftsmen", [])
-            old_soldiers = node_data.get("soldiers", [])
-            old_characters = node_data.get("characters", [])
-            old_animals = node_data.get("animals", [])
-            old_buildings = node_data.get("buildings", [])
-            old_area = node_data.get("tunnland", 0)
-            old_quality = node_data.get("fish_quality", node_data.get("water_quality", "Normalt"))
-            old_boats = int(node_data.get("fishing_boats", 0))
-            old_gamekeeper = node_data.get("gamekeeper_id")
-            old_hunters = int(node_data.get("hunters", 0))
-            old_manor = int(node_data.get("manor_land", 0))
-            old_cultivated = int(node_data.get("cultivated_land", 0))
-            old_cq = int(node_data.get("cultivated_quality", 3))
-            old_fallow = int(node_data.get("fallow_land", 0))
-            old_has_herd = bool(node_data.get("has_herd", False))
-            old_forest = int(node_data.get("forest_land", 0))
-            old_hq = int(node_data.get("hunt_quality", 3))
-            old_law = int(node_data.get("hunting_law", 0))
-            old_spring = node_data.get("spring_weather", NORMAL_WEATHER["spring"])
-            old_summer = node_data.get("summer_weather", NORMAL_WEATHER["summer"])
-            old_autumn = node_data.get("autumn_weather", NORMAL_WEATHER["autumn"])
-            old_winter = node_data.get("winter_weather", NORMAL_WEATHER["winter"])
-            old_weather_effect = node_data.get("weather_effect", "")
-            
-            def calc_work(level: str, unfree: int, thralls: int) -> int:
-                mult = DAGSVERKEN_MULTIPLIERS.get(level, 80)
-                return mult * unfree + thralls * 300
-
-            new_custom = "" if res_var.get() == "Väder" else custom_var.get().strip()
-            try:
-                manual_pop = int(pop_var.get() or "0")
-            except (tk.TclError, ValueError):
-                manual_pop = 0
-            try:
-                manual_area = int(area_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                manual_area = 0
-            new_type = res_var.get().strip()
-            new_settlement_type = settlement_type_var.get().strip()
-            try:
-                new_free = int(free_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_free = 0
-            try:
-                new_unfree = int(unfree_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_unfree = 0
-            try:
-                new_thralls = int(thrall_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_thralls = 0
-            try:
-                new_burghers = int(burgher_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_burghers = 0
-            new_dags = dagsverken_var.get().strip()
-            new_quality = fish_var.get()
-            try:
-                new_boats = int(boats_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_boats = 0
-            try:
-                new_manor = int(manor_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_manor = 0
-            try:
-                new_cultivated = int(cultivated_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_cultivated = 0
-            try:
-                new_cq = int(cq_var.get() or "3", 10)
-            except (tk.TclError, ValueError):
-                new_cq = 3
-            try:
-                new_fallow = int(fallow_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_fallow = 0
-            new_has_herd = herd_var.get() == "Ja"
-            try:
-                new_forest = int(forest_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_forest = 0
-            try:
-                new_hq = int(hunt_var.get() or "3", 10)
-            except (tk.TclError, ValueError):
-                new_hq = 3
-            try:
-                new_law = int(law_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_law = 0
-            jk_sel = gamekeeper_var.get()
-            new_gamekeeper = None
-            if jk_sel and jk_sel != "Ingen karaktär" and ":" in jk_sel:
-                new_gamekeeper = int(jk_sel.split(":")[0])
-            try:
-                new_hunters = int(hunter_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_hunters = 0
-            new_spring = spring_var.get()
-            new_summer = summer_var.get()
-            new_autumn = autumn_var.get()
-            new_winter = winter_var.get()
-            new_weather_effect = weather_effect_var.get().strip()
-
-            old_contrib = 0
-            if old_type == "Bosättning":
-                old_contrib = calc_work(old_dags, old_unfree, old_thralls)
-            new_contrib = 0
-            if new_type == "Bosättning":
-                new_contrib = calc_work(new_dags, new_unfree, new_thralls)
-            work_diff = new_contrib - old_contrib
-            jarldom_id = node_id
-            while jarldom_id is not None and self.get_depth_of_node(jarldom_id) > 3:
-                jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
-                if not jnode:
-                    break
-                jarldom_id = jnode.get("parent_id")
-            if jarldom_id is not None and work_diff != 0:
-                jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
-                if jnode is not None:
-                    try:
-                        cur_av = int(jnode.get("work_available", 0))
-                    except (ValueError, TypeError):
-                        cur_av = 0
-                    jnode["work_available"] = cur_av + work_diff
-            try:
-                new_manor = int(manor_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_manor = 0
-            try:
-                new_cultivated = int(cultivated_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_cultivated = 0
-            try:
-                new_cq = int(cq_var.get() or "3", 10)
-            except (tk.TclError, ValueError):
-                new_cq = 3
-            try:
-                new_fallow = int(fallow_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_fallow = 0
-            new_has_herd = herd_var.get() == "Ja"
-            try:
-                new_forest = int(forest_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_forest = 0
-            try:
-                new_hq = int(hunt_var.get() or "3", 10)
-            except (tk.TclError, ValueError):
-                new_hq = 3
-            try:
-                new_law = int(law_var.get() or "0", 10)
-            except (tk.TclError, ValueError):
-                new_law = 0
-            new_craftsmen = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get())}
-                for r in craftsman_rows
-                if r["type_var"].get()
-            ]
-            new_soldiers = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in soldier_rows
-                if r["type_var"].get()
-            ]
-            new_characters = [
-                {
-                    "type": r["type_var"].get(),
-                    "ruler_id": (
-                        int(r["ruler_var"].get().split(":")[0])
-                        if r["type_var"].get() == "Härskare" and r["ruler_var"].get()
-                        else None
-                    ),
-                }
-                for r in character_rows
-                if r["type_var"].get()
-            ]
-            if new_type == "Djur":
-                new_animals = [
-                    {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                    for r in animal_rows
-                    if r["type_var"].get()
-                ]
-            else:
-                new_animals = []
-            new_buildings = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in building_rows
-                if r["type_var"].get()
-            ]
-            new_soldiers = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
-                for r in soldier_rows
-                if r["type_var"].get()
-            ]
-            new_characters = [
-                {
-                    "type": r["type_var"].get(),
-                    "ruler_id": (
-                        int(r["ruler_var"].get().split(":")[0])
-                        if r["type_var"].get() == "Härskare" and r["ruler_var"].get()
-                        else None
-                    ),
-                }
-                for r in character_rows
-                if r["type_var"].get()
-            ]
-
-            if new_type in {"Vildmark", "Djur", "Väder"}:
-                new_pop = 0
-            else:
-                new_pop = self.calculate_population_from_fields({
-                    "population": manual_pop,
-                    "free_peasants": new_free,
-                    "unfree_peasants": new_unfree,
-                    "thralls": new_thralls,
-                    "burghers": new_burghers,
-                })
-
-            changes = False
-            details = []
-            if old_custom != new_custom:
-                node_data["custom_name"] = new_custom
-                changes = True
-                details.append(f"Namn: '{old_custom}' -> '{new_custom}'")
-            if old_type == "Vildmark":
-                if old_area != manual_area:
-                    node_data["tunnland"] = manual_area
-                    changes = True
-                    details.append(f"Tunnland: {old_area} -> {manual_area}")
-            else:
-                if old_pop != new_pop:
-                    node_data["population"] = new_pop
-                    node_data["_base_population"] = new_pop
-                    changes = True
-                    details.append(f"Befolkning: {old_pop} -> {new_pop}")
-            if old_type != new_type:
-                node_data["res_type"] = new_type
-                changes = True
-                details.append(f"Typ: '{old_type}' -> '{new_type}'")
-            if old_settlement_type != new_settlement_type:
-                node_data["settlement_type"] = new_settlement_type
-                changes = True
-            if old_free != new_free:
-                node_data["free_peasants"] = new_free
-                changes = True
-            if old_unfree != new_unfree:
-                node_data["unfree_peasants"] = new_unfree
-                changes = True
-            if old_thralls != new_thralls:
-                node_data["thralls"] = new_thralls
-                changes = True
-            if old_burghers != new_burghers:
-                node_data["burghers"] = new_burghers
-                changes = True
-            if old_dags != new_dags:
-                node_data["dagsverken"] = new_dags
-                changes = True
-            if new_type == "Gods":
-                if old_manor != new_manor:
-                    node_data["manor_land"] = new_manor
-                    changes = True
-                    diff = new_manor - old_manor
-                    jarldom_id = node_id
-                    while jarldom_id is not None and self.get_depth_of_node(jarldom_id) > 3:
-                        jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
-                        if not jnode:
-                            break
-                        jarldom_id = jnode.get("parent_id")
-                    if jarldom_id is not None:
-                        jnode = self.world_data.get("nodes", {}).get(str(jarldom_id))
-                        if jnode is not None:
-                            try:
-                                cur_area = int(jnode.get("jarldom_area", 0))
-                            except (ValueError, TypeError):
-                                cur_area = 0
-                            jnode["jarldom_area"] = cur_area - diff
-                if old_cultivated != new_cultivated:
-                    node_data["cultivated_land"] = new_cultivated
-                    changes = True
-                if old_cq != new_cq:
-                    node_data["cultivated_quality"] = new_cq
-                    changes = True
-                if old_fallow != new_fallow:
-                    node_data["fallow_land"] = new_fallow
-                    changes = True
-                if old_has_herd != new_has_herd:
-                    node_data["has_herd"] = new_has_herd
-                    changes = True
-                if old_forest != new_forest:
-                    node_data["forest_land"] = new_forest
-                    changes = True
-                if old_hq != new_hq:
-                    node_data["hunt_quality"] = new_hq
-                    changes = True
-                if old_law != new_law:
-                    node_data["hunting_law"] = new_law
-                    changes = True
-            if old_craftsmen != new_craftsmen:
-                node_data["craftsmen"] = new_craftsmen
-                changes = True
-            if old_characters != new_characters:
-                node_data["characters"] = new_characters
-                changes = True
-            if old_soldiers != new_soldiers:
-                node_data["soldiers"] = new_soldiers
-                changes = True
-            if new_type == "Djur":
-                if old_animals != new_animals:
-                    node_data["animals"] = new_animals
-                    changes = True
-                if "population" in node_data:
-                    del node_data["population"]
-                    changes = True
-            else:
-                if "animals" in node_data:
-                    del node_data["animals"]
-                    changes = True
-            if old_buildings != new_buildings:
-                node_data["buildings"] = new_buildings
-                changes = True
-            if new_type == "Väder":
-                if old_spring != new_spring:
-                    node_data["spring_weather"] = new_spring
-                    changes = True
-                if old_summer != new_summer:
-                    node_data["summer_weather"] = new_summer
-                    changes = True
-                if old_autumn != new_autumn:
-                    node_data["autumn_weather"] = new_autumn
-                    changes = True
-                if old_winter != new_winter:
-                    node_data["winter_weather"] = new_winter
-                    changes = True
-                if old_weather_effect != new_weather_effect:
-                    node_data["weather_effect"] = new_weather_effect
-                    changes = True
-                for key in (
-                    "population",
-                    "tunnland",
-                    "hunters",
-                    "gamekeeper_id",
-                    "animals",
-                    "soldiers",
-                    "fish_quality",
-                    "fishing_boats",
-                    "manor_land",
-                    "cultivated_land",
-                    "cultivated_quality",
-                    "fallow_land",
-                    "has_herd",
-                    "forest_land",
-                    "hunt_quality",
-                    "hunting_law",
-                    "total_land",
-                    "cleared_land",
-                ):
-                    if key in node_data:
-                        del node_data[key]
-                        changes = True
-            else:
-                for key in (
-                    "spring_weather",
-                    "summer_weather",
-                    "autumn_weather",
-                    "winter_weather",
-                    "weather_effect",
-                ):
-                    if key in node_data:
-                        del node_data[key]
-                        changes = True
-            if new_type in {"Hav", "Flod"}:
-                if old_quality != new_quality:
-                    node_data["fish_quality"] = new_quality
-                    changes = True
-                if old_boats != new_boats:
-                    node_data["fishing_boats"] = new_boats
-                    changes = True
-            else:
-                if "fish_quality" in node_data:
-                    del node_data["fish_quality"]
-                    changes = True
-                if "fishing_boats" in node_data:
-                    del node_data["fishing_boats"]
-                    changes = True
-            if new_type != "Gods":
-                for key in (
-                    "manor_land",
-                    "cultivated_land",
-                    "cultivated_quality",
-                    "fallow_land",
-                    "has_herd",
-                    "forest_land",
-                    "hunt_quality",
-                    "hunting_law",
-                ):
-                    if key in node_data:
-                        del node_data[key]
-                        changes = True
-            if old_gamekeeper != new_gamekeeper:
-                node_data["gamekeeper_id"] = new_gamekeeper
-                changes = True
-            if old_hunters != new_hunters:
-                node_data["hunters"] = new_hunters
-                changes = True
-
-            if changes:
-                self.world_manager.update_population_totals()
-                self.save_current_world()
-                status = f"Resurs {node_id} uppdaterad: " + ", ".join(details)
-                self.add_status_message(status)
-                self.refresh_tree_item(node_id)
-            else:
-                self.add_status_message(f"Resurs {node_id}: Inga ändringar att spara.")
-
-        save_button.configure(command=save_node_action)
-        ttk.Button(action_frame, text="Spara Resurs", command=save_node_action).pack(side=tk.LEFT, padx=5)
+        # manual save removed; fields are auto-saved via trace_add hooks
 
         def refresh_vader_controls(*_):
             if res_var.get() == "Väder":
@@ -3452,7 +3063,6 @@ class FeodalSimulator:
 
         res_var.trace_add("write", refresh_vader_controls)
         refresh_vader_controls()
-        self.pending_save_callback = save_node_action
 
         delete_back_frame = ttk.Frame(editor_frame)
         delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
