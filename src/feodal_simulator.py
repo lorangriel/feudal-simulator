@@ -1849,30 +1849,6 @@ class FeodalSimulator:
 
         row_idx += 1
 
-        ttk.Label(editor_frame, text="Lager Silver/Bas/Lyx:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        storage_frame = ttk.Frame(editor_frame)
-        storage_frame.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        silver_var = tk.StringVar(value=str(node_data.get("storage_silver", 0)))
-        basic_var = tk.StringVar(value=str(node_data.get("storage_basic", 0)))
-        luxury_var = tk.StringVar(value=str(node_data.get("storage_luxury", 0)))
-        ttk.Entry(storage_frame, textvariable=silver_var, width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Entry(storage_frame, textvariable=basic_var, width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Entry(storage_frame, textvariable=luxury_var, width=4).pack(side=tk.LEFT, padx=2)
-        silver_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "storage_silver", silver_var.get().strip(), False),
-        )
-        basic_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "storage_basic", basic_var.get().strip(), False),
-        )
-        luxury_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "storage_luxury", luxury_var.get().strip(), False),
-        )
-
-        row_idx += 1
-
         ttk.Label(editor_frame, text="Areal totalt:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
         area_var = tk.StringVar(value=str(node_data.get("jarldom_area", 0)))
         area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=8)
@@ -1927,18 +1903,6 @@ class FeodalSimulator:
             except (tk.TclError, ValueError):
                 cur_need = 0
             try:
-                cur_sil = int(silver_var.get() or "0")
-            except (tk.TclError, ValueError):
-                cur_sil = 0
-            try:
-                cur_basic = int(basic_var.get() or "0")
-            except (tk.TclError, ValueError):
-                cur_basic = 0
-            try:
-                cur_lux = int(luxury_var.get() or "0")
-            except (tk.TclError, ValueError):
-                cur_lux = 0
-            try:
                 cur_area = int(area_var.get() or "0")
             except (tk.TclError, ValueError):
                 cur_area = 0
@@ -1948,9 +1912,6 @@ class FeodalSimulator:
                 or current_sub != node_data.get("num_subfiefs", 0)
                 or cur_av != int(node_data.get("work_available", 0) or 0)
                 or cur_need != int(node_data.get("work_needed", 0) or 0)
-                or cur_sil != int(node_data.get("storage_silver", 0) or 0)
-                or cur_basic != int(node_data.get("storage_basic", 0) or 0)
-                or cur_lux != int(node_data.get("storage_luxury", 0) or 0)
                 or cur_area != int(node_data.get("jarldom_area", 0) or 0)
             )
 
