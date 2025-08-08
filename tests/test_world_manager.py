@@ -5,6 +5,7 @@ from src.constants import (
     DAGSVERKEN_MULTIPLIERS,
     THRALL_WORK_DAYS,
     DAGSVERKEN_UMBARANDE,
+    DAY_LABORER_WORK_DAYS,
 )
 
 
@@ -401,6 +402,24 @@ def test_calculate_work_available_excludes_other_jarldoms():
         + DAGSVERKEN_MULTIPLIERS["inga"]
     )
     assert total == expected
+
+
+def test_calculate_work_available_includes_day_laborers():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "day_laborers_hired": 2,
+            }
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    total = manager.calculate_work_available(1)
+    assert total == DAY_LABORER_WORK_DAYS * 2
 
 
 def test_calculate_umbarande_excludes_other_jarldoms():

@@ -1,6 +1,8 @@
 import pytest
+import tkinter as tk
 
 from src import feodal_simulator as fs
+from src.constants import DAY_LABORER_WORK_DAYS
 
 
 class DummySimulator(fs.FeodalSimulator):
@@ -417,3 +419,49 @@ def test_clear_all_neighbor_links(monkeypatch):
     assert all(nb.get("id") is None for nb in world["nodes"]["10"]["neighbors"])
     assert all(nb.get("id") is None for nb in world["nodes"]["20"]["neighbors"])
     assert "saved" in calls
+
+
+def test_day_laborer_entry_color_and_work_update():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "dagsverken": "normalt",
+                "day_laborers_available": 5,
+                "day_laborers_hired": 0,
+            }
+        },
+        "characters": {},
+    }
+
+    sim = DummySimulator()
+    sim.world_data = world
+    sim.world_manager = fs.WorldManager(world)
+    sim.get_depth_of_node = lambda nid: 3
+    sim._auto_save_field = lambda node, key, val, _r=False: node.__setitem__(key, val)
+    sim._update_umbarande_totals = lambda *a, **k: None
+    sim.show_neighbor_editor = lambda *a, **k: None
+    sim.save_current_world = lambda: None
+    sim.refresh_tree_item = lambda *a, **k: None
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+    except tk.TclError:
+        pytest.skip("Tk display not available")
+    frame = tk.Frame(root)
+    frame.pack()
+    sim._show_jarldome_editor(frame, world["nodes"]["1"])
+
+    sim.day_laborers_hired_var.set("3")
+    root.update_idletasks()
+    assert sim.day_laborers_hired_entry.cget("foreground") == "black"
+    assert world["nodes"]["1"]["work_available"] == 3 * DAY_LABORER_WORK_DAYS
+
+    sim.day_laborers_hired_var.set("6")
+    root.update_idletasks()
+    assert sim.day_laborers_hired_entry.cget("foreground") == "red"
+
+    root.destroy()

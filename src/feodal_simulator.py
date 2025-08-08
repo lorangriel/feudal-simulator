@@ -1728,6 +1728,10 @@ class FeodalSimulator:
         work_av_var = tk.StringVar(value=str(total_work))
         work_av_entry = ttk.Entry(editor_frame, textvariable=work_av_var, width=6, state="readonly")
         work_av_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        day_avail_var = tk.StringVar(value=str(node_data.get("day_laborers_available", 0)))
+        ttk.Label(editor_frame, text="Daglönare tillg.").grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        day_avail_entry = ttk.Entry(editor_frame, textvariable=day_avail_var, width=5)
+        day_avail_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
 
         row_idx += 1
 
@@ -1735,6 +1739,38 @@ class FeodalSimulator:
         work_need_var = tk.StringVar(value=str(node_data.get("work_needed", 0)))
         work_need_entry = ttk.Entry(editor_frame, textvariable=work_need_var, width=6)
         work_need_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        ttk.Label(editor_frame, text="Daglönare hyrda:").grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        day_hired_var = tk.StringVar(value=str(node_data.get("day_laborers_hired", 0)))
+        day_hired_entry = ttk.Entry(editor_frame, textvariable=day_hired_var, width=5)
+        day_hired_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+
+        def update_day_laborers(*_args) -> None:
+            try:
+                avail = int(day_avail_var.get() or "0")
+            except ValueError:
+                avail = 0
+            try:
+                hired = int(day_hired_var.get() or "0")
+            except ValueError:
+                hired = 0
+            if hired > avail:
+                day_hired_entry.config(foreground="red")
+            else:
+                day_hired_entry.config(foreground="black")
+            self._auto_save_field(node_data, "day_laborers_available", day_avail_var.get().strip(), False)
+            self._auto_save_field(node_data, "day_laborers_hired", day_hired_var.get().strip(), False)
+            total = self.world_manager.calculate_work_available(node_id)
+            self._auto_save_field(node_data, "work_available", total, False)
+            work_av_var.set(str(total))
+
+        day_avail_var.trace_add("write", update_day_laborers)
+        day_hired_var.trace_add("write", update_day_laborers)
+        update_day_laborers()
+
+        # expose for tests
+        self.day_laborers_available_var = day_avail_var
+        self.day_laborers_hired_var = day_hired_var
+        self.day_laborers_hired_entry = day_hired_entry
         work_need_var.trace_add(
             "write",
             lambda *_: self._auto_save_field(node_data, "work_needed", work_need_var.get().strip(), False),

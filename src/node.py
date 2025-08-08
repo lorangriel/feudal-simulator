@@ -44,6 +44,8 @@ class Node:
     free_peasants: int = 0
     unfree_peasants: int = 0
     thralls: int = 0
+    day_laborers_available: int = 0
+    day_laborers_hired: int = 0
     burghers: int = 0
     tunnland: int = 0  # Area for wilderness resources measured in tunnland
     total_land: int = 0  # Total land area for 'Mark' resources
@@ -110,6 +112,8 @@ class Node:
         free_peasants = int(data.get("free_peasants", 0) or 0)
         unfree_peasants = int(data.get("unfree_peasants", 0) or 0)
         thralls = int(data.get("thralls", 0) or 0)
+        day_laborers_available = int(data.get("day_laborers_available", 0) or 0)
+        day_laborers_hired = int(data.get("day_laborers_hired", 0) or 0)
         burghers = int(data.get("burghers", 0) or 0)
         tunnland = int(data.get("tunnland", 0) or 0)
         total_land = int(data.get("total_land", 0) or 0)
@@ -274,6 +278,8 @@ class Node:
             free_peasants=free_peasants,
             unfree_peasants=unfree_peasants,
             thralls=thralls,
+            day_laborers_available=day_laborers_available,
+            day_laborers_hired=day_laborers_hired,
             burghers=burghers,
             tunnland=tunnland,
             total_land=total_land,
@@ -329,6 +335,8 @@ class Node:
             "free_peasants": self.free_peasants,
             "unfree_peasants": self.unfree_peasants,
             "thralls": self.thralls,
+            "day_laborers_available": self.day_laborers_available,
+            "day_laborers_hired": self.day_laborers_hired,
             "burghers": self.burghers,
             "tunnland": self.tunnland,
             "total_land": self.total_land,
@@ -384,6 +392,8 @@ class Node:
                 "free_peasants",
                 "unfree_peasants",
                 "thralls",
+                "day_laborers_available",
+                "day_laborers_hired",
                 "burghers",
                 "tunnland",
                 "total_land",
