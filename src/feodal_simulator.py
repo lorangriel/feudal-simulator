@@ -23,6 +23,8 @@ from constants import (
     MAX_FISHING_BOATS,
     DAGSVERKEN_LEVELS,
     DAGSVERKEN_MULTIPLIERS,
+    DAGSVERKEN_UMBARANDE,
+    THRALL_WORK_DAYS,
 )
 from data_manager import load_worlds_from_file, save_worlds_to_file
 from node import Node
@@ -2400,6 +2402,23 @@ class FeodalSimulator:
         thrall_var = tk.StringVar(value=str(node_data.get("thralls", 0)))
         burgher_var = tk.StringVar(value=str(node_data.get("burghers", 0)))
         dagsverken_var = tk.StringVar(value=node_data.get("dagsverken", "normalt"))
+        dagsverken_total_var = tk.StringVar(value="0")
+        umbarande_var = tk.StringVar(value="0")
+
+        def update_dagsverken_display(*_args) -> None:
+            try:
+                thralls = int(thrall_var.get() or "0", 10)
+            except ValueError:
+                thralls = 0
+            try:
+                unfree = int(unfree_var.get() or "0", 10)
+            except ValueError:
+                unfree = 0
+            level = dagsverken_var.get()
+            multiplier = DAGSVERKEN_MULTIPLIERS.get(level, 0)
+            total = thralls * THRALL_WORK_DAYS + unfree * multiplier
+            dagsverken_total_var.set(str(total))
+            umbarande_var.set(str(DAGSVERKEN_UMBARANDE.get(level, 0)))
 
         def update_population_display(*_args) -> None:
             """Update population field based on category counts."""
@@ -2424,6 +2443,9 @@ class FeodalSimulator:
             "write",
             lambda *_: self._auto_save_field(node_data, "dagsverken", dagsverken_var.get().strip(), False),
         )
+        for v in (thrall_var, unfree_var, dagsverken_var):
+            v.trace_add("write", update_dagsverken_display)
+        update_dagsverken_display()
         free_var.trace_add(
             "write",
             lambda *_: self._auto_save_field(node_data, "free_peasants", free_var.get().strip(), False),
@@ -2529,13 +2551,26 @@ class FeodalSimulator:
             ttk.Entry(settlement_frame, textvariable=var, width=10).grid(row=idx, column=1, sticky="w", padx=5, pady=3)
 
         ttk.Label(settlement_frame, text="Dagsverken:").grid(row=5, column=0, sticky="w", padx=5, pady=3)
+        ttk.Entry(
+            settlement_frame,
+            textvariable=dagsverken_total_var,
+            width=6,
+            state="readonly",
+        ).grid(row=5, column=1, sticky="w", padx=5, pady=3)
         dagsverken_combo = ttk.Combobox(
             settlement_frame,
             textvariable=dagsverken_var,
             values=list(DAGSVERKEN_LEVELS),
             state="readonly",
         )
-        dagsverken_combo.grid(row=5, column=1, sticky="w", padx=5, pady=3)
+        dagsverken_combo.grid(row=5, column=2, sticky="w", padx=5, pady=3)
+        ttk.Label(settlement_frame, text="Umbäranden:").grid(row=5, column=3, sticky="w", padx=5, pady=3)
+        ttk.Entry(
+            settlement_frame,
+            textvariable=umbarande_var,
+            width=3,
+            state="readonly",
+        ).grid(row=5, column=4, sticky="w", padx=5, pady=3)
         ttk.Label(settlement_frame, text="Hantverkare:").grid(row=6, column=0, sticky="nw", padx=5, pady=(10, 3))
         craft_frame = ttk.Frame(settlement_frame)
         craft_frame.grid(row=6, column=1, sticky="w", pady=(10, 3))
