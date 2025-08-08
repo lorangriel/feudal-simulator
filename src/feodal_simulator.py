@@ -1990,18 +1990,6 @@ class FeodalSimulator:
             self._show_lager_editor(editor_frame, node_data, row_idx)
             return
 
-        pop_label = ttk.Label(editor_frame, text="Befolkning:")
-        pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        calculated_pop = int(node_data.get("population", 0))
-        pop_var = tk.StringVar(value=str(calculated_pop))
-        pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
-        pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        pop_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "population", pop_var.get().strip(), True),
-        )
-        row_idx += 1
-
         area_label = ttk.Label(editor_frame, text="Tunnland:")
         area_var = tk.StringVar(value=str(node_data.get("tunnland", 0)))
         area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=10)
@@ -2310,28 +2298,18 @@ class FeodalSimulator:
             if res_var.get() in {"Vildmark", "Jaktmark"}:
                 area_label.grid()
                 area_entry.grid()
-                pop_label.grid_remove()
-                pop_entry.grid_remove()
             elif res_var.get() == "Djur":
                 area_label.grid_remove()
                 area_entry.grid_remove()
-                pop_label.grid_remove()
-                pop_entry.grid_remove()
             elif res_var.get() == "Gods":
                 area_label.grid_remove()
                 area_entry.grid_remove()
-                pop_label.grid()
-                pop_entry.grid()
             elif res_var.get() == "Väder":
                 area_label.grid_remove()
                 area_entry.grid_remove()
-                pop_label.grid_remove()
-                pop_entry.grid_remove()
             else:
                 area_label.grid_remove()
                 area_entry.grid_remove()
-                pop_label.grid()
-                pop_entry.grid()
 
         def refresh_water_visibility(*_):
             if res_var.get() in {"Hav", "Flod"}:
