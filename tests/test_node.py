@@ -41,6 +41,7 @@ def test_node_from_dict_normalizes_fields():
     assert node.storage_basic == 0
     assert node.storage_luxury == 0
     assert node.jarldom_area == 0
+    assert node.umbarande == 0
 
 
 def test_node_settlement_roundtrip():
@@ -101,6 +102,7 @@ def test_node_jarldom_extra_fields_roundtrip():
         "parent_id": 1,
         "work_available": 5,
         "work_needed": 7,
+        "umbarande": 4,
         "storage_silver": 10,
         "storage_basic": 3,
         "storage_luxury": 1,
@@ -110,6 +112,7 @@ def test_node_jarldom_extra_fields_roundtrip():
     node = Node.from_dict(raw)
     assert node.work_available == 5
     assert node.work_needed == 7
+    assert node.umbarande == 4
     assert node.storage_silver == 10
     assert node.storage_basic == 3
     assert node.storage_luxury == 1
@@ -118,6 +121,7 @@ def test_node_jarldom_extra_fields_roundtrip():
     back = node.to_dict()
     assert back["work_available"] == 5
     assert back["work_needed"] == 7
+    assert back["umbarande"] == 4
     assert back["storage_silver"] == 10
     assert back["storage_basic"] == 3
     assert back["storage_luxury"] == 1

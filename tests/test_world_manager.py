@@ -1,5 +1,11 @@
 from src.world_manager import WorldManager
-from src.constants import MAX_NEIGHBORS, NEIGHBOR_NONE_STR, DAGSVERKEN_MULTIPLIERS, THRALL_WORK_DAYS
+from src.constants import (
+    MAX_NEIGHBORS,
+    NEIGHBOR_NONE_STR,
+    DAGSVERKEN_MULTIPLIERS,
+    THRALL_WORK_DAYS,
+    DAGSVERKEN_UMBARANDE,
+)
 
 
 def test_attempt_link_neighbors_directional():
@@ -393,5 +399,53 @@ def test_calculate_work_available_excludes_other_jarldoms():
         + DAGSVERKEN_MULTIPLIERS["många"] * 2
         + THRALL_WORK_DAYS
         + DAGSVERKEN_MULTIPLIERS["inga"]
+    )
+    assert total == expected
+
+
+def test_calculate_umbarande_excludes_other_jarldoms():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2, 3],
+                "dagsverken": "normalt",
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [4],
+                "dagsverken": "många",
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "children": [],
+                "dagsverken": "få",
+            },
+            "4": {
+                "node_id": 4,
+                "parent_id": 2,
+                "children": [],
+                "dagsverken": "inga",
+            },
+            "5": {
+                "node_id": 5,
+                "parent_id": None,
+                "children": [],
+                "dagsverken": "tyranniskt många",
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    total = manager.calculate_umbarande(1)
+    expected = (
+        DAGSVERKEN_UMBARANDE["normalt"]
+        + DAGSVERKEN_UMBARANDE["många"]
+        + DAGSVERKEN_UMBARANDE["få"]
+        + DAGSVERKEN_UMBARANDE["inga"]
     )
     assert total == expected

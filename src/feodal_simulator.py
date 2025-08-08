@@ -1723,6 +1723,14 @@ class FeodalSimulator:
             "write",
             lambda *_: self._auto_save_field(node_data, "work_needed", work_need_var.get().strip(), False),
         )
+        total_umbarande = self.world_manager.calculate_umbarande(node_id)
+        self._auto_save_field(node_data, "umbarande", total_umbarande, False)
+        row_idx += 1
+        ttk.Label(editor_frame, text="Summa umbäranden:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        umbarande_total_var = tk.StringVar(value=str(total_umbarande))
+        ttk.Entry(editor_frame, textvariable=umbarande_total_var, width=10, state="readonly").grid(
+            row=row_idx, column=1, sticky="w", padx=5, pady=3
+        )
 
         row_idx += 1
 
