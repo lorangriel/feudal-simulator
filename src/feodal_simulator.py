@@ -1382,6 +1382,22 @@ class FeodalSimulator:
         if refresh_tree:
             self.refresh_tree_item(node_data.get("node_id"))
 
+    def _update_umbarande_totals(self, node_id: int) -> None:
+        """Recalculate and store umbäranden for ``node_id`` and its ancestors."""
+
+        current_id: int | None = node_id
+        while current_id is not None:
+            node = self.world_data.get("nodes", {}).get(str(current_id))
+            if not node:
+                break
+            total = self.world_manager.calculate_umbarande(current_id)
+            node["umbarande"] = total
+            if getattr(self, "current_jarldome_id", None) == current_id:
+                if hasattr(self, "umbarande_total_var"):
+                    self.umbarande_total_var.set(str(total))
+            current_id = node.get("parent_id")
+        self.save_current_world()
+
 
     def _show_upper_level_node_editor(self, parent_frame, node_data, depth):
         """Editor for Kingdom, Furstendöme, Hertigdöme (Depth 0-2)."""
@@ -1723,12 +1739,12 @@ class FeodalSimulator:
             "write",
             lambda *_: self._auto_save_field(node_data, "work_needed", work_need_var.get().strip(), False),
         )
-        total_umbarande = self.world_manager.calculate_umbarande(node_id)
-        self._auto_save_field(node_data, "umbarande", total_umbarande, False)
+        self.current_jarldome_id = node_id
+        self.umbarande_total_var = tk.StringVar(value="0")
+        self._update_umbarande_totals(node_id)
         row_idx += 1
         ttk.Label(editor_frame, text="Summa umbäranden:").grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
-        umbarande_total_var = tk.StringVar(value=str(total_umbarande))
-        ttk.Entry(editor_frame, textvariable=umbarande_total_var, width=10, state="readonly").grid(
+        ttk.Entry(editor_frame, textvariable=self.umbarande_total_var, width=10, state="readonly").grid(
             row=row_idx, column=1, sticky="w", padx=5, pady=3
         )
 
@@ -2424,7 +2440,10 @@ class FeodalSimulator:
             multiplier = DAGSVERKEN_MULTIPLIERS.get(level, 0)
             total = thralls * THRALL_WORK_DAYS + unfree * multiplier
             dagsverken_total_var.set(str(total))
-            umbarande_var.set(str(DAGSVERKEN_UMBARANDE.get(level, 0)))
+            umb = DAGSVERKEN_UMBARANDE.get(level, 0)
+            umbarande_var.set(str(umb))
+            self._auto_save_field(node_data, "umbarande", umb, False)
+            self._update_umbarande_totals(node_data["node_id"])
 
         def update_population_display(*_args) -> None:
             """Update population field based on category counts."""
