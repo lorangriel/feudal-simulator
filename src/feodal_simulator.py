@@ -2371,6 +2371,8 @@ class FeodalSimulator:
                 weather_effect_label,
                 weather_effect_entry,
                 slump_button,
+                rolls_label,
+                rolls_entry,
             ]
             if res_var.get() == "Väder":
                 for w in widgets:
