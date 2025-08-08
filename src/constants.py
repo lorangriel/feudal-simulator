@@ -25,6 +25,8 @@ RES_TYPES = [
     "Jägare", "Båtar",
     # Building Types
     "Kvarn - vatten", "Kvarn - vind", "Bageri", "Smedja", "Garveri",
+    # Storage Type
+    "Lager",
 ]
 
 # Resource categories used for Jarldom-level holdings
@@ -41,6 +43,7 @@ JARLDOM_RESOURCE_TYPES = [
     "Karaktärer",
     "Byggnader",
     "Väder",
+    "Lager",
 ]
 
 # Categorized for easier handling in UI

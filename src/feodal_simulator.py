@@ -1398,6 +1398,79 @@ class FeodalSimulator:
             current_id = node.get("parent_id")
         self.save_current_world()
 
+    def _show_lager_editor(self, parent_frame, node_data, start_row):
+        """Special editor for 'Lager' resource nodes."""
+        text_label = ttk.Label(parent_frame, text="Anteckningar:")
+        text_label.grid(row=start_row, column=0, sticky="nw", padx=5, pady=3)
+        text_frame = ttk.Frame(parent_frame)
+        text_frame.grid(row=start_row, column=1, sticky="w", padx=5, pady=3)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical")
+        text_widget = tk.Text(
+            text_frame,
+            width=60,
+            height=4,
+            wrap="word",
+            yscrollcommand=scrollbar.set,
+        )
+        scrollbar.config(command=text_widget.yview)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar.pack_forget()
+        text_widget.insert("1.0", node_data.get("lager_text", ""))
+
+        def update_scrollbar() -> None:
+            lines = int(text_widget.index("end-1c").split(".")[0])
+            if lines > 4:
+                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            else:
+                scrollbar.pack_forget()
+            if lines > 30:
+                content = text_widget.get("1.0", "end-1c").split("\n")[:30]
+                text_widget.delete("1.0", "end")
+                text_widget.insert("1.0", "\n".join(content))
+
+        def on_text_change(event=None) -> None:
+            text_widget.edit_modified(False)
+            update_scrollbar()
+            self._auto_save_field(
+                node_data, "lager_text", text_widget.get("1.0", "end-1c"), False
+            )
+
+        text_widget.bind("<<Modified>>", on_text_change)
+        text_widget.bind(
+            "<MouseWheel>", lambda e: text_widget.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        )
+        update_scrollbar()
+
+        start_row += 1
+        storage_frame = ttk.Frame(parent_frame)
+        storage_frame.grid(row=start_row, column=0, columnspan=2, sticky="w", padx=5, pady=3)
+        resources = [
+            ("BAS", "storage_basic"),
+            ("Lyx", "storage_luxury"),
+            ("Silver", "storage_silver"),
+            ("Timmer", "storage_timber"),
+            ("Kol", "storage_coal"),
+            ("Järnmalm", "storage_iron_ore"),
+            ("Järn", "storage_iron"),
+            ("Djurfoder", "storage_animal_feed"),
+            ("Skin", "storage_skin"),
+        ]
+        for idx, (label, field) in enumerate(resources):
+            r = idx // 3
+            c = idx % 3
+            value = node_data.get(field, 0)
+            var = tk.StringVar(value=f"{value}/{label}")
+            entry = ttk.Entry(storage_frame, textvariable=var, width=20)
+            entry.grid(row=r, column=c, padx=2, pady=2)
+
+            def save_entry(*_args, field=field, var=var):
+                text = var.get()
+                num = text.split("/")[0].strip()
+                self._auto_save_field(node_data, field, num, False)
+
+            var.trace_add("write", save_entry)
+
 
     def _show_upper_level_node_editor(self, parent_frame, node_data, depth):
         """Editor for Kingdom, Furstendöme, Hertigdöme (Depth 0-2)."""
@@ -1934,6 +2007,10 @@ class FeodalSimulator:
             lambda *_: self._auto_save_field(node_data, "custom_name", custom_var.get().strip(), True),
         )
         row_idx += 1
+
+        if res_var.get() == "Lager":
+            self._show_lager_editor(editor_frame, node_data, row_idx)
+            return
 
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)

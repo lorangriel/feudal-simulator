@@ -40,6 +40,13 @@ class Node:
     storage_silver: int = 0
     storage_basic: int = 0
     storage_luxury: int = 0
+    lager_text: str = ""
+    storage_timber: int = 0
+    storage_coal: int = 0
+    storage_iron_ore: int = 0
+    storage_iron: int = 0
+    storage_animal_feed: int = 0
+    storage_skin: int = 0
     jarldom_area: int = 0
     free_peasants: int = 0
     unfree_peasants: int = 0
@@ -257,6 +264,31 @@ class Node:
             storage_luxury = int(data.get("storage_luxury", 0) or 0)
         except (ValueError, TypeError):
             storage_luxury = 0
+        lager_text = str(data.get("lager_text", ""))
+        try:
+            storage_timber = int(data.get("storage_timber", 0) or 0)
+        except (ValueError, TypeError):
+            storage_timber = 0
+        try:
+            storage_coal = int(data.get("storage_coal", 0) or 0)
+        except (ValueError, TypeError):
+            storage_coal = 0
+        try:
+            storage_iron_ore = int(data.get("storage_iron_ore", 0) or 0)
+        except (ValueError, TypeError):
+            storage_iron_ore = 0
+        try:
+            storage_iron = int(data.get("storage_iron", 0) or 0)
+        except (ValueError, TypeError):
+            storage_iron = 0
+        try:
+            storage_animal_feed = int(data.get("storage_animal_feed", 0) or 0)
+        except (ValueError, TypeError):
+            storage_animal_feed = 0
+        try:
+            storage_skin = int(data.get("storage_skin", 0) or 0)
+        except (ValueError, TypeError):
+            storage_skin = 0
         try:
             jarldom_area = int(data.get("jarldom_area", 0) or 0)
         except (ValueError, TypeError):
@@ -312,6 +344,13 @@ class Node:
             storage_silver=storage_silver,
             storage_basic=storage_basic,
             storage_luxury=storage_luxury,
+            lager_text=lager_text,
+            storage_timber=storage_timber,
+            storage_coal=storage_coal,
+            storage_iron_ore=storage_iron_ore,
+            storage_iron=storage_iron,
+            storage_animal_feed=storage_animal_feed,
+            storage_skin=storage_skin,
             jarldom_area=jarldom_area,
         )
 
@@ -348,6 +387,13 @@ class Node:
             "storage_silver": self.storage_silver,
             "storage_basic": self.storage_basic,
             "storage_luxury": self.storage_luxury,
+            "lager_text": self.lager_text,
+            "storage_timber": self.storage_timber,
+            "storage_coal": self.storage_coal,
+            "storage_iron_ore": self.storage_iron_ore,
+            "storage_iron": self.storage_iron,
+            "storage_animal_feed": self.storage_animal_feed,
+            "storage_skin": self.storage_skin,
             "jarldom_area": self.jarldom_area,
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
@@ -404,6 +450,13 @@ class Node:
                 "storage_silver",
                 "storage_basic",
                 "storage_luxury",
+                "lager_text",
+                "storage_timber",
+                "storage_coal",
+                "storage_iron_ore",
+                "storage_iron",
+                "storage_animal_feed",
+                "storage_skin",
                 "jarldom_area",
                 "craftsmen",
                 "characters",
@@ -444,6 +497,18 @@ class Node:
                     "hunting_law": self.hunting_law,
                 }
             )
+
+        if self.res_type != "Lager":
+            for key in (
+                "lager_text",
+                "storage_timber",
+                "storage_coal",
+                "storage_iron_ore",
+                "storage_iron",
+                "storage_animal_feed",
+                "storage_skin",
+            ):
+                data.pop(key, None)
 
         return data
 

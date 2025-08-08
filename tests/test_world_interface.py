@@ -184,6 +184,22 @@ def test_validate_world_data_gods_defaults():
     assert "hunt_quality" in node and node["hunt_quality"] == 3
 
 
+def test_validate_world_data_lager_defaults():
+    world = {
+        "nodes": {"1": {"node_id": 1, "parent_id": None, "res_type": "Lager"}},
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 5
+    nodes_updated, _ = manager.validate_world_data()
+    assert nodes_updated > 0
+    node = world["nodes"]["1"]
+    assert node["lager_text"] == ""
+    assert node["storage_timber"] == 0
+    assert "population" not in node
+    assert "tunnland" not in node
+
+
 def test_update_neighbors_for_node_bidirectional():
     world = {
         "nodes": {
