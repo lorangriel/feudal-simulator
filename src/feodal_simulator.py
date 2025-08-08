@@ -1996,6 +1996,9 @@ class FeodalSimulator:
             lambda *_: self._auto_save_field(node_data, "res_type", res_var.get().strip(), True),
         )
         row_idx += 1
+        if res_var.get() == "Lager":
+            self._show_lager_editor(editor_frame, node_data, row_idx)
+            return
 
         custom_label = ttk.Label(editor_frame, text="Eget Namn:")
         custom_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
@@ -2007,10 +2010,6 @@ class FeodalSimulator:
             lambda *_: self._auto_save_field(node_data, "custom_name", custom_var.get().strip(), True),
         )
         row_idx += 1
-
-        if res_var.get() == "Lager":
-            self._show_lager_editor(editor_frame, node_data, row_idx)
-            return
 
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
         pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
