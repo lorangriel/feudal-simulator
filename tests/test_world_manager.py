@@ -449,3 +449,29 @@ def test_calculate_umbarande_excludes_other_jarldoms():
         + DAGSVERKEN_UMBARANDE["inga"]
     )
     assert total == expected
+
+
+def test_calculate_umbarande_includes_weather_effect():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2],
+                "dagsverken": "normalt",
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "res_type": "Väder",
+                "weather_effect": 5,
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    total = manager.calculate_umbarande(1)
+    expected = DAGSVERKEN_UMBARANDE["normalt"] + 5
+    assert total == expected

@@ -199,7 +199,10 @@ class WorldManager(WorldInterface):
         return total
 
     def calculate_umbarande(self, node_id: int, visited: set[int] | None = None) -> int:
-        """Sum umbäranden for ``node_id`` and all descendants."""
+        """Sum umbäranden for ``node_id`` and all descendants.
+
+        Includes both dagsverken and weather modifiers stored on the node.
+        """
 
         nodes = self.world_data.get("nodes", {})
         if visited is None:
@@ -212,6 +215,10 @@ class WorldManager(WorldInterface):
             return 0
         level = node.get("dagsverken", "normalt")
         total = DAGSVERKEN_UMBARANDE.get(level, 0)
+        try:
+            total += int(node.get("weather_effect", 0) or 0)
+        except (ValueError, TypeError):
+            pass
         for child in node.get("children", []):
             try:
                 cid = int(child)
