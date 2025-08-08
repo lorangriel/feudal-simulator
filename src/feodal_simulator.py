@@ -1981,10 +1981,14 @@ class FeodalSimulator:
         res_var = tk.StringVar(value=initial_res_type)
         res_combo = ttk.Combobox(editor_frame, textvariable=res_var, values=res_options, state="readonly")
         res_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        res_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(node_data, "res_type", res_var.get().strip(), True),
-        )
+
+        def on_res_change(*_):
+            self._auto_save_field(node_data, "res_type", res_var.get().strip(), True)
+            for child in parent_frame.winfo_children():
+                child.destroy()
+            self._show_resource_editor(parent_frame, node_data, depth)
+
+        res_var.trace_add("write", on_res_change)
         row_idx += 1
         if res_var.get() == "Lager":
             self._show_lager_editor(editor_frame, node_data, row_idx)
