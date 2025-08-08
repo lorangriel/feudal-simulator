@@ -187,12 +187,7 @@ class DynamicMapCanvas:
     def show_node_tooltip(self, event, node: Node) -> None:
         """Display a small popup with information about ``node``."""
         display_name = self.simulator.get_display_name_for_node(node, 3)
-        if node.res_type == "Djur":
-            text = display_name
-        else:
-            population = node.calculate_population()
-            text = f"{display_name}\nBefolkning: {population}"
-        self._show_tooltip(event, text)
+        self._show_tooltip(event, display_name)
 
     def _show_tooltip(self, event, text: str) -> None:
         self.hide_tooltip()
