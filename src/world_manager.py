@@ -13,6 +13,7 @@ from constants import (
     DAGSVERKEN_UMBARANDE,
     THRALL_WORK_DAYS,
     DAY_LABORER_WORK_DAYS,
+    CRAFTSMAN_LICENSE_FEES,
 )
 from node import Node
 from world_interface import WorldInterface
@@ -258,6 +259,41 @@ class WorldManager(WorldInterface):
             except (ValueError, TypeError):
                 continue
             total += self.calculate_license_income(cid, visited)
+        return total
+
+    def _calculate_craftsman_license(self, node_id: int) -> int:
+        """Recursively calculate license fees from craftsmen for ``node_id``."""
+
+        nodes = self.world_data.get("nodes", {})
+        node = nodes.get(str(node_id))
+        if not node:
+            return 0
+
+        total = 0
+        for c in node.get("craftsmen", []):
+            ctype = c.get("type")
+            try:
+                count = int(c.get("count", 0) or 0)
+            except (ValueError, TypeError):
+                count = 0
+            fee = CRAFTSMAN_LICENSE_FEES.get(ctype, 0)
+            total += fee * count
+
+        for child in node.get("children", []):
+            try:
+                cid = int(child)
+            except (ValueError, TypeError):
+                continue
+            total += self._calculate_craftsman_license(cid)
+        return total
+
+    def update_license_income(self, jarldom_id: int) -> int:
+        """Update ``expected_license_income`` for a jarldom from craftsmen."""
+
+        total = self._calculate_craftsman_license(jarldom_id)
+        node = self.world_data.get("nodes", {}).get(str(jarldom_id))
+        if node is not None:
+            node["expected_license_income"] = total
         return total
 
     def calculate_total_resources(

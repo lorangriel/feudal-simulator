@@ -1618,6 +1618,9 @@ class FeodalSimulator:
 
         node_data["neighbors"] = validated_neighbors
 
+        # Update license income from any craftsmen under this jarldom
+        license_total = self.world_manager.update_license_income(node_id)
+        node_data["expected_license_income"] = license_total
 
         # Main content frame for this editor
         editor_frame = ttk.Frame(parent_frame)
