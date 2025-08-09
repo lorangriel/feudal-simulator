@@ -1807,6 +1807,12 @@ class FeodalSimulator:
         day_hired_entry = ttk.Entry(editor_frame, textvariable=day_hired_var, width=5)
         day_hired_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
 
+        row_idx += 1
+        ttk.Label(editor_frame, text="Förväntad licens:").grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+        license_var = tk.StringVar(value=str(node_data.get("expected_license_income", 0)))
+        license_entry = ttk.Entry(editor_frame, textvariable=license_var, width=5)
+        license_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+
         def update_day_laborers(*_args) -> None:
             try:
                 avail = int(day_avail_var.get() or "0")
@@ -1828,6 +1834,12 @@ class FeodalSimulator:
 
         day_avail_var.trace_add("write", update_day_laborers)
         day_hired_var.trace_add("write", update_day_laborers)
+        license_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(
+                node_data, "expected_license_income", license_var.get().strip(), False
+            ),
+        )
         update_day_laborers()
 
         # expose for tests

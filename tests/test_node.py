@@ -48,6 +48,7 @@ def test_node_from_dict_normalizes_fields():
     assert node.storage_animal_feed == 0
     assert node.storage_skin == 0
     assert node.jarldom_area == 0
+    assert node.expected_license_income == 0
     assert node.umbarande == 0
 
 
@@ -114,6 +115,7 @@ def test_node_jarldom_extra_fields_roundtrip():
         "storage_basic": 3,
         "storage_luxury": 1,
         "jarldom_area": 50,
+        "expected_license_income": 12,
     }
 
     node = Node.from_dict(raw)
@@ -124,6 +126,7 @@ def test_node_jarldom_extra_fields_roundtrip():
     assert node.storage_basic == 3
     assert node.storage_luxury == 1
     assert node.jarldom_area == 50
+    assert node.expected_license_income == 12
 
     back = node.to_dict()
     assert back["work_available"] == 5
@@ -133,6 +136,7 @@ def test_node_jarldom_extra_fields_roundtrip():
     assert back["storage_basic"] == 3
     assert back["storage_luxury"] == 1
     assert back["jarldom_area"] == 50
+    assert back["expected_license_income"] == 12
 
 
 def test_node_lager_roundtrip():
