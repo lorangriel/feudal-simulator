@@ -63,18 +63,26 @@ ANIMAL_TYPES = {"Stridshästar", "Ridhästar", "Packhästar", "Draghästar", "Ox
 MISC_COUNT_TYPES = {"Jägare", "Båtar"}
 BUILDING_TYPES = {"Kvarn - vatten", "Kvarn - vind", "Bageri", "Smedja", "Garveri"}
 
-# Example list of possible craftsman professions for settlement UI
-CRAFTSMAN_TYPES = [
-    "Smed",
-    "Snickare",
-    "Bagare",
-    "Skräddare",
-    "Bryggare",
-    "Skomakare",
-    "Korgmakare",
-    "Timmerman",
-    "Målare",
-]
+# License fees for craftsmen in settlements
+CRAFTSMAN_LICENSE_FEES = {
+    "Båtbyggare": 200,
+    "Garvare": 100,
+    "Mjölnare": 100,
+    "Körsnär": 200,
+    "Skräddare": 150,
+    "Smed": 150,
+    "Snickare": 150,
+    "Värdshusvärd": 200,
+    "Bagare": 100,
+    "Bryggare": 125,
+    "Skomakare": 100,
+    "Timmerman": 150,
+    "Korgmakare": 50,
+    "Tunnbindare": 125,
+}
+
+# Available craftsman professions for settlement UI
+CRAFTSMAN_TYPES = list(CRAFTSMAN_LICENSE_FEES.keys())
 
 # Border types for neighbors
 BORDER_TYPES = [
