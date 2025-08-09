@@ -92,6 +92,7 @@ def test_validate_world_data_basic():
         "storage_basic",
         "storage_luxury",
         "jarldom_area",
+        "expected_license_income",
     ):
         assert key in node2 and node2[key] == 0
 

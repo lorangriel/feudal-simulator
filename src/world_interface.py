@@ -182,6 +182,7 @@ class WorldInterface(ABC):
                     "storage_basic",
                     "storage_luxury",
                     "jarldom_area",
+                    "expected_license_income",
                 ):
                     if key not in node:
                         node[key] = 0

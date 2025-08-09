@@ -48,6 +48,7 @@ class Node:
     storage_animal_feed: int = 0
     storage_skin: int = 0
     jarldom_area: int = 0
+    expected_license_income: int = 0
     free_peasants: int = 0
     unfree_peasants: int = 0
     thralls: int = 0
@@ -301,6 +302,10 @@ class Node:
             jarldom_area = int(data.get("jarldom_area", 0) or 0)
         except (ValueError, TypeError):
             jarldom_area = 0
+        try:
+            expected_license_income = int(data.get("expected_license_income", 0) or 0)
+        except (ValueError, TypeError):
+            expected_license_income = 0
 
         return cls(
             node_id=node_id,
@@ -361,6 +366,7 @@ class Node:
             storage_animal_feed=storage_animal_feed,
             storage_skin=storage_skin,
             jarldom_area=jarldom_area,
+            expected_license_income=expected_license_income,
         )
 
     def to_dict(self) -> dict:
@@ -404,6 +410,7 @@ class Node:
             "storage_animal_feed": self.storage_animal_feed,
             "storage_skin": self.storage_skin,
             "jarldom_area": self.jarldom_area,
+            "expected_license_income": self.expected_license_income,
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
@@ -469,6 +476,7 @@ class Node:
                 "storage_animal_feed",
                 "storage_skin",
                 "jarldom_area",
+                "expected_license_income",
                 "craftsmen",
                 "characters",
                 "buildings",

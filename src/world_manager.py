@@ -236,6 +236,30 @@ class WorldManager(WorldInterface):
             total += self.calculate_umbarande(cid, visited)
         return total
 
+    def calculate_license_income(self, node_id: int, visited: set[int] | None = None) -> int:
+        """Sum expected license income for ``node_id`` and all descendants."""
+
+        nodes = self.world_data.get("nodes", {})
+        if visited is None:
+            visited = set()
+        if node_id in visited:
+            return 0
+        visited.add(node_id)
+        node = nodes.get(str(node_id))
+        if not node:
+            return 0
+        try:
+            total = int(node.get("expected_license_income", 0) or 0)
+        except (ValueError, TypeError):
+            total = 0
+        for child in node.get("children", []):
+            try:
+                cid = int(child)
+            except (ValueError, TypeError):
+                continue
+            total += self.calculate_license_income(cid, visited)
+        return total
+
     def calculate_total_resources(
         self,
         node_id: int,

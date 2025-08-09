@@ -494,3 +494,45 @@ def test_calculate_umbarande_includes_weather_effect():
     total = manager.calculate_umbarande(1)
     expected = DAGSVERKEN_UMBARANDE["normalt"] + 5
     assert total == expected
+
+
+def test_calculate_license_income_sums_descendants():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2, 3],
+                "expected_license_income": 1,
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [4],
+                "expected_license_income": 2,
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "children": [],
+                "expected_license_income": 3,
+            },
+            "4": {
+                "node_id": 4,
+                "parent_id": 2,
+                "children": [],
+                "expected_license_income": 4,
+            },
+            "5": {
+                "node_id": 5,
+                "parent_id": None,
+                "children": [],
+                "expected_license_income": 100,
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    total = manager.calculate_license_income(1)
+    assert total == 1 + 2 + 3 + 4
