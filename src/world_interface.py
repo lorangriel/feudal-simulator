@@ -260,6 +260,20 @@ class WorldInterface(ABC):
                     if "population" in node:
                         del node["population"]
                         updated = True
+                elif res_type in {"Hav", "Flod"}:
+                    if "fish_quality" not in node:
+                        node["fish_quality"] = "Normalt"
+                        updated = True
+                    if "fishing_boats" not in node:
+                        node["fishing_boats"] = 0
+                        updated = True
+                    if res_type == "Flod":
+                        if "river_level" not in node:
+                            node["river_level"] = 1
+                            updated = True
+                    elif "river_level" in node:
+                        del node["river_level"]
+                        updated = True
                 elif res_type == "Lager":
                     defaults = {
                         "lager_text": "",
@@ -296,6 +310,7 @@ class WorldInterface(ABC):
                         "hunting_law",
                         "fish_quality",
                         "fishing_boats",
+                        "river_level",
                     ):
                         if key in node:
                             del node[key]
@@ -341,6 +356,7 @@ class WorldInterface(ABC):
                         "hunting_law",
                         "fish_quality",
                         "fishing_boats",
+                        "river_level",
                     ):
                         if key in node:
                             del node[key]

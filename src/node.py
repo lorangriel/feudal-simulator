@@ -72,6 +72,7 @@ class Node:
     buildings: List[dict] = field(default_factory=list)
     fish_quality: str = "Normalt"
     fishing_boats: int = 0
+    river_level: int = 1
     hunters: int = 0
     gamekeeper_id: Optional[int] = None
     spring_weather: str = NORMAL_WEATHER["spring"]
@@ -213,6 +214,7 @@ class Node:
 
         fish_quality = "Normalt"
         fishing_boats = 0
+        river_level = 1
         hunters = 0
         gamekeeper_id = data.get("gamekeeper_id")
         if isinstance(gamekeeper_id, str) and gamekeeper_id.isdigit():
@@ -234,6 +236,12 @@ class Node:
             except (ValueError, TypeError):
                 fishing_boats = 0
             fishing_boats = max(0, min(fishing_boats, MAX_FISHING_BOATS))
+        if res_type == "Flod":
+            try:
+                river_level = int(data.get("river_level", 1) or 1)
+            except (ValueError, TypeError):
+                river_level = 1
+            river_level = max(1, min(river_level, 10))
         if res_type == "Jaktmark":
             try:
                 hunters = int(data.get("hunters", 0) or 0)
@@ -331,6 +339,7 @@ class Node:
             buildings=buildings,
             fish_quality=fish_quality,
             fishing_boats=fishing_boats,
+            river_level=river_level,
             hunters=hunters,
             gamekeeper_id=gamekeeper_id,
             spring_weather=spring_weather,
@@ -424,6 +433,8 @@ class Node:
         if self.res_type in {"Hav", "Flod"}:
             data["fish_quality"] = self.fish_quality
             data["fishing_boats"] = self.fishing_boats
+            if self.res_type == "Flod":
+                data["river_level"] = self.river_level
 
         if self.res_type == "Jaktmark":
             data["hunters"] = self.hunters
@@ -463,6 +474,7 @@ class Node:
                 "buildings",
                 "fish_quality",
                 "fishing_boats",
+                "river_level",
                 "hunters",
                 "gamekeeper_id",
                 "manor_land",
