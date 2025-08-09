@@ -2215,6 +2215,23 @@ class FeodalSimulator:
         boats_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         row_idx += 1
 
+        river_label = ttk.Label(editor_frame, text="Flodnivå:")
+        river_var = tk.StringVar(value=str(node_data.get("river_level", 1)))
+        river_combo = ttk.Combobox(
+            editor_frame,
+            textvariable=river_var,
+            values=[str(i) for i in range(1, 11)],
+            state="readonly",
+            width=5,
+        )
+        river_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(node_data, "river_level", river_var.get().strip(), False),
+        )
+        river_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        river_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        row_idx += 1
+
         gamekeeper_label = ttk.Label(editor_frame, text="Jägarmästare:")
         gamekeeper_var = tk.StringVar()
         gk_options = ["Ingen karaktär"]
@@ -2282,11 +2299,19 @@ class FeodalSimulator:
                 fish_combo.grid()
                 boats_label.grid()
                 boats_combo.grid()
+                if res_var.get() == "Flod":
+                    river_label.grid()
+                    river_combo.grid()
+                else:
+                    river_label.grid_remove()
+                    river_combo.grid_remove()
             else:
                 water_label.grid_remove()
                 fish_combo.grid_remove()
                 boats_label.grid_remove()
                 boats_combo.grid_remove()
+                river_label.grid_remove()
+                river_combo.grid_remove()
 
         def refresh_hunt_visibility(*_):
             if res_var.get() == "Jaktmark":
@@ -3104,9 +3129,17 @@ class FeodalSimulator:
                     node_data["fishing_boats"] = int(boats_var.get() or "0", 10)
                 except (tk.TclError, ValueError):
                     node_data["fishing_boats"] = 0
+                if res_var.get() == "Flod":
+                    try:
+                        node_data["river_level"] = int(river_var.get() or "1", 10)
+                    except (tk.TclError, ValueError):
+                        node_data["river_level"] = 1
+                else:
+                    node_data.pop("river_level", None)
             else:
                 node_data.pop("fish_quality", None)
                 node_data.pop("fishing_boats", None)
+                node_data.pop("river_level", None)
             temp_data = dict(node_data)
             if res_var.get() in {"Vildmark", "Jaktmark"}:
                 try:

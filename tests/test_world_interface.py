@@ -200,6 +200,26 @@ def test_validate_world_data_lager_defaults():
     assert "tunnland" not in node
 
 
+def test_validate_world_data_water_defaults():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "res_type": "Flod"},
+            "2": {"node_id": 2, "parent_id": None, "res_type": "Hav", "river_level": 5},
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 5
+    nodes_updated, _ = manager.validate_world_data()
+    assert nodes_updated > 0
+    n1 = world["nodes"]["1"]
+    n2 = world["nodes"]["2"]
+    assert n1["fish_quality"] == "Normalt"
+    assert n1["fishing_boats"] == 0
+    assert n1["river_level"] == 1
+    assert "river_level" not in n2
+
+
 def test_update_neighbors_for_node_bidirectional():
     world = {
         "nodes": {

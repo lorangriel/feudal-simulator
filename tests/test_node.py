@@ -419,6 +419,36 @@ def test_node_water_fields_ignored_for_other_types():
     assert "fishing_boats" not in back
 
 
+def test_node_river_level_roundtrip():
+    raw = {
+        "node_id": 72,
+        "parent_id": 1,
+        "res_type": "Flod",
+        "river_level": 3,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.river_level == 3
+
+    back = node.to_dict()
+    assert back["river_level"] == 3
+
+
+def test_node_river_level_ignored_for_other_types():
+    raw = {
+        "node_id": 73,
+        "parent_id": 1,
+        "res_type": "Hav",
+        "river_level": 5,
+    }
+
+    node = Node.from_dict(raw)
+    assert node.river_level == 1
+
+    back = node.to_dict()
+    assert "river_level" not in back
+
+
 def test_node_characters_roundtrip():
     raw = {
         "node_id": 50,
