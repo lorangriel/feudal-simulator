@@ -9,6 +9,12 @@ Folders
   - Build with `make` inside `src2/`.
   - No C++ tests are available; none to run.
 
+Style
+-----
+
+- Python code should follow PEP 8 (4-space indentation, descriptive naming, etc.).
+- For C++ code, use a consistent brace style; `clang-format` may be used when available.
+
 Notes
 -----
 
