@@ -13,6 +13,7 @@ Style
 -----
 
 - Python code should follow PEP 8 (4-space indentation, descriptive naming, etc.).
+- Use tools like `black` or `flake8` to enforce PEP 8 style.
 - For C++ code, use a consistent brace style; `clang-format` may be used when available.
 
 Notes
