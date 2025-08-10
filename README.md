@@ -1,4 +1,5 @@
 # feudal-simulator
+[![codecov](https://codecov.io/gh/OWNER/feudal-simulator/branch/main/graph/badge.svg)](https://codecov.io/gh/OWNER/feudal-simulator)
 
 This project is a small prototype for a feudal county simulation. The code
 is split across multiple modules under `src/`.

@@ -5,6 +5,9 @@ Folders
 - tests/ ..... tests for feudal simulator (pytest)
 
 - src2/ ...... libsdl 2.0 experimental application (C++)
+  - Requires SDL2 development libraries.
+  - Build with `make` inside `src2/`.
+  - No C++ tests are available; none to run.
 
 Notes
 -----
