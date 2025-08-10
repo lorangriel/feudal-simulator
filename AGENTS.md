@@ -10,4 +10,5 @@ Notes
 -----
 
 - Always add tests when possible.
+- Run the test suite from the repository root with `pytest` (e.g., `pytest --cov`).
 
