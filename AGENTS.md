@@ -19,5 +19,6 @@ Notes
 -----
 
 - Always add tests when possible.
+- Install dependencies with `pip install -r requirements.txt` before running tests.
 - Run the test suite from the repository root with `pytest` (e.g., `pytest --cov`).
 
