@@ -26,7 +26,7 @@ from constants import (
     DAGSVERKEN_UMBARANDE,
     THRALL_WORK_DAYS,
 )
-from data_manager import load_worlds_from_file, save_worlds_to_file
+from data_manager import load_worlds_from_file
 from node import Node
 from utils import (
     roll_dice,
@@ -40,6 +40,8 @@ from map_logic import StaticMapLogic
 from world_manager import WorldManager
 from population_utils import calculate_population_from_fields
 from weather import roll_weather, get_weather_options, NORMAL_WEATHER
+from status_service import StatusService
+from world_manager_ui import WorldManagerUI
 
 # --------------------------------------------------
 # Main Application Class: FeodalSimulator
@@ -56,6 +58,8 @@ class FeodalSimulator:
         self.world_data = None # Holds the data for the active world
         self.world_manager = WorldManager(self.world_data)
         self.pending_save_callback: Callable[[], None] | None = None
+        self.status_service = StatusService()
+        self.world_ui = WorldManagerUI()
 
         # --- Styling ---
         self.style = ttk.Style()
@@ -174,6 +178,7 @@ class FeodalSimulator:
         self.status_text.config(yscrollcommand=status_scroll.set)
         status_scroll.pack(side=tk.RIGHT, fill="y")
         self.status_text.pack(side=tk.LEFT, fill="both", expand=True)
+        self.status_service.add_listener(self._append_status_text)
 
         # --- Map related attributes (initialized later) ---
         self.dynamic_map_view = None
@@ -217,25 +222,28 @@ class FeodalSimulator:
 
     # --- Status Methods ---
     def add_status_message(self, msg):
-        """Adds a message to the status bar."""
+        """Delegate to ``StatusService`` for handling messages."""
+        self.status_service.add_message(msg)
+
+    def _append_status_text(self, msg: str) -> None:
         try:
             self.status_text.config(state="normal")
             self.status_text.insert("end", msg + "\n")
-            self.status_text.see("end") # Scroll to the end
+            self.status_text.see("end")
+        except tk.TclError:
+            pass
+        finally:
             self.status_text.config(state="disabled")
-        except tk.TclError as e:
-            print(f"Error adding status message: {e}") # Handle cases where widget might be destroyed
 
     # --- World Data Handling ---
     def save_current_world(self):
-        """Saves the currently active world data back to the main dictionary and file."""
-        if self.active_world_name and self.world_data:
-            self.all_worlds[self.active_world_name] = self.world_data
-            save_worlds_to_file(self.all_worlds)
-            self.refresh_dynamic_map()
-            # No status message here, usually called from other actions that add status
-        #else:
-        #    print("Warning: Tried to save world, but no active world or data.")
+        """Persist the active world using :class:`WorldManagerUI`."""
+        self.world_ui.save_current_world(
+            self.active_world_name,
+            self.world_data,
+            self.all_worlds,
+            self.refresh_dynamic_map,
+        )
 
     def commit_pending_changes(self):
         """If an editor save callback is pending, call it before switching views."""
@@ -389,7 +397,7 @@ class FeodalSimulator:
                 if messagebox.askyesno("Radera Värld?", f"Är du säker på att du vill radera världen '{wname}'?\nDetta kan inte ångras.", icon='warning', parent=self.root):
                     if wname in self.all_worlds:
                         del self.all_worlds[wname]
-                        save_worlds_to_file(self.all_worlds)
+                        self.world_ui.persist_worlds(self.all_worlds)
                         # world_listbox.delete(selection[0]) # Let refresh handle delete
                         self.add_status_message(f"Värld '{wname}' raderad.")
                         if self.active_world_name == wname:
@@ -424,7 +432,7 @@ class FeodalSimulator:
                     import copy
                     if wname_to_copy in self.all_worlds:
                         self.all_worlds[new_name] = copy.deepcopy(self.all_worlds[wname_to_copy])
-                        save_worlds_to_file(self.all_worlds)
+                        self.world_ui.persist_worlds(self.all_worlds)
                         # world_listbox.insert(tk.END, new_name) # Let refresh handle insert
                         self.add_status_message(f"Kopierade världen '{wname_to_copy}' till '{new_name}'.")
                         self.show_manage_worlds_view() # Refresh list
@@ -486,7 +494,7 @@ class FeodalSimulator:
         new_data["next_node_id"] += 1 # Increment for the next node
 
         self.all_worlds[wname] = new_data
-        save_worlds_to_file(self.all_worlds)
+        self.world_ui.persist_worlds(self.all_worlds)
 
         # Optionally load the new world immediately
         self.load_world(wname)
@@ -559,7 +567,7 @@ class FeodalSimulator:
                 world_manager.update_subfiefs_for_node(new_data["nodes"][str(did)])
 
         self.all_worlds[wname] = new_data
-        save_worlds_to_file(self.all_worlds)
+        self.world_ui.persist_worlds(self.all_worlds)
 
         self.load_world(wname)
         self.add_status_message("Förinställd värld 'Drunok' skapad och laddad.")
