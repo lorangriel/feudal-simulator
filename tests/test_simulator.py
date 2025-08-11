@@ -517,3 +517,49 @@ def test_day_laborer_entry_color_and_work_update():
     assert sim.day_laborers_hired_entry.cget("foreground") == "red"
 
     root.destroy()
+
+
+def test_work_need_entry_color_updates():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "dagsverken": "normalt",
+                "day_laborers_available": 5,
+                "day_laborers_hired": 0,
+                "work_needed": 0,
+            }
+        },
+        "characters": {},
+    }
+
+    sim = DummySimulator()
+    sim.world_data = world
+    sim.world_manager = fs.WorldManager(world)
+    sim.get_depth_of_node = lambda nid: 3
+    sim._auto_save_field = lambda node, key, val, _r=False: node.__setitem__(key, val)
+    sim._update_umbarande_totals = lambda *a, **k: None
+    sim.show_neighbor_editor = lambda *a, **k: None
+    sim.save_current_world = lambda: None
+    sim.refresh_tree_item = lambda *a, **k: None
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+    except tk.TclError:
+        pytest.skip("Tk display not available")
+    frame = tk.Frame(root)
+    frame.pack()
+    sim._show_jarldome_editor(frame, world["nodes"]["1"])
+
+    sim.work_need_var.set(str(DAY_LABORER_WORK_DAYS + 30))
+    root.update_idletasks()
+    assert sim.work_need_entry.cget("foreground") == "red"
+
+    sim.day_laborers_hired_var.set("2")
+    root.update_idletasks()
+    assert sim.work_need_entry.cget("foreground") == "black"
+
+    root.destroy()
