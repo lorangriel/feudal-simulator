@@ -7,9 +7,11 @@ from src.constants import DAY_LABORER_WORK_DAYS
 
 class DummySimulator(fs.FeodalSimulator):
     """Minimal subclass that avoids GUI setup."""
+
     def __init__(self):
         # bypass parent __init__
         pass
+
 
 def make_simulator(world_data):
     sim = DummySimulator()
@@ -36,6 +38,8 @@ class LoadStubSimulator(DummySimulator):
         self._auto_select_single_root = lambda *a, **k: None
         self.hide_map_mode_buttons = lambda *a, **k: None
         self.add_status_message = lambda *a, **k: None
+        self.world_ui = fs.WorldManagerUI(save_func=lambda *a, **k: None)
+        self.status_service = fs.StatusService()
 
     def load_world(self, wname):
         self.active_world_name = wname
@@ -67,9 +71,20 @@ def test_get_display_name_for_node():
     world = {
         "nodes": {
             "1": {"node_id": 1, "parent_id": None, "name": "Kungarike"},
-            "2": {"node_id": 2, "parent_id": 1, "name": "Furstendöme", "custom_name": "Uppland"},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "name": "Furstendöme",
+                "custom_name": "Uppland",
+            },
             "3": {"node_id": 3, "parent_id": 2, "custom_name": "Gotland"},
-            "4": {"node_id": 4, "parent_id": 3, "res_type": "Bageri", "custom_name": "", "ruler_id": 10},
+            "4": {
+                "node_id": 4,
+                "parent_id": 3,
+                "res_type": "Bageri",
+                "custom_name": "",
+                "ruler_id": 10,
+            },
             "5": {"node_id": 5, "parent_id": 3},
         },
         "characters": {"10": {"name": "Duke"}},
@@ -78,7 +93,10 @@ def test_get_display_name_for_node():
     sim = make_simulator(world)
     # depth 1 with custom name
     node = world["nodes"]["2"]
-    assert sim.get_display_name_for_node(node, 1) == "Furstendöme [Uppland] (ID: 2) (Kungarike)"
+    assert (
+        sim.get_display_name_for_node(node, 1)
+        == "Furstendöme [Uppland] (ID: 2) (Kungarike)"
+    )
     # depth 3 jarldom
     node_j = world["nodes"]["3"]
     assert sim.get_display_name_for_node(node_j, 3) == "Gotland (Uppland)"
@@ -93,7 +111,13 @@ def test_get_display_name_for_node():
 def test_update_subfiefs_for_node_add_and_remove():
     world = {
         "nodes": {
-            "1": {"node_id": 1, "parent_id": None, "name": "Kungarike", "children": [], "num_subfiefs": 0}
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "name": "Kungarike",
+                "children": [],
+                "num_subfiefs": 0,
+            }
         },
         "characters": {},
         "next_node_id": 1,
@@ -118,8 +142,24 @@ def test_update_subfiefs_for_node_add_and_remove():
 def test_attempt_link_neighbors_success():
     world = {
         "nodes": {
-            "10": {"node_id": 10, "parent_id": 1, "neighbors": [{"id": None, "border": fs.NEIGHBOR_NONE_STR} for _ in range(fs.MAX_NEIGHBORS)], "custom_name": "A"},
-            "20": {"node_id": 20, "parent_id": 1, "neighbors": [{"id": None, "border": fs.NEIGHBOR_NONE_STR} for _ in range(fs.MAX_NEIGHBORS)], "custom_name": "B"},
+            "10": {
+                "node_id": 10,
+                "parent_id": 1,
+                "neighbors": [
+                    {"id": None, "border": fs.NEIGHBOR_NONE_STR}
+                    for _ in range(fs.MAX_NEIGHBORS)
+                ],
+                "custom_name": "A",
+            },
+            "20": {
+                "node_id": 20,
+                "parent_id": 1,
+                "neighbors": [
+                    {"id": None, "border": fs.NEIGHBOR_NONE_STR}
+                    for _ in range(fs.MAX_NEIGHBORS)
+                ],
+                "custom_name": "B",
+            },
         },
         "characters": {},
         "next_node_id": 20,
@@ -145,9 +185,15 @@ def test_create_drunok_world_builds_structure(monkeypatch):
     root = world["nodes"]["1"]
     assert root["custom_name"] == "Drunok"
     wm = fs.WorldManager(world)
-    princ = sum(1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 1)
-    duchies = sum(1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 2)
-    jarls = sum(1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 3)
+    princ = sum(
+        1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 1
+    )
+    duchies = sum(
+        1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 2
+    )
+    jarls = sum(
+        1 for n in world["nodes"].values() if wm.get_depth_of_node(n["node_id"]) == 3
+    )
     assert princ == 4
     assert duchies == 15
     assert jarls >= 200
@@ -159,6 +205,8 @@ def test_save_current_world_refreshes_dynamic_map(monkeypatch):
     sim.active_world_name = "A"
     sim.world_data = world
     sim.all_worlds = {"A": world}
+    sim.world_ui = fs.WorldManagerUI(save_func=lambda *a, **k: None)
+    sim.status_service = fs.StatusService()
     sim.dynamic_map_view = type(
         "DM",
         (),
@@ -167,7 +215,6 @@ def test_save_current_world_refreshes_dynamic_map(monkeypatch):
             "draw_dynamic_map": lambda self: setattr(self, "redrawn", True),
         },
     )()
-    monkeypatch.setattr(fs, "save_worlds_to_file", lambda data: None)
     sim.refresh_dynamic_map = fs.FeodalSimulator.refresh_dynamic_map.__get__(sim)
     fs.FeodalSimulator.save_current_world(sim)
     assert sim.dynamic_map_view.wd is world
@@ -352,7 +399,10 @@ def test_move_node_removes_unidirectional_links():
                     {"id": 10, "border": "väg"},
                     {"id": 20, "border": "väg"},
                 ]
-                + [{"id": None, "border": fs.NEIGHBOR_NONE_STR} for _ in range(fs.MAX_NEIGHBORS - 2)],
+                + [
+                    {"id": None, "border": fs.NEIGHBOR_NONE_STR}
+                    for _ in range(fs.MAX_NEIGHBORS - 2)
+                ],
             },
         },
         "characters": {},
@@ -387,7 +437,8 @@ def test_clear_all_neighbor_links(monkeypatch):
             "10": {
                 "node_id": 10,
                 "parent_id": 1,
-                "neighbors": [{"id": 20, "border": "v\u00e4g"}] + [
+                "neighbors": [{"id": 20, "border": "v\u00e4g"}]
+                + [
                     {"id": None, "border": fs.NEIGHBOR_NONE_STR}
                     for _ in range(fs.MAX_NEIGHBORS - 1)
                 ],
@@ -395,7 +446,8 @@ def test_clear_all_neighbor_links(monkeypatch):
             "20": {
                 "node_id": 20,
                 "parent_id": 1,
-                "neighbors": [{"id": 10, "border": "v\u00e4g"}] + [
+                "neighbors": [{"id": 10, "border": "v\u00e4g"}]
+                + [
                     {"id": None, "border": fs.NEIGHBOR_NONE_STR}
                     for _ in range(fs.MAX_NEIGHBORS - 1)
                 ],
