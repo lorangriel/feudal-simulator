@@ -169,7 +169,9 @@ class WorldManager(WorldInterface):
         recurse(node_id)
         return totals
 
-    def calculate_work_available(self, node_id: int, visited: set[int] | None = None) -> int:
+    def calculate_work_available(
+        self, node_id: int, visited: set[int] | None = None
+    ) -> int:
         """Sum available work days for ``node_id`` and all descendants."""
 
         nodes = self.world_data.get("nodes", {})
@@ -208,6 +210,49 @@ class WorldManager(WorldInterface):
             total += self.calculate_work_available(cid, visited)
         return total
 
+    def calculate_work_needed(
+        self, node_id: int, visited: set[int] | None = None
+    ) -> int:
+        """Sum required work days for ``node_id`` and its descendants.
+
+        For water resources (``Hav`` or ``Flod``), the required work is
+        determined by the number of fishing boats. Each boat requires
+        ``THRALL_WORK_DAYS`` work days. For all other resources, the value is
+        read directly from the node's ``work_needed`` field.
+        """
+
+        nodes = self.world_data.get("nodes", {})
+        if visited is None:
+            visited = set()
+        if node_id in visited:
+            return 0
+        visited.add(node_id)
+        node = nodes.get(str(node_id))
+        if not node:
+            return 0
+
+        res_type = node.get("res_type")
+        if res_type in {"Hav", "Flod"}:
+            try:
+                boats = int(node.get("fishing_boats", 0) or 0)
+            except (ValueError, TypeError):
+                boats = 0
+            total = boats * THRALL_WORK_DAYS
+        else:
+            try:
+                total = int(node.get("work_needed", 0) or 0)
+            except (ValueError, TypeError):
+                total = 0
+
+        for child in node.get("children", []):
+            try:
+                cid = int(child)
+            except (ValueError, TypeError):
+                continue
+            total += self.calculate_work_needed(cid, visited)
+
+        return total
+
     def calculate_umbarande(self, node_id: int, visited: set[int] | None = None) -> int:
         """Sum umbäranden for ``node_id`` and all descendants.
 
@@ -237,7 +282,9 @@ class WorldManager(WorldInterface):
             total += self.calculate_umbarande(cid, visited)
         return total
 
-    def calculate_license_income(self, node_id: int, visited: set[int] | None = None) -> int:
+    def calculate_license_income(
+        self, node_id: int, visited: set[int] | None = None
+    ) -> int:
         """Sum expected license income for ``node_id`` and all descendants."""
 
         nodes = self.world_data.get("nodes", {})
@@ -369,7 +416,11 @@ class WorldManager(WorldInterface):
         if not pop:
             base = node.get("_base_population")
             try:
-                pop = int(base) if base is not None else int(node.get("population", 0) or 0)
+                pop = (
+                    int(base)
+                    if base is not None
+                    else int(node.get("population", 0) or 0)
+                )
             except (ValueError, TypeError):
                 pop = 0
         totals["population"] += pop
@@ -402,7 +453,9 @@ class WorldManager(WorldInterface):
         child_ids = set(node.get("children", []))
         child_ids.update(parent_lookup.get(node_id, []))
         for child_id in child_ids:
-            child_totals = self.calculate_total_resources(child_id, visited, parent_lookup)
+            child_totals = self.calculate_total_resources(
+                child_id, visited, parent_lookup
+            )
             totals["population"] += child_totals.get("population", 0)
             for key in ("soldiers", "characters", "animals", "buildings"):
                 child_dict = child_totals.get(key, {})
@@ -447,7 +500,9 @@ class WorldManager(WorldInterface):
                 self._depth_cache[node_id] = -100
                 return -100
 
-    def get_display_name_for_node(self, node_data: Dict[str, Any] | Any, depth: int) -> str:
+    def get_display_name_for_node(
+        self, node_data: Dict[str, Any] | Any, depth: int
+    ) -> str:
         """Return a readable name for ``node_data`` at ``depth``."""
         if isinstance(node_data, Node):
             node_id = node_data.node_id
@@ -619,7 +674,10 @@ class WorldManager(WorldInterface):
         node2 = self.world_data["nodes"].get(str(node_id2))
         if not node1 or not node2:
             return False, "Fel: En eller båda noder kunde inte hittas."
-        if self.get_depth_of_node(node_id1) != 3 or self.get_depth_of_node(node_id2) != 3:
+        if (
+            self.get_depth_of_node(node_id1) != 3
+            or self.get_depth_of_node(node_id2) != 3
+        ):
             return False, "Fel: Kan bara länka Jarldömen (nivå 3)."
         neighbors1 = node1.get("neighbors", [])
         neighbors2 = node2.get("neighbors", [])
@@ -635,9 +693,12 @@ class WorldManager(WorldInterface):
                 for _ in range(MAX_NEIGHBORS - len(neighbors2))
             )
             node2["neighbors"] = neighbors2
-        if any(nb.get("id") == node_id2 for nb in neighbors1) or any(nb.get("id") == node_id1 for nb in neighbors2):
+        if any(nb.get("id") == node_id2 for nb in neighbors1) or any(
+            nb.get("id") == node_id1 for nb in neighbors2
+        ):
             msg = f"Fel: {node1.get('custom_name', f'ID:{node_id1}')} och {node2.get('custom_name', f'ID:{node_id2}')} är redan grannar."
             return False, msg
+
         def find_free_slot(neighbors: list) -> int | None:
             for i, nb in enumerate(neighbors):
                 if nb.get("id") is None:
@@ -683,7 +744,9 @@ class WorldManager(WorldInterface):
     # -------------------------------------------
     # Bidirectional neighbor management
     # -------------------------------------------
-    def update_neighbors_for_node(self, node_id: int, new_neighbors: List[Dict[str, Any]]) -> None:
+    def update_neighbors_for_node(
+        self, node_id: int, new_neighbors: List[Dict[str, Any]]
+    ) -> None:
         """Replace ``node_id`` neighbor list with ``new_neighbors`` and ensure
         links are bidirectional."""
 
@@ -760,7 +823,9 @@ class WorldManager(WorldInterface):
 
         node["neighbors"] = new_neighbors
 
-    def set_border_between(self, node_id1: int, node_id2: int, border_type: str) -> bool:
+    def set_border_between(
+        self, node_id1: int, node_id2: int, border_type: str
+    ) -> bool:
         """Set border type for the connection between two nodes."""
         if border_type not in BORDER_TYPES:
             border_type = NEIGHBOR_NONE_STR
