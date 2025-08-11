@@ -12,8 +12,22 @@ from src.constants import (
 def test_attempt_link_neighbors_directional():
     world = {
         "nodes": {
-            "10": {"node_id": 10, "parent_id": 1, "neighbors": [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]},
-            "20": {"node_id": 20, "parent_id": 1, "neighbors": [{"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)]},
+            "10": {
+                "node_id": 10,
+                "parent_id": 1,
+                "neighbors": [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS)
+                ],
+            },
+            "20": {
+                "node_id": 20,
+                "parent_id": 1,
+                "neighbors": [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS)
+                ],
+            },
         },
         "characters": {},
     }
@@ -274,12 +288,14 @@ def test_set_border_between_updates_both_nodes():
             "1": {
                 "node_id": 1,
                 "parent_id": None,
-                "neighbors": [{"id": 2, "border": NEIGHBOR_NONE_STR}] + [{"id": None, "border": NEIGHBOR_NONE_STR}] * (MAX_NEIGHBORS - 1),
+                "neighbors": [{"id": 2, "border": NEIGHBOR_NONE_STR}]
+                + [{"id": None, "border": NEIGHBOR_NONE_STR}] * (MAX_NEIGHBORS - 1),
             },
             "2": {
                 "node_id": 2,
                 "parent_id": None,
-                "neighbors": [{"id": 1, "border": NEIGHBOR_NONE_STR}] + [{"id": None, "border": NEIGHBOR_NONE_STR}] * (MAX_NEIGHBORS - 1),
+                "neighbors": [{"id": 1, "border": NEIGHBOR_NONE_STR}]
+                + [{"id": None, "border": NEIGHBOR_NONE_STR}] * (MAX_NEIGHBORS - 1),
             },
         },
         "characters": {},
@@ -494,6 +510,31 @@ def test_calculate_umbarande_includes_weather_effect():
     total = manager.calculate_umbarande(1)
     expected = DAGSVERKEN_UMBARANDE["normalt"] + 5
     assert total == expected
+
+
+def test_calculate_work_needed_counts_fishing_boats():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2],
+                "work_needed": 50,
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "res_type": "Hav",
+                "fishing_boats": 3,
+            },
+        },
+        "characters": {},
+    }
+
+    manager = WorldManager(world)
+    total = manager.calculate_work_needed(1)
+    assert total == 50 + 3 * THRALL_WORK_DAYS
 
 
 def test_calculate_license_income_sums_descendants():
