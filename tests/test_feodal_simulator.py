@@ -1,10 +1,12 @@
 import pytest
 
 from src import feodal_simulator as fs
+from src import population_utils as pu
 
 
 class DummyText:
     """Minimal stand-in for a tkinter Text widget."""
+
     def __init__(self):
         self.content = ""
         self.state = "disabled"
@@ -25,10 +27,15 @@ class DummyText:
 
 
 def test_calculate_population_from_fields():
-    data = {"free_peasants": "2", "unfree_peasants": "3", "thralls": "1", "burghers": "4"}
-    assert fs.FeodalSimulator.calculate_population_from_fields(data) == 10
-    assert fs.FeodalSimulator.calculate_population_from_fields({"population": "7"}) == 7
-    assert fs.FeodalSimulator.calculate_population_from_fields({"population": "bad"}) == 0
+    data = {
+        "free_peasants": "2",
+        "unfree_peasants": "3",
+        "thralls": "1",
+        "burghers": "4",
+    }
+    assert pu.calculate_population_from_fields(data) == 10
+    assert pu.calculate_population_from_fields({"population": "7"}) == 7
+    assert pu.calculate_population_from_fields({"population": "bad"}) == 0
 
 
 def test_add_status_message_appends_and_disables():

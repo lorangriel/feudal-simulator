@@ -38,6 +38,7 @@ from utils import (
 from dynamic_map import DynamicMapCanvas
 from map_logic import StaticMapLogic
 from world_manager import WorldManager
+from population_utils import calculate_population_from_fields
 from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 
 # --------------------------------------------------
@@ -213,23 +214,6 @@ class FeodalSimulator:
             "Förläningssimulator\nEn enkel simulator av förläningar.",
         )
 
-    @staticmethod
-    def calculate_population_from_fields(data: dict) -> int:
-        """Compute total population from category fields."""
-        try:
-            free_p = int(data.get("free_peasants", 0) or 0)
-            unfree_p = int(data.get("unfree_peasants", 0) or 0)
-            thralls = int(data.get("thralls", 0) or 0)
-            burghers = int(data.get("burghers", 0) or 0)
-        except ValueError:
-            free_p = unfree_p = thralls = burghers = 0
-        total = free_p + unfree_p + thralls + burghers
-        if total:
-            return total
-        try:
-            return int(data.get("population", 0) or 0)
-        except ValueError:
-            return 0
 
     # --- Status Methods ---
     def add_status_message(self, msg):
@@ -3182,7 +3166,7 @@ class FeodalSimulator:
                 except (tk.TclError, ValueError):
                     manual_pop = 0
                 temp_data["population"] = manual_pop
-            node_data["population"] = self.calculate_population_from_fields(temp_data)
+            node_data["population"] = calculate_population_from_fields(temp_data)
             node_data["num_subfiefs"] = len(node_data.get("children", [])) + 1
             self.update_subfiefs_for_node(node_data)
             if res_var.get() == "Väder":
@@ -3329,7 +3313,7 @@ class FeodalSimulator:
             if res_var.get() in {"Vildmark", "Djur", "Väder"}:
                 new_pop = 0
             else:
-                new_pop = self.calculate_population_from_fields({
+                new_pop = calculate_population_from_fields({
                     "population": manual_pop,
                     "free_peasants": new_free,
                     "unfree_peasants": new_unfree,
