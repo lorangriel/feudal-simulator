@@ -2,7 +2,7 @@ import pytest
 import tkinter as tk
 
 from src import feodal_simulator as fs
-from src.constants import DAY_LABORER_WORK_DAYS
+from src.constants import DAY_LABORER_WORK_DAYS, THRALL_WORK_DAYS
 
 
 class DummySimulator(fs.FeodalSimulator):
@@ -617,3 +617,58 @@ def test_jarldom_work_need_updates_from_resource():
     assert sim.work_need_var.get() == "20"
 
     root.destroy()
+
+
+def test_jarldom_work_need_updates_from_fishing_boats():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2],
+                "dagsverken": "normalt",
+                "day_laborers_available": 0,
+                "day_laborers_hired": 0,
+                "work_needed": 0,
+                "work_available": 0,
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "res_type": "Hav",
+                "fishing_boats": 1,
+            },
+        },
+        "characters": {},
+    }
+
+    sim = DummySimulator()
+    sim.world_data = world
+    sim.world_manager = fs.WorldManager(world)
+    sim.get_depth_of_node = lambda nid: 3 if nid == 1 else 4
+    sim._update_umbarande_totals = lambda *a, **k: None
+    sim.show_neighbor_editor = lambda *a, **k: None
+    sim.save_current_world = lambda: None
+    sim.refresh_tree_item = lambda *a, **k: None
+    sim.add_status_message = lambda *a, **k: None
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+    except tk.TclError:
+        pytest.skip("Tk display not available")
+    frame = tk.Frame(root)
+    frame.pack()
+    sim._show_jarldome_editor(frame, world["nodes"]["1"])
+
+    assert sim.work_need_var.get() == str(THRALL_WORK_DAYS)
+
+    child = world["nodes"]["2"]
+    sim._auto_save_field(child, "fishing_boats", "3", False)
+    root.update_idletasks()
+
+    assert sim.work_need_var.get() == str(3 * THRALL_WORK_DAYS)
+
+    root.destroy()
+
