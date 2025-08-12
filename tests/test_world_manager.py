@@ -40,6 +40,63 @@ def test_attempt_link_neighbors_directional():
     assert world["nodes"]["20"]["neighbors"][4]["id"] == 10
 
 
+def test_attempt_link_neighbors_preserves_existing_links():
+    world = {
+        "nodes": {
+            "10": {
+                "node_id": 10,
+                "parent_id": 1,
+                "neighbors": [{"id": 30, "border": NEIGHBOR_NONE_STR}]
+                + [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS - 1)
+                ],
+            },
+            "20": {
+                "node_id": 20,
+                "parent_id": 1,
+                "neighbors": [{"id": 40, "border": NEIGHBOR_NONE_STR}]
+                + [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS - 1)
+                ],
+            },
+            "30": {
+                "node_id": 30,
+                "parent_id": 1,
+                "neighbors": [{"id": 10, "border": NEIGHBOR_NONE_STR}]
+                + [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS - 1)
+                ],
+            },
+            "40": {
+                "node_id": 40,
+                "parent_id": 1,
+                "neighbors": [{"id": 20, "border": NEIGHBOR_NONE_STR}]
+                + [
+                    {"id": None, "border": NEIGHBOR_NONE_STR}
+                    for _ in range(MAX_NEIGHBORS - 1)
+                ],
+            },
+        },
+        "characters": {},
+    }
+    manager = WorldManager(world)
+    manager.get_depth_of_node = lambda _nid: 3
+
+    ok, _ = manager.attempt_link_neighbors(10, 20)
+    assert ok
+    # existing neighbor links remain
+    assert world["nodes"]["10"]["neighbors"][0]["id"] == 30
+    assert world["nodes"]["20"]["neighbors"][0]["id"] == 40
+    assert world["nodes"]["30"]["neighbors"][0]["id"] == 10
+    assert world["nodes"]["40"]["neighbors"][0]["id"] == 20
+    # new link created without affecting other slots
+    assert any(nb["id"] == 20 for nb in world["nodes"]["10"]["neighbors"])
+    assert any(nb["id"] == 10 for nb in world["nodes"]["20"]["neighbors"])
+
+
 def test_aggregate_resources_simple():
     world = {
         "nodes": {
