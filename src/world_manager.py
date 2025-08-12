@@ -253,6 +253,20 @@ class WorldManager(WorldInterface):
 
         return total
 
+    def update_work_needed(self, jarldom_id: int) -> int:
+        """Recalculate and store ``work_needed`` for a jarldom.
+
+        ``calculate_work_needed`` sums the requirement for the jarldom and
+        all descendant resource nodes.  This helper simply stores that sum on
+        the jarldom's node and returns the total for convenience.
+        """
+
+        total = self.calculate_work_needed(jarldom_id)
+        node = self.world_data.get("nodes", {}).get(str(jarldom_id))
+        if node is not None:
+            node["work_needed"] = total
+        return total
+
     def calculate_umbarande(self, node_id: int, visited: set[int] | None = None) -> int:
         """Sum umbäranden for ``node_id`` and all descendants.
 

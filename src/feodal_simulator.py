@@ -1633,6 +1633,56 @@ class FeodalSimulator:
         if refresh_tree:
             self.refresh_tree_item(node_data.get("node_id"))
 
+        if key in {"work_needed", "fishing_boats"}:
+            jarldom_id = self._find_jarldom_id(node_data.get("node_id"))
+            if jarldom_id is not None:
+                total = self.world_manager.update_work_needed(jarldom_id)
+                self.save_current_world()
+                if getattr(self, "current_jarldome_id", None) == jarldom_id:
+                    self.work_need_var.set(str(total))
+                    self._update_jarldom_work_display()
+
+    def _find_jarldom_id(self, node_id: int | None) -> int | None:
+        """Return the ancestor jarldom ID for ``node_id`` if any."""
+
+        if node_id is None:
+            return None
+        depth = self.get_depth_of_node(node_id)
+        if depth < 3:
+            return node_id if depth == 3 else None
+        current_id = node_id
+        nodes = self.world_data.get("nodes", {})
+        while depth > 3:
+            node = nodes.get(str(current_id))
+            if not node:
+                return None
+            parent_id = node.get("parent_id")
+            if parent_id is None:
+                return None
+            current_id = parent_id
+            depth -= 1
+        return current_id
+
+    def _update_jarldom_work_display(self) -> None:
+        """Update color of work-needed entry based on availability."""
+
+        if not hasattr(self, "work_need_entry"):
+            return
+        try:
+            avail = int(
+                getattr(self, "work_av_var", tk.StringVar(value="0")).get() or "0"
+            )
+        except (ValueError, tk.TclError):
+            avail = 0
+        try:
+            need = int(self.work_need_var.get() or "0")
+        except (ValueError, tk.TclError):
+            need = 0
+        if avail < need:
+            self.work_need_entry.config(foreground="red")
+        else:
+            self.work_need_entry.config(foreground="black")
+
     def _update_umbarande_totals(self, node_id: int) -> None:
         """Recalculate and store umbäranden for ``node_id`` and its ancestors."""
 
@@ -2125,8 +2175,11 @@ class FeodalSimulator:
         ttk.Label(editor_frame, text="Dagsverken Behov:").grid(
             row=row_idx, column=0, sticky="w", padx=5, pady=3
         )
-        work_need_var = tk.StringVar(value=str(node_data.get("work_needed", 0)))
-        work_need_entry = ttk.Entry(editor_frame, textvariable=work_need_var, width=6)
+        total_need = self.world_manager.update_work_needed(node_id)
+        work_need_var = tk.StringVar(value=str(total_need))
+        work_need_entry = ttk.Entry(
+            editor_frame, textvariable=work_need_var, width=6, state="readonly"
+        )
         work_need_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
         ttk.Label(editor_frame, text="Daglönare hyrda:").grid(
             row=row_idx, column=2, sticky="w", padx=5, pady=3
@@ -2144,20 +2197,6 @@ class FeodalSimulator:
         )
         license_entry = ttk.Entry(editor_frame, textvariable=license_var, width=5)
         license_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
-
-        def update_work_display(*_args) -> None:
-            try:
-                avail = int(work_av_var.get() or "0")
-            except ValueError:
-                avail = 0
-            try:
-                need = int(work_need_var.get() or "0")
-            except ValueError:
-                need = 0
-            if avail < need:
-                work_need_entry.config(foreground="red")
-            else:
-                work_need_entry.config(foreground="black")
 
         def update_day_laborers(*_args) -> None:
             try:
@@ -2181,7 +2220,7 @@ class FeodalSimulator:
             total = self.world_manager.calculate_work_available(node_id)
             self._auto_save_field(node_data, "work_available", total, False)
             work_av_var.set(str(total))
-            update_work_display()
+            self._update_jarldom_work_display()
 
         day_avail_var.trace_add("write", update_day_laborers)
         day_hired_var.trace_add("write", update_day_laborers)
@@ -2191,6 +2230,7 @@ class FeodalSimulator:
                 node_data, "expected_license_income", license_var.get().strip(), False
             ),
         )
+        work_need_var.trace_add("write", lambda *_: self._update_jarldom_work_display())
         update_day_laborers()
 
         # expose for tests
@@ -2199,14 +2239,7 @@ class FeodalSimulator:
         self.day_laborers_hired_entry = day_hired_entry
         self.work_need_var = work_need_var
         self.work_need_entry = work_need_entry
-
-        def on_work_need_change(*_args) -> None:
-            self._auto_save_field(
-                node_data, "work_needed", work_need_var.get().strip(), False
-            )
-            update_work_display()
-
-        work_need_var.trace_add("write", on_work_need_change)
+        self.work_av_var = work_av_var
         self.current_jarldome_id = node_id
         self.umbarande_total_var = tk.StringVar(value="0")
         self._update_umbarande_totals(node_id)
