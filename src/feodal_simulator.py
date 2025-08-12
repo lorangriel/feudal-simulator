@@ -1668,6 +1668,9 @@ class FeodalSimulator:
 
         if not hasattr(self, "work_need_entry"):
             return
+        entry = getattr(self, "work_need_entry", None)
+        if entry is None or not entry.winfo_exists():
+            return
         try:
             avail = int(
                 getattr(self, "work_av_var", tk.StringVar(value="0")).get() or "0"
@@ -1679,9 +1682,9 @@ class FeodalSimulator:
         except (ValueError, tk.TclError):
             need = 0
         if avail < need:
-            self.work_need_entry.config(foreground="red")
+            entry.config(foreground="red")
         else:
-            self.work_need_entry.config(foreground="black")
+            entry.config(foreground="black")
 
     def _update_umbarande_totals(self, node_id: int) -> None:
         """Recalculate and store umbäranden for ``node_id`` and its ancestors."""
@@ -2222,6 +2225,16 @@ class FeodalSimulator:
             work_av_var.set(str(total))
             self._update_jarldom_work_display()
 
+        # expose for tests and internal updates before initial calculation
+        self.day_laborers_available_var = day_avail_var
+        self.day_laborers_hired_var = day_hired_var
+        self.day_laborers_hired_entry = day_hired_entry
+        self.work_need_var = work_need_var
+        self.work_need_entry = work_need_entry
+        self.work_av_var = work_av_var
+        self.current_jarldome_id = node_id
+        self.umbarande_total_var = tk.StringVar(value="0")
+
         day_avail_var.trace_add("write", update_day_laborers)
         day_hired_var.trace_add("write", update_day_laborers)
         license_var.trace_add(
@@ -2232,16 +2245,6 @@ class FeodalSimulator:
         )
         work_need_var.trace_add("write", lambda *_: self._update_jarldom_work_display())
         update_day_laborers()
-
-        # expose for tests
-        self.day_laborers_available_var = day_avail_var
-        self.day_laborers_hired_var = day_hired_var
-        self.day_laborers_hired_entry = day_hired_entry
-        self.work_need_var = work_need_var
-        self.work_need_entry = work_need_entry
-        self.work_av_var = work_av_var
-        self.current_jarldome_id = node_id
-        self.umbarande_total_var = tk.StringVar(value="0")
         self._update_umbarande_totals(node_id)
         row_idx += 1
         ttk.Label(editor_frame, text="Summa umbäranden:").grid(
