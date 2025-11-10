@@ -87,6 +87,7 @@ CHARACTER_TYPES = {
     "Jägarmästare",
     "Härskare"
 }
+CHARACTER_GENDERS = ["Man", "Kvinna"]
 SETTLEMENT_TYPES = {"By", "Stad", "Nybygge"}
 ANIMAL_TYPES = {"Stridshästar", "Ridhästar", "Packhästar", "Draghästar", "Oxe", "Föl"}
 MISC_COUNT_TYPES = {"Jägare", "Båtar"}

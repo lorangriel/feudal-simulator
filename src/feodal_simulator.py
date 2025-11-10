@@ -19,6 +19,7 @@ from constants import (
     SOLDIER_TYPES,
     ANIMAL_TYPES,
     CHARACTER_TYPES,
+    CHARACTER_GENDERS,
     FISH_QUALITY_LEVELS,
     MAX_FISHING_BOATS,
     DAGSVERKEN_LEVELS,
@@ -1146,36 +1147,95 @@ class FeodalSimulator:
         form_frame.pack(fill="x")
 
         # --- Form Fields ---
+        gender_options = list(CHARACTER_GENDERS)
+        char_defaults = char_data or {}
+        stored_gender = char_defaults.get("gender")
+        default_gender = (
+            stored_gender if stored_gender in gender_options else gender_options[0]
+        )
+
+        def gender_to_code(selection: str) -> str:
+            return "f" if selection == "Kvinna" else "m"
+
+        if is_new:
+            if char_defaults.get("name"):
+                initial_name = str(char_defaults.get("name", ""))
+                auto_name = {"value": initial_name}
+                name_was_modified = {"value": True}
+            else:
+                initial_name = generate_character_name(gender_to_code(default_gender))
+                auto_name = {"value": initial_name}
+                name_was_modified = {"value": False}
+        else:
+            initial_name = str(
+                char_defaults.get(
+                    "name", generate_character_name(gender_to_code(default_gender))
+                )
+            )
+            auto_name = {"value": None}
+            name_was_modified = {"value": True}
+
         # Name
         ttk.Label(form_frame, text="Namn:").grid(
             row=0, column=0, padx=5, pady=5, sticky="w"
         )
-        default_name = generate_character_name()
-        name_var = tk.StringVar(
-            value=char_data.get("name", default_name) if char_data else default_name
-        )
+        name_var = tk.StringVar(value=initial_name)
         name_entry = ttk.Entry(form_frame, textvariable=name_var, width=40)
         name_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         name_entry.focus()  # Set focus to name field
 
-        # Wealth (Example - Currently unused field)
-        ttk.Label(form_frame, text="Förmögenhet:").grid(
+        # Gender
+        ttk.Label(form_frame, text="Kön:").grid(
             row=1, column=0, padx=5, pady=5, sticky="w"
         )
+        gender_var = tk.StringVar(value=default_gender)
+        gender_combo = ttk.Combobox(
+            form_frame,
+            textvariable=gender_var,
+            values=gender_options,
+            state="readonly",
+            width=15,
+        )
+        gender_combo.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+        if is_new:
+
+            def on_name_change(*_args: object) -> None:
+                if auto_name["value"] is None:
+                    name_was_modified["value"] = True
+                else:
+                    name_was_modified["value"] = name_var.get() != auto_name["value"]
+
+            name_var.trace_add("write", on_name_change)
+
+            def on_gender_change(*_args: object) -> None:
+                if not name_was_modified["value"]:
+                    new_name = generate_character_name(gender_to_code(gender_var.get()))
+                    auto_name["value"] = new_name
+                    name_var.set(new_name)
+
+            gender_var.trace_add("write", on_gender_change)
+            # Initialise tracking state for the default name
+            on_name_change()
+
+        # Wealth (Example - Currently unused field)
+        ttk.Label(form_frame, text="Förmögenhet:").grid(
+            row=2, column=0, padx=5, pady=5, sticky="w"
+        )
         wealth_var = tk.StringVar(
-            value=str(char_data.get("wealth", 0) if char_data else 0)
+            value=str(char_defaults.get("wealth", 0))
         )
         wealth_spinbox = tk.Spinbox(
             form_frame, from_=0, to=1000000, textvariable=wealth_var, width=10
         )
-        wealth_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        wealth_spinbox.grid(row=2, column=1, padx=5, pady=5, sticky="w")
 
         # Description (Example - Currently unused field)
         ttk.Label(form_frame, text="Beskrivning:").grid(
-            row=2, column=0, padx=5, pady=5, sticky="nw"
+            row=3, column=0, padx=5, pady=5, sticky="nw"
         )
         desc_text_frame = ttk.Frame(form_frame)  # Frame for text and scrollbar
-        desc_text_frame.grid(row=2, column=1, padx=5, pady=5, sticky="ewns")
+        desc_text_frame.grid(row=3, column=1, padx=5, pady=5, sticky="ewns")
         desc_text_frame.grid_rowconfigure(0, weight=1)
         desc_text_frame.grid_columnconfigure(0, weight=1)
         desc_text = tk.Text(
@@ -1198,10 +1258,10 @@ class FeodalSimulator:
 
         # Skills - presented as up to 9 dropdown rows with dynamic add/remove
         ttk.Label(form_frame, text="F\u00e4rdigheter:").grid(
-            row=3, column=0, padx=5, pady=5, sticky="nw"
+            row=4, column=0, padx=5, pady=5, sticky="nw"
         )
         skills_frame = ttk.Frame(form_frame)
-        skills_frame.grid(row=3, column=1, padx=5, pady=5, sticky="w")
+        skills_frame.grid(row=4, column=1, padx=5, pady=5, sticky="w")
 
         none_skill = "Ingen skill"
         skill_choices = [f"Skill #{i}" for i in range(1, 10)]
@@ -1279,9 +1339,9 @@ class FeodalSimulator:
         render_skill_rows()
 
         ttk.Label(form_frame, text="Typ:").grid(
-            row=4, column=0, padx=5, pady=5, sticky="w"
+            row=5, column=0, padx=5, pady=5, sticky="w"
         )
-        type_var = tk.StringVar(value=char_data.get("type", "") if char_data else "")
+        type_var = tk.StringVar(value=char_defaults.get("type", ""))
         type_combo = ttk.Combobox(
             form_frame,
             textvariable=type_var,
@@ -1289,10 +1349,10 @@ class FeodalSimulator:
             state="readonly",
             width=30,
         )
-        type_combo.grid(row=4, column=1, padx=5, pady=5, sticky="w")
+        type_combo.grid(row=5, column=1, padx=5, pady=5, sticky="w")
 
         ttk.Label(form_frame, text="Jarld\u00f6me:").grid(
-            row=5, column=0, padx=5, pady=5, sticky="w"
+            row=6, column=0, padx=5, pady=5, sticky="w"
         )
         ruler_var = tk.StringVar()
         jarldom_options = []
@@ -1308,8 +1368,8 @@ class FeodalSimulator:
                     jarldoms.append((nid, name))
             jarldoms.sort(key=lambda j: j[1].lower())
             jarldom_options = [f"{jid}: {name}" for jid, name in jarldoms]
-        if char_data and char_data.get("ruler_of") is not None:
-            rid = char_data["ruler_of"]
+        if char_defaults.get("ruler_of") is not None:
+            rid = char_defaults["ruler_of"]
             for opt in jarldom_options:
                 if opt.startswith(f"{rid}:"):
                     ruler_var.set(opt)
@@ -1321,7 +1381,7 @@ class FeodalSimulator:
             state="readonly",
             width=40,
         )
-        ruler_combo.grid(row=5, column=1, padx=5, pady=5, sticky="w")
+        ruler_combo.grid(row=6, column=1, padx=5, pady=5, sticky="w")
 
         def refresh_ruler_visibility(*_):
             if type_var.get() == "H\u00e4rskare":
@@ -1336,7 +1396,7 @@ class FeodalSimulator:
         # Make the entry column expand
         form_frame.grid_columnconfigure(1, weight=1)
         form_frame.grid_rowconfigure(
-            2, weight=1
+            3, weight=1
         )  # Allow description text box to expand vertically slightly
 
         # --- Save Action ---
@@ -1356,6 +1416,10 @@ class FeodalSimulator:
                 wealth = int(wealth_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 wealth = 0
+
+            gender_val = gender_var.get()
+            if gender_val not in CHARACTER_GENDERS:
+                gender_val = CHARACTER_GENDERS[0]
 
             description = desc_text.get("1.0", tk.END).strip()
             skills = [
@@ -1386,6 +1450,7 @@ class FeodalSimulator:
                 new_char_data = {
                     "char_id": new_id,  # Store ID also inside the dict
                     "name": name,
+                    "gender": gender_val,
                     "wealth": wealth,
                     "description": description,
                     "skills": skills,
@@ -1431,6 +1496,7 @@ class FeodalSimulator:
                     old_ruler = char_data_to_update.get("ruler_of")
                     old_type = char_data_to_update.get("type", "")
                     char_data_to_update["name"] = name
+                    char_data_to_update["gender"] = gender_val
                     char_data_to_update["wealth"] = wealth
                     char_data_to_update["description"] = description
                     char_data_to_update["skills"] = skills
@@ -2085,6 +2151,7 @@ class FeodalSimulator:
             new_data = {
                 "char_id": new_id,
                 "name": new_name,
+                "gender": CHARACTER_GENDERS[0],
                 "wealth": 0,
                 "description": "",
                 "skills": [],

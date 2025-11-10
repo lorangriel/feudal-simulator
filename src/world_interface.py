@@ -6,6 +6,7 @@ import os
 from typing import Any, Dict, Tuple
 from constants import (
     BORDER_TYPES,
+    CHARACTER_GENDERS,
     MAX_NEIGHBORS,
     NEIGHBOR_NONE_STR,
     NEIGHBOR_OTHER_STR,
@@ -427,6 +428,9 @@ class WorldInterface(ABC):
                 updated = True
             if "name" not in char:
                 char["name"] = ""
+                updated = True
+            if char.get("gender") not in CHARACTER_GENDERS:
+                char["gender"] = CHARACTER_GENDERS[0]
                 updated = True
             if "wealth" not in char:
                 char["wealth"] = 0
