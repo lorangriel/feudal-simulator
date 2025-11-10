@@ -1,3 +1,5 @@
+import runpy
+import sys
 import types
 from wsgiref.util import setup_testing_defaults
 
@@ -83,3 +85,34 @@ def test_main_starts_server(monkeypatch, capsys):
     assert called.get('closed')
     out = capsys.readouterr().out
     assert 'http://localhost:1234' in out
+
+
+def test_http_server_script_entrypoint(monkeypatch, capsys):
+    called: dict[str, object] = {}
+
+    class DummyServer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            called['closed'] = True
+
+        def serve_forever(self):
+            called['served'] = True
+
+    def fake_make_server(host, port, app):
+        called['args'] = (host, port, app)
+        return DummyServer()
+
+    stub = types.SimpleNamespace(make_server=fake_make_server)
+    monkeypatch.setitem(sys.modules, 'wsgiref.simple_server', stub)
+
+    result = runpy.run_module('src.http_server', run_name='__main__')
+
+    out = capsys.readouterr().out
+    assert called['args'][0] == ''
+    assert called['args'][1] == 8000
+    assert called.get('served')
+    assert called.get('closed')
+    assert 'http://localhost:8000' in out
+    assert called['args'][2] is result['application']
