@@ -42,8 +42,37 @@ JARLDOM_RESOURCE_TYPES = [
     "Djur",
     "Karaktärer",
     "Byggnader",
+    "Adelsfamilj",
     "Väder",
     "Lager",
+]
+
+NOBLE_STANDARD_OPTIONS = [
+    (
+        "Enkel",
+        "Enkel – fattig adel; förfallet gods, få tjänare, men håller ännu skenet uppe.",
+        "50 m²",
+    ),
+    (
+        "Anständig",
+        "Anständig – normal riddarstandard; hushåll, hästar, duglig utrustning.",
+        "100 m²",
+    ),
+    (
+        "Välbärgad",
+        "Välbärgad – rik länsherre; flera gårdar, välutrustad följeskara.",
+        "150 m²",
+    ),
+    (
+        "Förnäm",
+        "Förnäm – högadel; utsmyckade salar, hovfolk, dyrbara kläder.",
+        "borgkärna 12 × 12 m, 2 vån",
+    ),
+    (
+        "Furstlig",
+        "Furstlig – överdådigt hovliv; prakt, lyx och maktdemonstration.",
+        "4 delvis ihopsatta borgkärnor, 2 vån",
+    ),
 ]
 
 # Categorized for easier handling in UI
