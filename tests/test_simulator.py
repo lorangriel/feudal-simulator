@@ -1,3 +1,7 @@
+import runpy
+import sys
+import types
+
 import pytest
 import tkinter as tk
 
@@ -197,6 +201,21 @@ def test_create_drunok_world_builds_structure(monkeypatch):
     assert princ == 4
     assert duchies == 15
     assert jarls >= 200
+
+
+def test_simulator_script_entry(monkeypatch):
+    called = {}
+
+    def fake_main():
+        called["main"] = True
+
+    stub = types.SimpleNamespace(main=fake_main)
+    monkeypatch.setitem(sys.modules, "feodal_simulator", stub)
+
+    result = runpy.run_module("simulator", run_name="__main__")
+
+    assert called.get("main") is True
+    assert result["__name__"] == "__main__"
 
 
 def test_save_current_world_refreshes_dynamic_map(monkeypatch):
