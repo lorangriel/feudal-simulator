@@ -2,7 +2,12 @@ import pytest
 
 from src.world_manager import WorldManager
 from src.world_interface import WorldInterface
-from src.constants import BORDER_TYPES, MAX_NEIGHBORS, NEIGHBOR_NONE_STR
+from src.constants import (
+    BORDER_TYPES,
+    CHARACTER_GENDERS,
+    MAX_NEIGHBORS,
+    NEIGHBOR_NONE_STR,
+)
 import json
 import os
 import tempfile
@@ -85,6 +90,7 @@ def test_validate_world_data_basic():
     assert node2["children"] == []
     assert node2["ruler_id"] is None
     assert world["characters"]["10"]["char_id"] == 10
+    assert world["characters"]["10"]["gender"] in CHARACTER_GENDERS
     for key in (
         "work_available",
         "work_needed",
