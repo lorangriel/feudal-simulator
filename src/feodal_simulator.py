@@ -25,6 +25,7 @@ from constants import (
     DAGSVERKEN_MULTIPLIERS,
     DAGSVERKEN_UMBARANDE,
     THRALL_WORK_DAYS,
+    NOBLE_STANDARD_OPTIONS,
 )
 from data_manager import load_worlds_from_file
 from node import Node
@@ -96,6 +97,9 @@ class FeodalSimulator:
         )
         self.style.configure(
             "Danger.TCombobox", foreground="red", fieldbackground="white"
+        )
+        self.style.configure(
+            "Linked.TCombobox", foreground="#0f3a79", fieldbackground="white"
         )
 
         # --- Main Layout ---
@@ -1118,7 +1122,14 @@ class FeodalSimulator:
             pady=(15, 5)
         )
 
-    def show_edit_character_view(self, char_data, is_new=False, parent_node_data=None):
+    def show_edit_character_view(
+        self,
+        char_data,
+        is_new=False,
+        parent_node_data=None,
+        after_save: Callable[[dict], None] | None = None,
+        return_command: Callable[[], None] | None = None,
+    ):
         """Shows the form to create or edit a character. char_data is the dict or None if new."""
         self._clear_right_frame()
         container = ttk.Frame(self.right_frame, padding="10 10 10 10")
@@ -1386,6 +1397,9 @@ class FeodalSimulator:
                     f"Skapade ny karaktär: '{name}' (ID: {new_id})."
                 )
 
+                if after_save:
+                    after_save(dict(new_char_data))
+
                 if ruler_of is not None:
                     jnode = self.world_data.get("nodes", {}).get(str(ruler_of))
                     if jnode is not None:
@@ -1401,8 +1415,13 @@ class FeodalSimulator:
                     )
                     self.refresh_tree_item(parent_node_id)
                     # Go back to the node view after assigning
+                    self.save_current_world()
                     self.show_node_view(parent_node_data)
                     return  # Don't go to character list
+                if return_command:
+                    self.save_current_world()
+                    return_command()
+                    return
 
             else:  # Editing existing
                 char_id_str = str(char_id)  # Use the ID passed in
@@ -1417,6 +1436,8 @@ class FeodalSimulator:
                     char_data_to_update["skills"] = skills
                     char_data_to_update["type"] = type_val
                     char_data_to_update["ruler_of"] = ruler_of
+                    if after_save:
+                        after_save(dict(char_data_to_update))
                     self.add_status_message(
                         f"Uppdaterade karaktär '{old_name}' -> '{name}' (ID: {char_id_str})."
                     )
@@ -1450,16 +1471,22 @@ class FeodalSimulator:
                     return
 
             self.save_current_world()
-            # Go back to the list view after saving/creating (unless assigned from node view)
-            self.show_manage_characters_view()
+            # Go back to the desired view after saving/creating
+            if return_command and not parent_node_data:
+                return_command()
+            elif not parent_node_data:
+                self.show_manage_characters_view()
 
         # --- Buttons ---
         button_frame = ttk.Frame(container)
         button_frame.pack(pady=(20, 10))
         # Define back command based on context
-        back_command = lambda n=parent_node_data: (
-            self.show_node_view(n) if n else self.show_manage_characters_view()
-        )
+        if return_command and not parent_node_data:
+            back_command = return_command
+        else:
+            back_command = lambda n=parent_node_data: (
+                self.show_node_view(n) if n else self.show_manage_characters_view()
+            )
 
         ttk.Button(button_frame, text="Spara", command=do_save).pack(
             side=tk.LEFT, padx=10
@@ -2344,6 +2371,142 @@ class FeodalSimulator:
             delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view
         ).pack(side=tk.LEFT, padx=10)
 
+    def _get_sorted_character_choices(self) -> list[tuple[int, str]]:
+        choices: list[tuple[int, str]] = []
+        if not self.world_data:
+            return choices
+        for cid_str, cdata in self.world_data.get("characters", {}).items():
+            try:
+                cid = int(cid_str)
+            except (TypeError, ValueError):
+                continue
+            name = str(cdata.get("name", f"ID {cid}"))
+            choices.append((cid, name))
+        choices.sort(key=lambda item: item[1].casefold())
+        return choices
+
+    @staticmethod
+    def _format_character_display(char_id: int, name: str) -> str:
+        return f"{char_id}: {name}"
+
+    def _find_generic_character_id(self) -> int | None:
+        if not self.world_data:
+            return None
+        best_id: int | None = None
+        for cid_str, cdata in self.world_data.get("characters", {}).items():
+            name = str(cdata.get("name", "")).strip()
+            if name.lower() == "generisk":
+                try:
+                    cid = int(cid_str)
+                except (TypeError, ValueError):
+                    continue
+                if best_id is None or cid < best_id:
+                    best_id = cid
+        return best_id
+
+    def _ask_missing_character_action(self, display_label: str) -> str:
+        message = (
+            f"Karaktären '{display_label}' finns inte längre.\n\n"
+            "Välj åtgärd:\n"
+            "Ja = ersätt med 'Generisk'\n"
+            "Nej = använd placeholder 'karaktären raderad'\n"
+            "Avbryt = ta bort posten"
+        )
+        result = messagebox.askyesnocancel(
+            "Karaktär saknas",
+            message,
+            parent=self.root,
+            icon="warning",
+        )
+        if result is None:
+            return "remove"
+        if result:
+            return "generic"
+        return "placeholder"
+
+    def _open_character_creator_for_node(
+        self, node_data: dict, on_created: Callable[[int], None]
+    ) -> None:
+        def handle_save(char_info: dict) -> None:
+            try:
+                cid = int(char_info.get("char_id"))
+            except (TypeError, ValueError):
+                return
+            on_created(cid)
+
+        self.show_edit_character_view(
+            char_data={},
+            is_new=True,
+            after_save=handle_save,
+            return_command=lambda nd=node_data: self.show_node_view(nd),
+        )
+
+    @staticmethod
+    def _coerce_person_entry(entry: object, default_label: str) -> dict | None:
+        if isinstance(entry, dict):
+            kind = entry.get("kind")
+            if kind == "character" and "char_id" in entry:
+                try:
+                    cid = int(entry["char_id"])
+                except (TypeError, ValueError):
+                    return None
+                return {"kind": "character", "char_id": cid}
+            if kind == "placeholder":
+                label = str(entry.get("label", default_label)) or default_label
+                return {"kind": "placeholder", "label": label}
+            if "char_id" in entry:
+                try:
+                    cid = int(entry["char_id"])
+                except (TypeError, ValueError):
+                    return None
+                return {"kind": "character", "char_id": cid}
+            if "label" in entry:
+                label = str(entry.get("label", default_label)) or default_label
+                return {"kind": "placeholder", "label": label}
+        elif isinstance(entry, (int, float)):
+            try:
+                cid = int(entry)
+            except (TypeError, ValueError):
+                return None
+            return {"kind": "character", "char_id": cid}
+        elif isinstance(entry, str):
+            text = entry.strip()
+            if text.isdigit():
+                return {"kind": "character", "char_id": int(text)}
+            label = text or default_label
+            return {"kind": "placeholder", "label": label}
+        return None
+
+    def _normalise_person_entries(
+        self, raw_entries: object, default_label: str
+    ) -> list[dict]:
+        if raw_entries is None:
+            return []
+        entries: list[dict] = []
+        if isinstance(raw_entries, list):
+            iterator = raw_entries
+        else:
+            iterator = [raw_entries]
+        for item in iterator:
+            coerced = self._coerce_person_entry(item, default_label)
+            if coerced:
+                entries.append(coerced)
+        return entries
+
+    def _person_entry_display(
+        self, entry: dict, characters: dict[str, dict]
+    ) -> str:
+        if entry.get("kind") == "character":
+            cid = entry.get("char_id")
+            if cid is None:
+                return ""
+            char = characters.get(str(cid)) if characters else None
+            name = char.get("name", f"ID {cid}") if isinstance(char, dict) else f"ID {cid}"
+            return self._format_character_display(cid, name)
+        if entry.get("kind") == "placeholder":
+            return entry.get("label", "")
+        return ""
+
     def _show_resource_editor(self, parent_frame, node_data, depth):
         """Editor for resource nodes at depth >=4."""
         node_id = node_data["node_id"]
@@ -2378,6 +2541,9 @@ class FeodalSimulator:
 
         res_var.trace_add("write", on_res_change)
         row_idx += 1
+        if res_var.get() == "Adelsfamilj":
+            self._show_noble_family_editor(editor_frame, node_data, depth, row_idx)
+            return
         if res_var.get() == "Lager":
             self._show_lager_editor(editor_frame, node_data, row_idx)
             return
@@ -4018,6 +4184,672 @@ class FeodalSimulator:
             delete_back_frame, node_data, unsaved_changes
         )
         del_button.pack(side=tk.LEFT, padx=10)
+        ttk.Button(
+            delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view
+        ).pack(side=tk.LEFT, padx=10)
+
+    def _show_noble_family_editor(
+        self, editor_frame: ttk.Frame, node_data: dict, depth: int, start_row: int
+    ) -> None:
+        characters: dict[str, dict] = {}
+        if self.world_data:
+            characters = self.world_data.get("characters", {}) or {}
+
+        char_choices = self._get_sorted_character_choices()
+        char_display_lookup = {
+            cid: self._format_character_display(cid, name)
+            for cid, name in char_choices
+        }
+
+        default_placeholder = "karaktären raderad"
+        child_default_label = "Barn levande"
+        relative_default_label = "Släkting levande"
+
+        editor_frame.grid_columnconfigure(3, weight=1)
+
+        standard_to_display = {opt[0]: opt[1] for opt in NOBLE_STANDARD_OPTIONS}
+        display_to_standard = {opt[1]: opt[0] for opt in NOBLE_STANDARD_OPTIONS}
+        standard_to_housing = {opt[0]: opt[2] for opt in NOBLE_STANDARD_OPTIONS}
+        display_values = list(display_to_standard.keys())
+
+        standard_key = node_data.get("noble_standard", "Välbärgad")
+        if standard_key not in standard_to_display:
+            standard_key = "Välbärgad"
+        node_data["noble_standard"] = standard_key
+
+        ttk.Label(editor_frame, text="Levnadsstandard:").grid(
+            row=start_row, column=0, sticky="w", padx=5, pady=3
+        )
+        standard_var = tk.StringVar(value=standard_to_display[standard_key])
+        standard_combo = ttk.Combobox(
+            editor_frame, textvariable=standard_var, values=display_values, state="readonly"
+        )
+        standard_combo.grid(row=start_row, column=1, sticky="ew", padx=5, pady=3)
+        ttk.Label(editor_frame, text="Bostadskrav:").grid(
+            row=start_row, column=2, sticky="w", padx=5, pady=3
+        )
+        housing_var = tk.StringVar(value=standard_to_housing[standard_key])
+        housing_entry = ttk.Entry(
+            editor_frame, textvariable=housing_var, width=35, state="readonly"
+        )
+        housing_entry.grid(row=start_row, column=3, sticky="ew", padx=5, pady=3)
+
+        def on_standard_change(*_):
+            display = standard_var.get()
+            key = display_to_standard.get(display)
+            if not key:
+                return
+            node_data["noble_standard"] = key
+            housing_var.set(standard_to_housing.get(key, ""))
+            self.save_current_world()
+
+        standard_var.trace_add("write", on_standard_change)
+
+        def entry_char_id(entry: dict | None) -> int | None:
+            if isinstance(entry, dict) and entry.get("kind") == "character":
+                try:
+                    return int(entry.get("char_id"))
+                except (TypeError, ValueError):
+                    return None
+            return None
+
+        def resolve_missing(entry: dict | None, label: str = default_placeholder) -> dict | None:
+            if not entry or entry.get("kind") != "character":
+                return entry
+            cid = entry_char_id(entry)
+            if cid is None:
+                return None
+            if characters.get(str(cid)):
+                return entry
+            display = self._format_character_display(cid, f"ID {cid}")
+            action = self._ask_missing_character_action(display)
+            if action == "remove":
+                return None
+            if action == "generic":
+                generic_id = self._find_generic_character_id()
+                if generic_id is not None:
+                    return {"kind": "character", "char_id": generic_id}
+            return {"kind": "placeholder", "label": label}
+
+        row_idx = start_row + 1
+        ttk.Label(editor_frame, text="Länsherre:").grid(
+            row=row_idx, column=0, sticky="w", padx=5, pady=(10, 3)
+        )
+        raw_lord = node_data.get("noble_lord")
+        noble_lord_entry = self._coerce_person_entry(raw_lord, default_placeholder)
+        noble_lord_entry = resolve_missing(noble_lord_entry)
+        if noble_lord_entry:
+            node_data["noble_lord"] = noble_lord_entry
+        else:
+            node_data.pop("noble_lord", None)
+
+        lord_option_map: dict[str, tuple[str, int | str | None]] = {
+            "": ("none", None),
+            "Ny": ("new", None),
+            default_placeholder: ("placeholder", default_placeholder),
+        }
+        for cid, name in char_choices:
+            display = char_display_lookup[cid]
+            lord_option_map[display] = ("character", cid)
+
+        initial_lord_display = ""
+        if noble_lord_entry:
+            initial_lord_display = self._person_entry_display(noble_lord_entry, characters)
+            if noble_lord_entry.get("kind") == "character":
+                cid_val = entry_char_id(noble_lord_entry)
+                if cid_val is not None and initial_lord_display not in lord_option_map:
+                    lord_option_map[initial_lord_display] = ("character", cid_val)
+            elif initial_lord_display not in lord_option_map:
+                lord_option_map[initial_lord_display] = (
+                    "placeholder",
+                    noble_lord_entry.get("label", default_placeholder),
+                )
+
+        lord_var = tk.StringVar(value=initial_lord_display)
+        lord_combo = ttk.Combobox(
+            editor_frame,
+            textvariable=lord_var,
+            values=list(lord_option_map.keys()),
+            state="readonly",
+            width=40,
+            style="BlackWhite.TCombobox",
+        )
+        lord_combo.grid(row=row_idx, column=1, columnspan=3, sticky="ew", padx=5, pady=(10, 3))
+
+        lord_previous = {"display": initial_lord_display}
+
+        def save_lord(entry: dict | None) -> None:
+            if entry:
+                node_data["noble_lord"] = entry
+            else:
+                node_data.pop("noble_lord", None)
+            self.save_current_world()
+
+        def on_lord_selected(_event=None):
+            sel = lord_var.get()
+            option = lord_option_map.get(sel)
+            if not option:
+                return
+            action, payload = option
+            if action == "new":
+                lord_var.set(lord_previous["display"])
+
+                def assign_new_lord(new_id: int) -> None:
+                    node_data["noble_lord"] = {"kind": "character", "char_id": new_id}
+                    self.save_current_world()
+
+                self._open_character_creator_for_node(node_data, assign_new_lord)
+                return
+            if action == "character":
+                if payload is None:
+                    save_lord(None)
+                    lord_previous["display"] = ""
+                else:
+                    save_lord({"kind": "character", "char_id": int(payload)})
+                    lord_previous["display"] = sel
+            elif action == "placeholder":
+                save_lord({"kind": "placeholder", "label": default_placeholder})
+                lord_previous["display"] = default_placeholder
+            else:
+                save_lord(None)
+                lord_previous["display"] = ""
+
+        lord_combo.bind("<<ComboboxSelected>>", on_lord_selected)
+
+        def current_lord_id() -> int | None:
+            entry = node_data.get("noble_lord")
+            return entry_char_id(entry) if isinstance(entry, dict) else None
+
+        # --- Gemål Section ---
+        row_idx += 1
+        spouses = [
+            resolve_missing(e, "")
+            for e in self._normalise_person_entries(node_data.get("noble_spouses"), "")
+        ]
+        spouses = [e for e in spouses if e is not None]
+        node_data["noble_spouses"] = spouses
+
+        spouse_container = ttk.Frame(editor_frame)
+        spouse_container.grid(row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(10, 5))
+
+        spouse_header = ttk.Frame(spouse_container)
+        spouse_header.pack(fill="x")
+        ttk.Label(spouse_header, text="Gemål:").pack(side=tk.LEFT)
+        ttk.Label(spouse_header, text="Antal:").pack(side=tk.LEFT, padx=(10, 2))
+        spouse_count_var = tk.StringVar(value=str(len(spouses)))
+        spouse_count_combo = ttk.Combobox(
+            spouse_header,
+            textvariable=spouse_count_var,
+            values=[str(i) for i in range(0, 5)],
+            state="readonly",
+            width=3,
+        )
+        spouse_count_combo.pack(side=tk.LEFT)
+
+        spouse_rows_frame = ttk.Frame(spouse_container)
+        spouse_rows_frame.pack(fill="x", pady=(5, 0))
+        spouse_rows: list[dict] = []
+
+        def ensure_spouse_length() -> None:
+            try:
+                target = int(spouse_count_var.get())
+            except ValueError:
+                target = len(spouses)
+            target = max(0, min(4, target))
+            if spouse_count_var.get() != str(target):
+                spouse_count_var.set(str(target))
+            while len(spouses) < target:
+                spouses.append({"kind": "placeholder", "label": ""})
+            while len(spouses) > target:
+                spouses.pop()
+            node_data["noble_spouses"] = list(spouses)
+            self.save_current_world()
+
+        def build_spouse_option_map(current_index: int | None = None) -> dict[str, tuple[str, int | str | None]]:
+            option_map: dict[str, tuple[str, int | str | None]] = {
+                "": ("none", None),
+                "Ny": ("new", None),
+                default_placeholder: ("placeholder", default_placeholder),
+            }
+            selected_ids = {
+                entry_char_id(entry)
+                for idx, entry in enumerate(spouses)
+                if entry and entry.get("kind") == "character" and idx != current_index
+            }
+            lord_id = current_lord_id()
+            for cid, name in char_choices:
+                if lord_id is not None and cid == lord_id:
+                    continue
+                if cid in selected_ids:
+                    continue
+                option_map[char_display_lookup[cid]] = ("character", cid)
+            return option_map
+
+        def save_spouses() -> None:
+            node_data["noble_spouses"] = list(spouses)
+            self.save_current_world()
+
+        def rebuild_spouse_rows() -> None:
+            for child in spouse_rows_frame.winfo_children():
+                child.destroy()
+            spouse_rows.clear()
+            for idx, entry in enumerate(spouses):
+                frame = ttk.Frame(spouse_rows_frame)
+                frame.pack(fill="x", pady=2)
+                ttk.Label(frame, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
+                option_map = build_spouse_option_map(idx)
+                display = self._person_entry_display(entry or {}, characters)
+                if display and display not in option_map:
+                    if entry and entry.get("kind") == "character":
+                        option_map[display] = ("character", entry_char_id(entry))
+                    else:
+                        option_map[display] = ("placeholder", default_placeholder)
+                var = tk.StringVar(value=display)
+                combo = ttk.Combobox(
+                    frame,
+                    textvariable=var,
+                    values=list(option_map.keys()),
+                    state="readonly",
+                    width=40,
+                )
+                combo.pack(side=tk.LEFT, padx=5)
+
+                def make_on_selected(index: int) -> Callable[[object], None]:
+                    def handler(_event=None) -> None:
+                        opt_map = build_spouse_option_map(index)
+                        selection = spouse_rows[index]["var"].get()
+                        option = opt_map.get(selection)
+                        if option is None:
+                            return
+                        action, payload = option
+                        if action == "new":
+                            prev = self._person_entry_display(spouses[index], characters)
+                            spouse_rows[index]["var"].set(prev)
+
+                            def assign_new(new_id: int) -> None:
+                                spouses[index] = {"kind": "character", "char_id": new_id}
+                                save_spouses()
+
+                            self._open_character_creator_for_node(node_data, assign_new)
+                            return
+                        if action == "character":
+                            if payload is None:
+                                spouses[index] = {"kind": "placeholder", "label": ""}
+                            else:
+                                spouses[index] = {"kind": "character", "char_id": int(payload)}
+                        elif action == "placeholder":
+                            spouses[index] = {"kind": "placeholder", "label": default_placeholder}
+                        else:
+                            spouses[index] = {"kind": "placeholder", "label": ""}
+                        save_spouses()
+                        rebuild_spouse_rows()
+
+                    return handler
+
+                combo.bind("<<ComboboxSelected>>", make_on_selected(idx))
+                ttk.Button(
+                    frame,
+                    text="Radera",
+                    command=lambda i=idx: remove_spouse(i),
+                ).pack(side=tk.LEFT, padx=5)
+                spouse_rows.append({"var": var, "combo": combo})
+
+        def remove_spouse(index: int) -> None:
+            if 0 <= index < len(spouses):
+                spouses.pop(index)
+                spouse_count_var.set(str(len(spouses)))
+                save_spouses()
+                rebuild_spouse_rows()
+
+        spouse_count_var.trace_add("write", lambda *_: (ensure_spouse_length(), rebuild_spouse_rows()))
+        ensure_spouse_length()
+        rebuild_spouse_rows()
+
+        # --- Barn Section ---
+        row_idx += 1
+        child_container = ttk.Frame(editor_frame)
+        child_container.grid(row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(10, 5))
+
+        child_header = ttk.Frame(child_container)
+        child_header.pack(fill="x")
+        ttk.Label(child_header, text="Barn:").pack(side=tk.LEFT)
+        ttk.Label(child_header, text="Antal:").pack(side=tk.LEFT, padx=(10, 2))
+        child_count_var = tk.StringVar(value="0")
+        child_count_combo = ttk.Combobox(
+            child_header,
+            textvariable=child_count_var,
+            values=[str(i) for i in range(0, 10)],
+            state="readonly",
+            width=3,
+        )
+        child_count_combo.pack(side=tk.LEFT)
+
+        child_rows_frame = ttk.Frame(child_container)
+        child_rows_frame.pack(fill="x", pady=(5, 0))
+
+        children = [
+            resolve_missing(e, child_default_label)
+            for e in self._normalise_person_entries(
+                node_data.get("noble_children"), child_default_label
+            )
+        ]
+        children = [e for e in children if e is not None]
+        node_data["noble_children"] = children
+        child_count_var.set(str(len(children)))
+        child_rows: list[dict] = []
+
+        def calculate_child_parent_counts() -> dict[int, int]:
+            counts: dict[int, int] = {}
+            if not self.world_data:
+                return counts
+            for ndata in self.world_data.get("nodes", {}).values():
+                entries = self._normalise_person_entries(
+                    ndata.get("noble_children"), child_default_label
+                )
+                for entry in entries:
+                    resolved = resolve_missing(entry, child_default_label)
+                    cid_val = entry_char_id(resolved)
+                    if cid_val is None:
+                        continue
+                    counts[cid_val] = counts.get(cid_val, 0) + 1
+            return counts
+
+        def build_child_option_map(index: int, parent_counts: dict[int, int]) -> dict[str, tuple[str, int | str | None]]:
+            option_map: dict[str, tuple[str, int | str | None]] = {
+                child_default_label: ("placeholder", child_default_label),
+                "Ny": ("new", None),
+                default_placeholder: ("placeholder", default_placeholder),
+            }
+            selected_ids = {
+                entry_char_id(entry)
+                for idx, entry in enumerate(children)
+                if entry and entry.get("kind") == "character" and idx != index
+            }
+            current_entry = children[index] if index < len(children) else None
+            for cid, name in char_choices:
+                if cid in selected_ids:
+                    continue
+                total = parent_counts.get(cid, 0)
+                if current_entry and current_entry.get("kind") == "character" and entry_char_id(current_entry) == cid:
+                    total -= 1
+                if total >= 2:
+                    continue
+                option_map[char_display_lookup[cid]] = ("character", cid)
+            return option_map
+
+        def save_children() -> None:
+            node_data["noble_children"] = list(children)
+            self.save_current_world()
+
+        def rebuild_child_rows() -> None:
+            for child in child_rows_frame.winfo_children():
+                child.destroy()
+            child_rows.clear()
+            parent_counts = calculate_child_parent_counts()
+            for idx, entry in enumerate(children):
+                frame = ttk.Frame(child_rows_frame)
+                frame.pack(fill="x", pady=2)
+                ttk.Label(frame, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
+                option_map = build_child_option_map(idx, parent_counts)
+                display = self._person_entry_display(entry or {}, characters)
+                if display and display not in option_map:
+                    if entry and entry.get("kind") == "character":
+                        option_map[display] = ("character", entry_char_id(entry))
+                    else:
+                        option_map[display] = ("placeholder", child_default_label)
+                var = tk.StringVar(value=display or child_default_label)
+                combo = ttk.Combobox(
+                    frame,
+                    textvariable=var,
+                    values=list(option_map.keys()),
+                    state="readonly",
+                    width=40,
+                )
+                combo.pack(side=tk.LEFT, padx=5)
+
+                def make_child_handler(index: int) -> Callable[[object], None]:
+                    def handler(_event=None) -> None:
+                        parent_counts_local = calculate_child_parent_counts()
+                        option_map_local = build_child_option_map(index, parent_counts_local)
+                        selection = child_rows[index]["var"].get()
+                        option = option_map_local.get(selection)
+                        if not option:
+                            return
+                        action, payload = option
+                        if action == "new":
+                            prev = self._person_entry_display(children[index], characters)
+                            child_rows[index]["var"].set(prev or child_default_label)
+
+                            def assign_new_child(new_id: int) -> None:
+                                children[index] = {"kind": "character", "char_id": new_id}
+                                save_children()
+
+                            self._open_character_creator_for_node(node_data, assign_new_child)
+                            return
+                        if action == "character":
+                            if payload is not None:
+                                children[index] = {"kind": "character", "char_id": int(payload)}
+                        elif action == "placeholder":
+                            children[index] = {"kind": "placeholder", "label": selection}
+                        save_children()
+                        rebuild_child_rows()
+
+                    return handler
+
+                combo.bind("<<ComboboxSelected>>", make_child_handler(idx))
+                ttk.Button(
+                    frame,
+                    text="Radera",
+                    command=lambda i=idx: remove_child(i),
+                ).pack(side=tk.LEFT, padx=5)
+                child_rows.append({"var": var, "combo": combo})
+
+        def remove_child(index: int) -> None:
+            if 0 <= index < len(children):
+                children.pop(index)
+                child_count_var.set(str(len(children)))
+                save_children()
+                rebuild_child_rows()
+
+        def ensure_child_length() -> None:
+            try:
+                target = int(child_count_var.get())
+            except ValueError:
+                target = len(children)
+            target = max(0, min(9, target))
+            if child_count_var.get() != str(target):
+                child_count_var.set(str(target))
+            while len(children) < target:
+                children.append({"kind": "placeholder", "label": child_default_label})
+            while len(children) > target:
+                children.pop()
+            save_children()
+
+        child_count_var.trace_add("write", lambda *_: (ensure_child_length(), rebuild_child_rows()))
+        ensure_child_length()
+        rebuild_child_rows()
+
+        # --- Släktingar Section ---
+        row_idx += 1
+        relative_container = ttk.Frame(editor_frame)
+        relative_container.grid(row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(10, 5))
+
+        relative_header = ttk.Frame(relative_container)
+        relative_header.pack(fill="x")
+        ttk.Label(relative_header, text="Släktingar:").pack(side=tk.LEFT)
+        ttk.Label(relative_header, text="Antal:").pack(side=tk.LEFT, padx=(10, 2))
+        relative_count_var = tk.StringVar(value="0")
+        relative_count_combo = ttk.Combobox(
+            relative_header,
+            textvariable=relative_count_var,
+            values=[str(i) for i in range(0, 10)],
+            state="readonly",
+            width=3,
+        )
+        relative_count_combo.pack(side=tk.LEFT)
+
+        relative_rows_frame = ttk.Frame(relative_container)
+        relative_rows_frame.pack(fill="x", pady=(5, 0))
+
+        relatives = [
+            resolve_missing(e, relative_default_label)
+            for e in self._normalise_person_entries(
+                node_data.get("noble_relatives"), relative_default_label
+            )
+        ]
+        relatives = [e for e in relatives if e is not None]
+        node_data["noble_relatives"] = relatives
+        relative_count_var.set(str(len(relatives)))
+        relative_rows: list[dict] = []
+
+        def build_relative_option_map(index: int) -> dict[str, tuple[str, int | str | None]]:
+            option_map: dict[str, tuple[str, int | str | None]] = {
+                relative_default_label: ("placeholder", relative_default_label),
+                "Ny": ("new", None),
+                default_placeholder: ("placeholder", default_placeholder),
+            }
+            for cid, name in char_choices:
+                option_map[char_display_lookup[cid]] = ("character", cid)
+            entry = relatives[index] if index < len(relatives) else None
+            display = self._person_entry_display(entry or {}, characters)
+            if display and display not in option_map:
+                if entry and entry.get("kind") == "character":
+                    option_map[display] = ("character", entry_char_id(entry))
+                else:
+                    option_map[display] = ("placeholder", relative_default_label)
+            return option_map
+
+        def save_relatives() -> None:
+            node_data["noble_relatives"] = list(relatives)
+            self.save_current_world()
+
+        def refresh_relative_styles() -> None:
+            seen: dict[int, int] = {}
+            for entry in relatives:
+                cid_val = entry_char_id(entry)
+                if cid_val is None:
+                    continue
+                seen[cid_val] = seen.get(cid_val, 0) + 1
+            for idx, row in enumerate(relative_rows):
+                entry = relatives[idx] if idx < len(relatives) else None
+                cid_val = entry_char_id(entry)
+                combo = row["combo"]
+                if cid_val is not None and seen.get(cid_val, 0) > 1:
+                    combo.config(style="Linked.TCombobox")
+                else:
+                    combo.config(style="BlackWhite.TCombobox")
+
+        def rebuild_relative_rows() -> None:
+            for child in relative_rows_frame.winfo_children():
+                child.destroy()
+            relative_rows.clear()
+            for idx, entry in enumerate(relatives):
+                frame = ttk.Frame(relative_rows_frame)
+                frame.pack(fill="x", pady=2)
+                ttk.Label(frame, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
+                option_map = build_relative_option_map(idx)
+                display = self._person_entry_display(entry or {}, characters)
+                var = tk.StringVar(value=display or relative_default_label)
+                combo = ttk.Combobox(
+                    frame,
+                    textvariable=var,
+                    values=list(option_map.keys()),
+                    state="readonly",
+                    width=40,
+                    style="BlackWhite.TCombobox",
+                )
+                combo.pack(side=tk.LEFT, padx=5)
+
+                def make_relative_handler(index: int) -> Callable[[object], None]:
+                    def handler(_event=None) -> None:
+                        option_map_local = build_relative_option_map(index)
+                        selection = relative_rows[index]["var"].get()
+                        option = option_map_local.get(selection)
+                        if not option:
+                            return
+                        action, payload = option
+                        if action == "new":
+                            prev = self._person_entry_display(relatives[index], characters)
+                            relative_rows[index]["var"].set(prev or relative_default_label)
+
+                            def assign_new_relative(new_id: int) -> None:
+                                relatives[index] = {"kind": "character", "char_id": new_id}
+                                save_relatives()
+
+                            self._open_character_creator_for_node(node_data, assign_new_relative)
+                            return
+                        if action == "character":
+                            if payload is not None:
+                                relatives[index] = {"kind": "character", "char_id": int(payload)}
+                        elif action == "placeholder":
+                            relatives[index] = {"kind": "placeholder", "label": selection}
+                        save_relatives()
+                        rebuild_relative_rows()
+                        refresh_relative_styles()
+
+                    return handler
+
+                combo.bind("<<ComboboxSelected>>", make_relative_handler(idx))
+                ttk.Button(
+                    frame,
+                    text="Radera",
+                    command=lambda i=idx: remove_relative(i),
+                ).pack(side=tk.LEFT, padx=5)
+                relative_rows.append({"var": var, "combo": combo})
+            refresh_relative_styles()
+
+        def remove_relative(index: int) -> None:
+            if 0 <= index < len(relatives):
+                relatives.pop(index)
+                relative_count_var.set(str(len(relatives)))
+                save_relatives()
+                rebuild_relative_rows()
+
+        def ensure_relative_length() -> None:
+            try:
+                target = int(relative_count_var.get())
+            except ValueError:
+                target = len(relatives)
+            target = max(0, min(9, target))
+            if relative_count_var.get() != str(target):
+                relative_count_var.set(str(target))
+            while len(relatives) < target:
+                relatives.append({"kind": "placeholder", "label": relative_default_label})
+            while len(relatives) > target:
+                relatives.pop()
+            save_relatives()
+
+        relative_count_var.trace_add("write", lambda *_: (ensure_relative_length(), rebuild_relative_rows()))
+        ensure_relative_length()
+        rebuild_relative_rows()
+
+        # --- Actions and Delete ---
+        row_idx += 1
+        footer_row = row_idx
+        ttk.Separator(editor_frame, orient=tk.HORIZONTAL).grid(
+            row=footer_row, column=0, columnspan=4, sticky="ew", pady=(15, 10)
+        )
+        footer_row += 1
+        action_frame = ttk.Frame(editor_frame)
+        action_frame.grid(row=footer_row, column=0, columnspan=4, pady=5)
+        ttk.Button(action_frame, text="Skapa Nod", state="disabled").pack(side=tk.LEFT, padx=5)
+        ttk.Label(
+            action_frame,
+            text="Adelsfamiljer kan inte skapa undernoder på djupet.",
+            foreground="gray",
+        ).pack(side=tk.LEFT, padx=10)
+
+        footer_row += 1
+        delete_back_frame = ttk.Frame(editor_frame)
+        delete_back_frame.grid(row=footer_row, column=0, columnspan=4, pady=(20, 5))
+
+        def unsaved_changes() -> bool:
+            return False
+
+        delete_button = self._create_delete_button(
+            delete_back_frame, node_data, unsaved_changes
+        )
+        delete_button.pack(side=tk.LEFT, padx=10)
         ttk.Button(
             delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view
         ).pack(side=tk.LEFT, padx=10)
