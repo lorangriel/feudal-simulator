@@ -4427,34 +4427,6 @@ class FeodalSimulator:
             standard_key = "Välbärgad"
         node_data["noble_standard"] = standard_key
 
-        ttk.Label(editor_frame, text="Levnadsstandard:").grid(
-            row=start_row, column=0, sticky="w", padx=5, pady=3
-        )
-        standard_var = tk.StringVar(value=standard_to_display[standard_key])
-        standard_combo = ttk.Combobox(
-            editor_frame, textvariable=standard_var, values=display_values, state="readonly"
-        )
-        standard_combo.grid(row=start_row, column=1, sticky="ew", padx=5, pady=3)
-        ttk.Label(editor_frame, text="Bostadskrav:").grid(
-            row=start_row, column=2, sticky="w", padx=5, pady=3
-        )
-        housing_var = tk.StringVar(value=standard_to_housing[standard_key])
-        housing_entry = ttk.Entry(
-            editor_frame, textvariable=housing_var, width=35, state="readonly"
-        )
-        housing_entry.grid(row=start_row, column=3, sticky="ew", padx=5, pady=3)
-
-        def on_standard_change(*_):
-            display = standard_var.get()
-            key = display_to_standard.get(display)
-            if not key:
-                return
-            node_data["noble_standard"] = key
-            housing_var.set(standard_to_housing.get(key, ""))
-            self.save_current_world()
-
-        standard_var.trace_add("write", on_standard_change)
-
         def resolve_missing(entry: dict | None, label: str = default_placeholder) -> dict | None:
             if not entry or entry.get("kind") != "character":
                 return entry
@@ -4473,7 +4445,7 @@ class FeodalSimulator:
                     return {"kind": "character", "char_id": generic_id}
             return {"kind": "placeholder", "label": label}
 
-        row_idx = start_row + 1
+        row_idx = start_row
         ttk.Label(editor_frame, text="Länsherre:").grid(
             row=row_idx, column=0, sticky="w", padx=5, pady=(10, 3)
         )
@@ -4585,6 +4557,35 @@ class FeodalSimulator:
         refresh_lord_edit_state()
 
         lord_combo.bind("<<ComboboxSelected>>", on_lord_selected)
+
+        row_idx += 1
+        ttk.Label(editor_frame, text="Levnadsstandard:").grid(
+            row=row_idx, column=0, sticky="w", padx=5, pady=3
+        )
+        standard_var = tk.StringVar(value=standard_to_display[standard_key])
+        standard_combo = ttk.Combobox(
+            editor_frame, textvariable=standard_var, values=display_values, state="readonly"
+        )
+        standard_combo.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        ttk.Label(editor_frame, text="Bostadskrav:").grid(
+            row=row_idx, column=2, sticky="w", padx=5, pady=3
+        )
+        housing_var = tk.StringVar(value=standard_to_housing[standard_key])
+        housing_entry = ttk.Entry(
+            editor_frame, textvariable=housing_var, width=35, state="readonly"
+        )
+        housing_entry.grid(row=row_idx, column=3, sticky="ew", padx=5, pady=3)
+
+        def on_standard_change(*_):
+            display = standard_var.get()
+            key = display_to_standard.get(display)
+            if not key:
+                return
+            node_data["noble_standard"] = key
+            housing_var.set(standard_to_housing.get(key, ""))
+            self.save_current_world()
+
+        standard_var.trace_add("write", on_standard_change)
 
         def current_lord_id() -> int | None:
             entry = node_data.get("noble_lord")

@@ -277,3 +277,71 @@ def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
         assert "Barn:" not in relatives_texts
     finally:
         root.destroy()
+
+
+def test_noble_family_editor_places_lord_before_standard():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.world_data = {
+            "characters": {
+                "1": {"name": "Herre"},
+                "2": {"name": "Partner"},
+            },
+            "nodes": {},
+        }
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._open_character_creator_for_node = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        node_data = {
+            "node_id": 1,
+            "noble_standard": "Välbärgad",
+            "noble_lord": {"kind": "character", "char_id": 1},
+            "noble_spouses": [{"kind": "character", "char_id": 2}],
+            "noble_children": [],
+            "noble_relatives": [],
+        }
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        label_rows = {
+            child.cget("text"): int(child.grid_info()["row"])
+            for child in editor_frame.grid_slaves()
+            if isinstance(child, ttk.Label)
+        }
+
+        assert label_rows["Länsherre:"] == 0
+        assert label_rows["Levnadsstandard:"] == 1
+        assert label_rows["Bostadskrav:"] == 1
+
+        combobox_positions = {
+            (int(child.grid_info()["row"]), int(child.grid_info()["column"]))
+            for child in editor_frame.grid_slaves()
+            if isinstance(child, ttk.Combobox)
+        }
+
+        assert (0, 1) in combobox_positions
+        assert (1, 1) in combobox_positions
+
+        edit_button_positions = {
+            (int(child.grid_info()["row"]), int(child.grid_info()["column"]))
+            for child in editor_frame.grid_slaves()
+            if isinstance(child, ttk.Button) and child.cget("text") == "Editera"
+        }
+
+        assert (0, 3) in edit_button_positions
+    finally:
+        root.destroy()
