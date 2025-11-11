@@ -24,7 +24,16 @@ RES_TYPES = [
     # Misc Countable Types
     "Jägare", "Båtar",
     # Building Types
-    "Kvarn - vatten", "Kvarn - vind", "Bageri", "Smedja", "Garveri",
+    "Kvarn - vatten",
+    "Kvarn - vind",
+    "Bageri",
+    "Smedja",
+    "Garveri",
+    "Trästuga liten",
+    "Trästuga 2 våningar",
+    "Stenhus",
+    "Borgkärna",
+    "Sammansatt borgkärna",
     # Storage Type
     "Lager",
 ]
@@ -91,7 +100,18 @@ CHARACTER_GENDERS = ["Man", "Kvinna"]
 SETTLEMENT_TYPES = {"By", "Stad", "Nybygge"}
 ANIMAL_TYPES = {"Stridshästar", "Ridhästar", "Packhästar", "Draghästar", "Oxe", "Föl"}
 MISC_COUNT_TYPES = {"Jägare", "Båtar"}
-BUILDING_TYPES = {"Kvarn - vatten", "Kvarn - vind", "Bageri", "Smedja", "Garveri"}
+BUILDING_TYPES = {
+    "Kvarn - vatten",
+    "Kvarn - vind",
+    "Bageri",
+    "Smedja",
+    "Garveri",
+    "Trästuga liten",
+    "Trästuga 2 våningar",
+    "Stenhus",
+    "Borgkärna",
+    "Sammansatt borgkärna",
+}
 
 # License fees for craftsmen in settlements
 CRAFTSMAN_LICENSE_FEES = {
