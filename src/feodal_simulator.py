@@ -4609,6 +4609,52 @@ class FeodalSimulator:
         spouses = [e for e in spouses if e is not None]
         node_data["noble_spouses"] = spouses
 
+        def normalise_spouse_children(raw_children: object) -> list[list[dict]]:
+            groups: list[list[dict]] = []
+            if isinstance(raw_children, list):
+                for raw_group in raw_children:
+                    entries = [
+                        resolve_missing(child_entry, child_default_label)
+                        for child_entry in self._normalise_person_entries(
+                            raw_group, child_default_label
+                        )
+                        if child_entry is not None
+                    ]
+                    groups.append(entries)
+            return groups
+
+        spouse_children = normalise_spouse_children(
+            node_data.get("noble_spouse_children")
+        )
+        fallback_children = [
+            resolve_missing(e, child_default_label)
+            for e in self._normalise_person_entries(
+                node_data.get("noble_children"), child_default_label
+            )
+            if e is not None
+        ]
+        if fallback_children and not spouse_children:
+            spouse_children = [fallback_children]
+
+        def align_spouse_children() -> None:
+            while len(spouse_children) < len(spouses):
+                spouse_children.append([])
+            while len(spouse_children) > len(spouses):
+                spouse_children.pop()
+
+        align_spouse_children()
+
+        def persist_spouse_children() -> None:
+            align_spouse_children()
+            node_data["noble_spouse_children"] = [
+                list(group) for group in spouse_children
+            ]
+            node_data["noble_children"] = [
+                child for group in spouse_children for child in group
+            ]
+
+        persist_spouse_children()
+
         spouse_container = ttk.Frame(spouse_tab)
         spouse_container.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -4638,12 +4684,22 @@ class FeodalSimulator:
             target = max(0, min(4, target))
             if spouse_count_var.get() != str(target):
                 spouse_count_var.set(str(target))
+                return
+            changed = False
             while len(spouses) < target:
                 spouses.append({"kind": "placeholder", "label": ""})
+                spouse_children.append([])
+                changed = True
             while len(spouses) > target:
                 spouses.pop()
-            node_data["noble_spouses"] = list(spouses)
-            self.save_current_world()
+                if len(spouse_children) > target:
+                    spouse_children.pop()
+                changed = True
+            if changed:
+                save_spouses()
+            else:
+                persist_spouse_children()
+            rebuild_spouse_rows()
 
         def build_spouse_option_map(current_index: int | None = None) -> dict[str, tuple[str, int | str | None]]:
             option_map: dict[str, tuple[str, int | str | None]] = {
@@ -4667,6 +4723,7 @@ class FeodalSimulator:
 
         def save_spouses() -> None:
             node_data["noble_spouses"] = list(spouses)
+            persist_spouse_children()
             self.save_current_world()
 
         def edit_spouse(index: int) -> None:
@@ -4677,14 +4734,235 @@ class FeodalSimulator:
                 return
             self._open_character_editor(cid, return_to_node)
 
+        def calculate_child_parent_counts() -> dict[int, int]:
+            counts: dict[int, int] = {}
+            if not self.world_data:
+                return counts
+            for ndata in self.world_data.get("nodes", {}).values():
+                entries = self._normalise_person_entries(
+                    ndata.get("noble_children"), child_default_label
+                )
+                for entry in entries:
+                    resolved = resolve_missing(entry, child_default_label)
+                    cid_val = self._entry_char_id(resolved)
+                    if cid_val is None:
+                        continue
+                    counts[cid_val] = counts.get(cid_val, 0) + 1
+            return counts
+
+        def build_child_option_map(
+            spouse_index: int, child_index: int, parent_counts: dict[int, int]
+        ) -> dict[str, tuple[str, int | str | None]]:
+            option_map: dict[str, tuple[str, int | str | None]] = {
+                child_default_label: ("placeholder", child_default_label),
+                "Ny": ("new", None),
+                default_placeholder: ("placeholder", default_placeholder),
+            }
+            selected_ids = {
+                self._entry_char_id(entry)
+                for s_idx, group in enumerate(spouse_children)
+                for c_idx, entry in enumerate(group)
+                if entry
+                and entry.get("kind") == "character"
+                and not (s_idx == spouse_index and c_idx == child_index)
+            }
+            current_entry: dict | None = None
+            if 0 <= spouse_index < len(spouse_children):
+                group = spouse_children[spouse_index]
+                if 0 <= child_index < len(group):
+                    current_entry = group[child_index]
+            for cid, name in char_choices:
+                if cid in selected_ids:
+                    continue
+                total = parent_counts.get(cid, 0)
+                if (
+                    current_entry
+                    and current_entry.get("kind") == "character"
+                    and self._entry_char_id(current_entry) == cid
+                ):
+                    total -= 1
+                if total >= 2:
+                    continue
+                option_map[char_display_lookup[cid]] = ("character", cid)
+            return option_map
+
+        def save_children() -> None:
+            persist_spouse_children()
+            self.save_current_world()
+
+        def edit_child(spouse_index: int, child_index: int) -> None:
+            if spouse_index < 0 or spouse_index >= len(spouse_children):
+                return
+            group = spouse_children[spouse_index]
+            if child_index < 0 or child_index >= len(group):
+                return
+            cid = self._entry_char_id(group[child_index])
+            if cid is None:
+                return
+            self._open_character_editor(cid, return_to_node)
+
+        def remove_child(spouse_index: int, child_index: int) -> None:
+            if spouse_index < 0 or spouse_index >= len(spouse_children):
+                return
+            group = spouse_children[spouse_index]
+            if 0 <= child_index < len(group):
+                group.pop(child_index)
+                save_children()
+                rebuild_child_rows(spouse_index)
+
+        def ensure_child_length(spouse_index: int) -> None:
+            if spouse_index < 0 or spouse_index >= len(spouse_rows):
+                return
+            row_info = spouse_rows[spouse_index]
+            try:
+                target = int(row_info["child_count_var"].get())
+            except ValueError:
+                target = len(spouse_children[spouse_index])
+            target = max(0, min(9, target))
+            if row_info["child_count_var"].get() != str(target):
+                row_info["child_count_var"].set(str(target))
+                return
+            group = spouse_children[spouse_index]
+            changed = False
+            while len(group) < target:
+                group.append({"kind": "placeholder", "label": child_default_label})
+                changed = True
+            while len(group) > target:
+                group.pop()
+                changed = True
+            if changed:
+                save_children()
+            else:
+                persist_spouse_children()
+            rebuild_child_rows(spouse_index)
+
+        def rebuild_child_rows(spouse_index: int) -> None:
+            if spouse_index < 0 or spouse_index >= len(spouse_rows):
+                return
+            persist_spouse_children()
+            row_info = spouse_rows[spouse_index]
+            frame = row_info["child_rows_frame"]
+            for child in frame.winfo_children():
+                child.destroy()
+            row_info["child_rows"].clear()
+            parent_counts = calculate_child_parent_counts()
+            group = spouse_children[spouse_index] if spouse_index < len(spouse_children) else []
+            row_info["child_count_var"].set(str(len(group)))
+            for idx, entry in enumerate(group):
+                row = ttk.Frame(frame)
+                row.pack(fill="x", pady=2)
+                ttk.Label(row, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
+                option_map = build_child_option_map(spouse_index, idx, parent_counts)
+                display = self._person_entry_display(entry or {}, characters)
+                if display and display not in option_map:
+                    if entry and entry.get("kind") == "character":
+                        option_map[display] = (
+                            "character",
+                            self._entry_char_id(entry),
+                        )
+                    else:
+                        option_map[display] = ("placeholder", child_default_label)
+                var = tk.StringVar(value=display or child_default_label)
+                combo = ttk.Combobox(
+                    row,
+                    textvariable=var,
+                    values=list(option_map.keys()),
+                    state="readonly",
+                    width=40,
+                )
+                combo.pack(side=tk.LEFT, padx=5)
+
+                def make_child_handler(s_index: int, c_index: int) -> Callable[[object], None]:
+                    def handler(_event=None) -> None:
+                        parent_counts_local = calculate_child_parent_counts()
+                        option_map_local = build_child_option_map(
+                            s_index, c_index, parent_counts_local
+                        )
+                        row_local = spouse_rows[s_index]["child_rows"][c_index]
+                        selection = row_local["var"].get()
+                        option = option_map_local.get(selection)
+                        if not option:
+                            return
+                        action, payload = option
+                        if action == "new":
+                            prev = self._person_entry_display(
+                                spouse_children[s_index][c_index], characters
+                            )
+                            row_local["var"].set(prev or child_default_label)
+
+                            def assign_new_child(new_id: int, s_idx=s_index, c_idx=c_index) -> None:
+                                spouse_children[s_idx][c_idx] = {
+                                    "kind": "character",
+                                    "char_id": new_id,
+                                }
+                                save_children()
+
+                            self._open_character_creator_for_node(
+                                node_data, assign_new_child
+                            )
+                            return
+                        if action == "character":
+                            if payload is not None:
+                                spouse_children[s_index][c_index] = {
+                                    "kind": "character",
+                                    "char_id": int(payload),
+                                }
+                        elif action == "placeholder":
+                            spouse_children[s_index][c_index] = {
+                                "kind": "placeholder",
+                                "label": selection,
+                            }
+                        save_children()
+                        rebuild_child_rows(s_index)
+
+                    return handler
+
+                combo.bind(
+                    "<<ComboboxSelected>>", make_child_handler(spouse_index, idx)
+                )
+                edit_btn = ttk.Button(
+                    row,
+                    text="Editera",
+                    command=lambda s=spouse_index, i=idx: edit_child(s, i),
+                )
+                edit_btn.pack(side=tk.LEFT, padx=5)
+                ttk.Button(
+                    row,
+                    text="Radera",
+                    command=lambda s=spouse_index, i=idx: remove_child(s, i),
+                ).pack(side=tk.LEFT, padx=5)
+                row_info["child_rows"].append(
+                    {"var": var, "combo": combo, "edit_btn": edit_btn}
+                )
+
+                def refresh_child_edit(
+                    button=edit_btn, s_index=spouse_index, c_index=idx
+                ) -> None:
+                    if s_index >= len(spouse_children):
+                        button.state(["disabled"])
+                        return
+                    group_local = spouse_children[s_index]
+                    entry_local = (
+                        group_local[c_index] if 0 <= c_index < len(group_local) else None
+                    )
+                    if self._entry_char_id(entry_local) is None:
+                        button.state(["disabled"])
+                    else:
+                        button.state(["!disabled"])
+
+                refresh_child_edit()
+
         def rebuild_spouse_rows() -> None:
+            align_spouse_children()
             for child in spouse_rows_frame.winfo_children():
                 child.destroy()
             spouse_rows.clear()
             for idx, entry in enumerate(spouses):
                 frame = ttk.Frame(spouse_rows_frame)
                 frame.pack(fill="x", pady=2)
-                ttk.Label(frame, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
+                top_row = ttk.Frame(frame)
+                top_row.pack(fill="x")
+                ttk.Label(top_row, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
                 option_map = build_spouse_option_map(idx)
                 display = self._person_entry_display(entry or {}, characters)
                 if display and display not in option_map:
@@ -4697,7 +4975,7 @@ class FeodalSimulator:
                         option_map[display] = ("placeholder", default_placeholder)
                 var = tk.StringVar(value=display)
                 combo = ttk.Combobox(
-                    frame,
+                    top_row,
                     textvariable=var,
                     values=list(option_map.keys()),
                     state="readonly",
@@ -4717,9 +4995,10 @@ class FeodalSimulator:
                             prev = self._person_entry_display(spouses[index], characters)
                             spouse_rows[index]["var"].set(prev)
 
-                            def assign_new(new_id: int) -> None:
-                                spouses[index] = {"kind": "character", "char_id": new_id}
+                            def assign_new(new_id: int, s_index=index) -> None:
+                                spouses[s_index] = {"kind": "character", "char_id": new_id}
                                 save_spouses()
+                                rebuild_spouse_rows()
 
                             self._open_character_creator_for_node(node_data, assign_new)
                             return
@@ -4729,7 +5008,10 @@ class FeodalSimulator:
                             else:
                                 spouses[index] = {"kind": "character", "char_id": int(payload)}
                         elif action == "placeholder":
-                            spouses[index] = {"kind": "placeholder", "label": default_placeholder}
+                            spouses[index] = {
+                                "kind": "placeholder",
+                                "label": default_placeholder,
+                            }
                         else:
                             spouses[index] = {"kind": "placeholder", "label": ""}
                         save_spouses()
@@ -4739,17 +5021,44 @@ class FeodalSimulator:
 
                 combo.bind("<<ComboboxSelected>>", make_on_selected(idx))
                 edit_btn = ttk.Button(
-                    frame,
+                    top_row,
                     text="Editera",
                     command=lambda i=idx: edit_spouse(i),
                 )
                 edit_btn.pack(side=tk.LEFT, padx=5)
                 ttk.Button(
-                    frame,
+                    top_row,
                     text="Radera",
                     command=lambda i=idx: remove_spouse(i),
                 ).pack(side=tk.LEFT, padx=5)
-                spouse_rows.append({"var": var, "combo": combo, "edit_btn": edit_btn})
+
+                child_section = ttk.Frame(frame)
+                child_section.pack(fill="x", padx=(30, 0), pady=(3, 5))
+                child_header = ttk.Frame(child_section)
+                child_header.pack(fill="x")
+                ttk.Label(child_header, text="Barn:").pack(side=tk.LEFT)
+                ttk.Label(child_header, text="Antal:").pack(side=tk.LEFT, padx=(10, 2))
+                child_count_var = tk.StringVar()
+                child_count_combo = ttk.Combobox(
+                    child_header,
+                    textvariable=child_count_var,
+                    values=[str(i) for i in range(0, 10)],
+                    state="readonly",
+                    width=3,
+                )
+                child_count_combo.pack(side=tk.LEFT)
+                child_rows_frame = ttk.Frame(child_section)
+                child_rows_frame.pack(fill="x", pady=(5, 0))
+
+                row_info = {
+                    "var": var,
+                    "combo": combo,
+                    "edit_btn": edit_btn,
+                    "child_count_var": child_count_var,
+                    "child_rows_frame": child_rows_frame,
+                    "child_rows": [],
+                }
+                spouse_rows.append(row_info)
 
                 def refresh_edit_button(button=edit_btn, index=idx) -> None:
                     entry_local = spouses[index] if index < len(spouses) else None
@@ -4760,212 +5069,28 @@ class FeodalSimulator:
 
                 refresh_edit_button()
 
+                child_count_var.trace_add(
+                    "write", lambda *_args, s_idx=idx: ensure_child_length(s_idx)
+                )
+                child_count_var.set(
+                    str(len(spouse_children[idx]) if idx < len(spouse_children) else 0)
+                )
+                rebuild_child_rows(idx)
+
         def remove_spouse(index: int) -> None:
             if 0 <= index < len(spouses):
                 spouses.pop(index)
-                spouse_count_var.set(str(len(spouses)))
+                if index < len(spouse_children):
+                    spouse_children.pop(index)
                 save_spouses()
-                rebuild_spouse_rows()
+                spouse_count_var.set(str(len(spouses)))
 
-        spouse_count_var.trace_add("write", lambda *_: (ensure_spouse_length(), rebuild_spouse_rows()))
+        spouse_count_var.trace_add("write", lambda *_: ensure_spouse_length())
         ensure_spouse_length()
-        rebuild_spouse_rows()
 
-        # --- Barn Section ---
+        # --- Relatives Tab Container ---
         relatives_content = ttk.Frame(relatives_tab)
         relatives_content.pack(fill="both", expand=True, padx=5, pady=5)
-
-        child_container = ttk.Frame(relatives_content)
-        child_container.pack(fill="x")
-
-        child_header = ttk.Frame(child_container)
-        child_header.pack(fill="x")
-        ttk.Label(child_header, text="Barn:").pack(side=tk.LEFT)
-        ttk.Label(child_header, text="Antal:").pack(side=tk.LEFT, padx=(10, 2))
-        child_count_var = tk.StringVar(value="0")
-        child_count_combo = ttk.Combobox(
-            child_header,
-            textvariable=child_count_var,
-            values=[str(i) for i in range(0, 10)],
-            state="readonly",
-            width=3,
-        )
-        child_count_combo.pack(side=tk.LEFT)
-
-        child_rows_frame = ttk.Frame(child_container)
-        child_rows_frame.pack(fill="x", pady=(5, 0))
-
-        children = [
-            resolve_missing(e, child_default_label)
-            for e in self._normalise_person_entries(
-                node_data.get("noble_children"), child_default_label
-            )
-        ]
-        children = [e for e in children if e is not None]
-        node_data["noble_children"] = children
-        child_count_var.set(str(len(children)))
-        child_rows: list[dict] = []
-
-        def calculate_child_parent_counts() -> dict[int, int]:
-            counts: dict[int, int] = {}
-            if not self.world_data:
-                return counts
-            for ndata in self.world_data.get("nodes", {}).values():
-                entries = self._normalise_person_entries(
-                    ndata.get("noble_children"), child_default_label
-                )
-                for entry in entries:
-                    resolved = resolve_missing(entry, child_default_label)
-                    cid_val = self._entry_char_id(resolved)
-                    if cid_val is None:
-                        continue
-                    counts[cid_val] = counts.get(cid_val, 0) + 1
-            return counts
-
-        def build_child_option_map(index: int, parent_counts: dict[int, int]) -> dict[str, tuple[str, int | str | None]]:
-            option_map: dict[str, tuple[str, int | str | None]] = {
-                child_default_label: ("placeholder", child_default_label),
-                "Ny": ("new", None),
-                default_placeholder: ("placeholder", default_placeholder),
-            }
-            selected_ids = {
-                self._entry_char_id(entry)
-                for idx, entry in enumerate(children)
-                if entry and entry.get("kind") == "character" and idx != index
-            }
-            current_entry = children[index] if index < len(children) else None
-            for cid, name in char_choices:
-                if cid in selected_ids:
-                    continue
-                total = parent_counts.get(cid, 0)
-                if (
-                    current_entry
-                    and current_entry.get("kind") == "character"
-                    and self._entry_char_id(current_entry) == cid
-                ):
-                    total -= 1
-                if total >= 2:
-                    continue
-                option_map[char_display_lookup[cid]] = ("character", cid)
-            return option_map
-
-        def save_children() -> None:
-            node_data["noble_children"] = list(children)
-            self.save_current_world()
-
-        def edit_child(index: int) -> None:
-            if index < 0 or index >= len(children):
-                return
-            cid = self._entry_char_id(children[index])
-            if cid is None:
-                return
-            self._open_character_editor(cid, return_to_node)
-
-        def rebuild_child_rows() -> None:
-            parent_counts = calculate_child_parent_counts()
-            for child in child_rows_frame.winfo_children():
-                child.destroy()
-            child_rows.clear()
-            for idx, entry in enumerate(children):
-                frame = ttk.Frame(child_rows_frame)
-                frame.pack(fill="x", pady=2)
-                ttk.Label(frame, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
-                option_map = build_child_option_map(idx, parent_counts)
-                display = self._person_entry_display(entry or {}, characters)
-                if display and display not in option_map:
-                    if entry and entry.get("kind") == "character":
-                        option_map[display] = (
-                            "character",
-                            self._entry_char_id(entry),
-                        )
-                    else:
-                        option_map[display] = ("placeholder", child_default_label)
-                var = tk.StringVar(value=display or child_default_label)
-                combo = ttk.Combobox(
-                    frame,
-                    textvariable=var,
-                    values=list(option_map.keys()),
-                    state="readonly",
-                    width=40,
-                )
-                combo.pack(side=tk.LEFT, padx=5)
-
-                def make_child_handler(index: int) -> Callable[[object], None]:
-                    def handler(_event=None) -> None:
-                        parent_counts_local = calculate_child_parent_counts()
-                        option_map_local = build_child_option_map(index, parent_counts_local)
-                        selection = child_rows[index]["var"].get()
-                        option = option_map_local.get(selection)
-                        if not option:
-                            return
-                        action, payload = option
-                        if action == "new":
-                            prev = self._person_entry_display(children[index], characters)
-                            child_rows[index]["var"].set(prev or child_default_label)
-
-                            def assign_new_child(new_id: int) -> None:
-                                children[index] = {"kind": "character", "char_id": new_id}
-                                save_children()
-
-                            self._open_character_creator_for_node(node_data, assign_new_child)
-                            return
-                        if action == "character":
-                            if payload is not None:
-                                children[index] = {"kind": "character", "char_id": int(payload)}
-                        elif action == "placeholder":
-                            children[index] = {"kind": "placeholder", "label": selection}
-                        save_children()
-                        rebuild_child_rows()
-
-                    return handler
-
-                combo.bind("<<ComboboxSelected>>", make_child_handler(idx))
-                edit_btn = ttk.Button(
-                    frame,
-                    text="Editera",
-                    command=lambda i=idx: edit_child(i),
-                )
-                edit_btn.pack(side=tk.LEFT, padx=5)
-                ttk.Button(
-                    frame,
-                    text="Radera",
-                    command=lambda i=idx: remove_child(i),
-                ).pack(side=tk.LEFT, padx=5)
-                child_rows.append({"var": var, "combo": combo, "edit_btn": edit_btn})
-
-                def refresh_child_edit(button=edit_btn, index=idx) -> None:
-                    entry_local = children[index] if index < len(children) else None
-                    if self._entry_char_id(entry_local) is None:
-                        button.state(["disabled"])
-                    else:
-                        button.state(["!disabled"])
-
-                refresh_child_edit()
-
-        def remove_child(index: int) -> None:
-            if 0 <= index < len(children):
-                children.pop(index)
-                child_count_var.set(str(len(children)))
-                save_children()
-                rebuild_child_rows()
-
-        def ensure_child_length() -> None:
-            try:
-                target = int(child_count_var.get())
-            except ValueError:
-                target = len(children)
-            target = max(0, min(9, target))
-            if child_count_var.get() != str(target):
-                child_count_var.set(str(target))
-            while len(children) < target:
-                children.append({"kind": "placeholder", "label": child_default_label})
-            while len(children) > target:
-                children.pop()
-            save_children()
-
-        child_count_var.trace_add("write", lambda *_: (ensure_child_length(), rebuild_child_rows()))
-        ensure_child_length()
-        rebuild_child_rows()
 
         # --- Släktingar Section ---
         relative_container = ttk.Frame(relatives_content)
