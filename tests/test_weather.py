@@ -12,6 +12,18 @@ def test_available_resource_types_excludes_weather():
     assert "Väder" in opts_current
 
 
+def test_available_resource_types_hides_noble_family_before_depth_five():
+    world = {"nodes": {}}
+    opts = available_resource_types(world, current_node_id=None, depth=4)
+    assert "Adelsfamilj" not in opts
+
+
+def test_available_resource_types_allows_noble_family_at_depth_five():
+    world = {"nodes": {}}
+    opts = available_resource_types(world, current_node_id=None, depth=5)
+    assert "Adelsfamilj" in opts
+
+
 def test_roll_weather_table():
     with patch("random.randint", side_effect=[1, 1]):
         total, w = roll_weather("spring", modifier=-2)
