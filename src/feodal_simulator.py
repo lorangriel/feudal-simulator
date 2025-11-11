@@ -4590,8 +4590,18 @@ class FeodalSimulator:
             entry = node_data.get("noble_lord")
             return self._entry_char_id(entry) if isinstance(entry, dict) else None
 
-        # --- Gemål Section ---
+        # --- Familjeflikar ---
         row_idx += 1
+        notebook = ttk.Notebook(editor_frame)
+        notebook.grid(row=row_idx, column=0, columnspan=4, sticky="nsew", padx=5, pady=(10, 5))
+        editor_frame.grid_rowconfigure(row_idx, weight=1)
+
+        spouse_tab = ttk.Frame(notebook)
+        relatives_tab = ttk.Frame(notebook)
+        notebook.add(spouse_tab, text="Gemål")
+        notebook.add(relatives_tab, text="Släktingar")
+
+        # --- Gemål Section ---
         spouses = [
             resolve_missing(e, "")
             for e in self._normalise_person_entries(node_data.get("noble_spouses"), "")
@@ -4599,8 +4609,8 @@ class FeodalSimulator:
         spouses = [e for e in spouses if e is not None]
         node_data["noble_spouses"] = spouses
 
-        spouse_container = ttk.Frame(editor_frame)
-        spouse_container.grid(row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(10, 5))
+        spouse_container = ttk.Frame(spouse_tab)
+        spouse_container.pack(fill="both", expand=True, padx=5, pady=5)
 
         spouse_header = ttk.Frame(spouse_container)
         spouse_header.pack(fill="x")
@@ -4762,9 +4772,11 @@ class FeodalSimulator:
         rebuild_spouse_rows()
 
         # --- Barn Section ---
-        row_idx += 1
-        child_container = ttk.Frame(editor_frame)
-        child_container.grid(row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(10, 5))
+        relatives_content = ttk.Frame(relatives_tab)
+        relatives_content.pack(fill="both", expand=True, padx=5, pady=5)
+
+        child_container = ttk.Frame(relatives_content)
+        child_container.pack(fill="x")
 
         child_header = ttk.Frame(child_container)
         child_header.pack(fill="x")
@@ -4850,10 +4862,10 @@ class FeodalSimulator:
             self._open_character_editor(cid, return_to_node)
 
         def rebuild_child_rows() -> None:
+            parent_counts = calculate_child_parent_counts()
             for child in child_rows_frame.winfo_children():
                 child.destroy()
             child_rows.clear()
-            parent_counts = calculate_child_parent_counts()
             for idx, entry in enumerate(children):
                 frame = ttk.Frame(child_rows_frame)
                 frame.pack(fill="x", pady=2)
@@ -4956,9 +4968,8 @@ class FeodalSimulator:
         rebuild_child_rows()
 
         # --- Släktingar Section ---
-        row_idx += 1
-        relative_container = ttk.Frame(editor_frame)
-        relative_container.grid(row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(10, 5))
+        relative_container = ttk.Frame(relatives_content)
+        relative_container.pack(fill="x", pady=(15, 0))
 
         relative_header = ttk.Frame(relative_container)
         relative_header.pack(fill="x")
@@ -5137,7 +5148,6 @@ class FeodalSimulator:
         relative_count_var.trace_add("write", lambda *_: (ensure_relative_length(), rebuild_relative_rows()))
         ensure_relative_length()
         rebuild_relative_rows()
-
         # --- Actions and Delete ---
         row_idx += 1
         footer_row = row_idx

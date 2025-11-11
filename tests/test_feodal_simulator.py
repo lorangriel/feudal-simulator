@@ -1,4 +1,8 @@
 import types
+import tkinter as tk
+from tkinter import ttk
+
+import pytest
 
 from src import feodal_simulator as fs
 
@@ -200,3 +204,75 @@ def test_person_entry_display_uses_character_name_and_fallbacks(monkeypatch):
         )
         == "Okänd"
     )
+
+
+def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.world_data = {
+            "characters": {
+                "1": {"name": "Herre"},
+                "2": {"name": "Partner"},
+            },
+            "nodes": {},
+        }
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._open_character_creator_for_node = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        node_data = {
+            "node_id": 1,
+            "noble_standard": "Välbärgad",
+            "noble_lord": {"kind": "character", "char_id": 1},
+            "noble_spouses": [{"kind": "character", "char_id": 2}],
+            "noble_children": [],
+            "noble_relatives": [],
+        }
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        notebooks = [
+            child for child in editor_frame.winfo_children() if isinstance(child, ttk.Notebook)
+        ]
+        assert len(notebooks) == 1
+        notebook = notebooks[0]
+        tab_ids = notebook.tabs()
+        tab_texts = [notebook.tab(tab_id, "text") for tab_id in tab_ids]
+        assert tab_texts == ["Gemål", "Släktingar"]
+
+        def collect_texts(widget):
+            texts = []
+            try:
+                value = widget.cget("text")
+            except tk.TclError:
+                value = None
+            if value:
+                texts.append(value)
+            for child in widget.winfo_children():
+                texts.extend(collect_texts(child))
+            return texts
+
+        spouse_tab_widget = notebook.nametowidget(tab_ids[0])
+        relatives_tab_widget = notebook.nametowidget(tab_ids[1])
+
+        spouse_texts = collect_texts(spouse_tab_widget)
+        assert "Gemål:" in spouse_texts
+
+        relatives_texts = collect_texts(relatives_tab_widget)
+        assert "Barn:" in relatives_texts
+        assert "Släktingar:" in relatives_texts
+    finally:
+        root.destroy()
