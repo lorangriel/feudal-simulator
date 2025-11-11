@@ -270,9 +270,10 @@ def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
 
         spouse_texts = collect_texts(spouse_tab_widget)
         assert "Gemål:" in spouse_texts
+        assert "Barn:" in spouse_texts
 
         relatives_texts = collect_texts(relatives_tab_widget)
-        assert "Barn:" in relatives_texts
         assert "Släktingar:" in relatives_texts
+        assert "Barn:" not in relatives_texts
     finally:
         root.destroy()
