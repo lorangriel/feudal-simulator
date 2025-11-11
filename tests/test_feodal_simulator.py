@@ -207,10 +207,35 @@ def test_person_entry_display_uses_character_name_and_fallbacks(monkeypatch):
 
 
 def test_grid_set_visibility_handles_missing_widgets():
+    class DummyMaster:
+        def __init__(self, *, exists=True, fail=False):
+            self.exists = exists
+            self.fail = fail
+
+        def winfo_exists(self):
+            if self.fail:
+                raise tk.TclError("master missing")
+            return int(self.exists)
+
     class DummyWidget:
-        def __init__(self, *, exists=True, fail_exists=False):
+        def __init__(
+            self,
+            *,
+            exists=True,
+            fail_exists=False,
+            master=None,
+            manager="grid",
+            fail_manager=False,
+            grid_fail=False,
+            grid_remove_fail=False,
+        ):
             self.exists = exists
             self.fail_exists = fail_exists
+            self.master = master
+            self.manager = manager
+            self.fail_manager = fail_manager
+            self.grid_fail = grid_fail
+            self.grid_remove_fail = grid_remove_fail
             self.grid_calls = 0
             self.grid_remove_calls = 0
 
@@ -219,29 +244,48 @@ def test_grid_set_visibility_handles_missing_widgets():
                 raise tk.TclError("bad widget")
             return int(self.exists)
 
+        def winfo_manager(self):
+            if self.fail_manager:
+                raise tk.TclError("manager broken")
+            return self.manager
+
         def grid(self):
-            if not self.exists:
+            if self.grid_fail or not self.exists:
                 raise tk.TclError("missing")
             self.grid_calls += 1
 
         def grid_remove(self):
-            if not self.exists:
+            if self.grid_remove_fail or not self.exists:
                 raise tk.TclError("missing")
             self.grid_remove_calls += 1
 
     existing = DummyWidget()
     missing = DummyWidget(exists=False)
     broken = DummyWidget(fail_exists=True)
+    master_missing = DummyMaster(exists=False)
+    orphaned = DummyWidget(master=master_missing)
+    wrong_manager = DummyWidget(manager="pack")
+    grid_failure = DummyWidget(grid_fail=True)
 
-    fs.FeodalSimulator._grid_set_visibility([existing, missing, broken], True)
+    fs.FeodalSimulator._grid_set_visibility(
+        [existing, missing, broken, orphaned, wrong_manager, grid_failure], True
+    )
     assert existing.grid_calls == 1
     assert missing.grid_calls == 0
     assert broken.grid_calls == 0
+    assert orphaned.grid_calls == 0
+    assert wrong_manager.grid_calls == 0
+    assert grid_failure.grid_calls == 0
 
-    fs.FeodalSimulator._grid_set_visibility([existing, missing, broken], False)
+    failing_remove = DummyWidget(grid_remove_fail=True)
+
+    fs.FeodalSimulator._grid_set_visibility(
+        [existing, missing, broken, failing_remove], False
+    )
     assert existing.grid_remove_calls == 1
     assert missing.grid_remove_calls == 0
     assert broken.grid_remove_calls == 0
+    assert failing_remove.grid_remove_calls == 0
 
 
 def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():

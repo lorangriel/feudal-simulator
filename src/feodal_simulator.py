@@ -2737,6 +2737,21 @@ class FeodalSimulator:
                 continue
             if not exists:
                 continue
+            if show:
+                master = getattr(widget, "master", None)
+                if master is not None:
+                    try:
+                        master_exists = master.winfo_exists()
+                    except tk.TclError:
+                        continue
+                    if not master_exists:
+                        continue
+            try:
+                manager = widget.winfo_manager()
+            except tk.TclError:
+                manager = ""
+            if manager and manager != "grid":
+                continue
             try:
                 if show:
                     widget.grid()
