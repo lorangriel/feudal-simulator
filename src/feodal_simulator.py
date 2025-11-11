@@ -1994,6 +1994,7 @@ class FeodalSimulator:
     def _show_jarldome_editor(self, parent_frame, node_data):
         """Editor for Jarldoms (Depth 3)."""
         node_id = node_data["node_id"]
+        return_to_node = self._make_return_to_node_command(node_data)
 
         # Ensure necessary fields exist and format neighbors
         if "custom_name" not in node_data or not node_data["custom_name"]:
@@ -2132,6 +2133,23 @@ class FeodalSimulator:
         )
         ruler_combo.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
 
+        def edit_ruler() -> None:
+            sel = option_map.get(ruler_var.get())
+            if not sel or sel in (None, "NEW"):
+                return
+            try:
+                cid = int(sel)
+            except (TypeError, ValueError):
+                return
+            self._open_character_editor(cid, return_to_node)
+
+        edit_ruler_btn = ttk.Button(
+            editor_frame,
+            text="Editera",
+            command=edit_ruler,
+        )
+        edit_ruler_btn.grid(row=row_idx, column=2, sticky="w", padx=5, pady=3)
+
         def refresh_ruler_style() -> None:
             sel = option_map.get(ruler_var.get())
             rid = None
@@ -2143,6 +2161,13 @@ class FeodalSimulator:
                 ruler_combo.config(style="Danger.TCombobox")
             else:
                 ruler_combo.config(style="BlackWhite.TCombobox")
+
+        def refresh_ruler_edit_state() -> None:
+            sel = option_map.get(ruler_var.get())
+            if sel and sel not in (None, "NEW"):
+                edit_ruler_btn.state(["!disabled"])
+            else:
+                edit_ruler_btn.state(["disabled"])
 
         def create_new_ruler() -> str:
             existing_ids = [int(k) for k in self.world_data.get("characters", {})]
@@ -2203,8 +2228,10 @@ class FeodalSimulator:
             update_owner_nodes_list()
             self.save_current_world()
             self.refresh_tree_item(node_id)
+            refresh_ruler_edit_state()
 
         ruler_var.trace_add("write", on_ruler_change)
+        ruler_var.trace_add("write", lambda *_: refresh_ruler_edit_state())
 
         # Set up owner list helper before initial selection triggers callback
         extra_owner_var = tk.StringVar()
@@ -2234,6 +2261,7 @@ class FeodalSimulator:
                     break
         refresh_ruler_style()
         update_owner_nodes_list()
+        refresh_ruler_edit_state()
 
         row_idx += 1
 
@@ -2491,6 +2519,54 @@ class FeodalSimulator:
             return "generic"
         return "placeholder"
 
+    def _make_return_to_node_command(self, node_data: dict) -> Callable[[], None]:
+        """Return a callback that reopens the editor for the supplied node."""
+
+        node_id = node_data.get("node_id")
+
+        def command() -> None:
+            latest = None
+            if node_id is not None and self.world_data:
+                latest = self.world_data.get("nodes", {}).get(str(node_id))
+            if latest is not None:
+                self.show_node_view(latest)
+            else:
+                self.show_node_view(node_data)
+
+        return command
+
+    @staticmethod
+    def _entry_char_id(entry: dict | None) -> int | None:
+        """Extract the character id from a person entry if it exists."""
+
+        if isinstance(entry, dict) and entry.get("kind") == "character":
+            try:
+                return int(entry.get("char_id"))
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def _open_character_editor(
+        self, char_id: int, return_command: Callable[[], None]
+    ) -> None:
+        """Open the character editor for an existing character id."""
+
+        char_data = None
+        if self.world_data:
+            char_data = self.world_data.get("characters", {}).get(str(char_id))
+        if not char_data:
+            messagebox.showerror(
+                "Karaktär saknas",
+                f"Kunde inte hitta karaktär med ID {char_id}.",
+                parent=self.root,
+            )
+            return
+        self.show_edit_character_view(
+            char_data,
+            is_new=False,
+            return_command=return_command,
+        )
+
     def _open_character_creator_for_node(
         self, node_data: dict, on_created: Callable[[int], None]
     ) -> None:
@@ -2505,7 +2581,7 @@ class FeodalSimulator:
             char_data={},
             is_new=True,
             after_save=handle_save,
-            return_command=lambda nd=node_data: self.show_node_view(nd),
+            return_command=self._make_return_to_node_command(node_data),
         )
 
     @staticmethod
@@ -4273,6 +4349,7 @@ class FeodalSimulator:
         relative_default_label = "Släkting levande"
 
         editor_frame.grid_columnconfigure(3, weight=1)
+        return_to_node = self._make_return_to_node_command(node_data)
 
         standard_to_display = {opt[0]: opt[1] for opt in NOBLE_STANDARD_OPTIONS}
         display_to_standard = {opt[1]: opt[0] for opt in NOBLE_STANDARD_OPTIONS}
@@ -4312,18 +4389,10 @@ class FeodalSimulator:
 
         standard_var.trace_add("write", on_standard_change)
 
-        def entry_char_id(entry: dict | None) -> int | None:
-            if isinstance(entry, dict) and entry.get("kind") == "character":
-                try:
-                    return int(entry.get("char_id"))
-                except (TypeError, ValueError):
-                    return None
-            return None
-
         def resolve_missing(entry: dict | None, label: str = default_placeholder) -> dict | None:
             if not entry or entry.get("kind") != "character":
                 return entry
-            cid = entry_char_id(entry)
+            cid = self._entry_char_id(entry)
             if cid is None:
                 return None
             if characters.get(str(cid)):
@@ -4363,7 +4432,7 @@ class FeodalSimulator:
         if noble_lord_entry:
             initial_lord_display = self._person_entry_display(noble_lord_entry, characters)
             if noble_lord_entry.get("kind") == "character":
-                cid_val = entry_char_id(noble_lord_entry)
+                cid_val = self._entry_char_id(noble_lord_entry)
                 if cid_val is not None and initial_lord_display not in lord_option_map:
                     lord_option_map[initial_lord_display] = ("character", cid_val)
             elif initial_lord_display not in lord_option_map:
@@ -4381,7 +4450,24 @@ class FeodalSimulator:
             width=40,
             style="BlackWhite.TCombobox",
         )
-        lord_combo.grid(row=row_idx, column=1, columnspan=3, sticky="ew", padx=5, pady=(10, 3))
+        lord_combo.grid(row=row_idx, column=1, columnspan=2, sticky="ew", padx=5, pady=(10, 3))
+
+        def edit_lord() -> None:
+            sel = lord_var.get()
+            option = lord_option_map.get(sel)
+            if not option:
+                return
+            action, payload = option
+            if action != "character" or payload is None:
+                return
+            self._open_character_editor(int(payload), return_to_node)
+
+        edit_lord_btn = ttk.Button(
+            editor_frame,
+            text="Editera",
+            command=edit_lord,
+        )
+        edit_lord_btn.grid(row=row_idx, column=3, sticky="e", padx=5, pady=(10, 3))
 
         lord_previous = {"display": initial_lord_display}
 
@@ -4421,11 +4507,22 @@ class FeodalSimulator:
                 save_lord(None)
                 lord_previous["display"] = ""
 
+        def refresh_lord_edit_state(*_args) -> None:
+            sel = lord_var.get()
+            option = lord_option_map.get(sel)
+            if option and option[0] == "character" and option[1] is not None:
+                edit_lord_btn.state(["!disabled"])
+            else:
+                edit_lord_btn.state(["disabled"])
+
+        lord_var.trace_add("write", refresh_lord_edit_state)
+        refresh_lord_edit_state()
+
         lord_combo.bind("<<ComboboxSelected>>", on_lord_selected)
 
         def current_lord_id() -> int | None:
             entry = node_data.get("noble_lord")
-            return entry_char_id(entry) if isinstance(entry, dict) else None
+            return self._entry_char_id(entry) if isinstance(entry, dict) else None
 
         # --- Gemål Section ---
         row_idx += 1
@@ -4479,7 +4576,7 @@ class FeodalSimulator:
                 default_placeholder: ("placeholder", default_placeholder),
             }
             selected_ids = {
-                entry_char_id(entry)
+                self._entry_char_id(entry)
                 for idx, entry in enumerate(spouses)
                 if entry and entry.get("kind") == "character" and idx != current_index
             }
@@ -4496,6 +4593,14 @@ class FeodalSimulator:
             node_data["noble_spouses"] = list(spouses)
             self.save_current_world()
 
+        def edit_spouse(index: int) -> None:
+            if index < 0 or index >= len(spouses):
+                return
+            cid = self._entry_char_id(spouses[index])
+            if cid is None:
+                return
+            self._open_character_editor(cid, return_to_node)
+
         def rebuild_spouse_rows() -> None:
             for child in spouse_rows_frame.winfo_children():
                 child.destroy()
@@ -4508,7 +4613,10 @@ class FeodalSimulator:
                 display = self._person_entry_display(entry or {}, characters)
                 if display and display not in option_map:
                     if entry and entry.get("kind") == "character":
-                        option_map[display] = ("character", entry_char_id(entry))
+                        option_map[display] = (
+                            "character",
+                            self._entry_char_id(entry),
+                        )
                     else:
                         option_map[display] = ("placeholder", default_placeholder)
                 var = tk.StringVar(value=display)
@@ -4554,12 +4662,27 @@ class FeodalSimulator:
                     return handler
 
                 combo.bind("<<ComboboxSelected>>", make_on_selected(idx))
+                edit_btn = ttk.Button(
+                    frame,
+                    text="Editera",
+                    command=lambda i=idx: edit_spouse(i),
+                )
+                edit_btn.pack(side=tk.LEFT, padx=5)
                 ttk.Button(
                     frame,
                     text="Radera",
                     command=lambda i=idx: remove_spouse(i),
                 ).pack(side=tk.LEFT, padx=5)
-                spouse_rows.append({"var": var, "combo": combo})
+                spouse_rows.append({"var": var, "combo": combo, "edit_btn": edit_btn})
+
+                def refresh_edit_button(button=edit_btn, index=idx) -> None:
+                    entry_local = spouses[index] if index < len(spouses) else None
+                    if self._entry_char_id(entry_local) is None:
+                        button.state(["disabled"])
+                    else:
+                        button.state(["!disabled"])
+
+                refresh_edit_button()
 
         def remove_spouse(index: int) -> None:
             if 0 <= index < len(spouses):
@@ -4615,7 +4738,7 @@ class FeodalSimulator:
                 )
                 for entry in entries:
                     resolved = resolve_missing(entry, child_default_label)
-                    cid_val = entry_char_id(resolved)
+                    cid_val = self._entry_char_id(resolved)
                     if cid_val is None:
                         continue
                     counts[cid_val] = counts.get(cid_val, 0) + 1
@@ -4628,7 +4751,7 @@ class FeodalSimulator:
                 default_placeholder: ("placeholder", default_placeholder),
             }
             selected_ids = {
-                entry_char_id(entry)
+                self._entry_char_id(entry)
                 for idx, entry in enumerate(children)
                 if entry and entry.get("kind") == "character" and idx != index
             }
@@ -4637,7 +4760,11 @@ class FeodalSimulator:
                 if cid in selected_ids:
                     continue
                 total = parent_counts.get(cid, 0)
-                if current_entry and current_entry.get("kind") == "character" and entry_char_id(current_entry) == cid:
+                if (
+                    current_entry
+                    and current_entry.get("kind") == "character"
+                    and self._entry_char_id(current_entry) == cid
+                ):
                     total -= 1
                 if total >= 2:
                     continue
@@ -4647,6 +4774,14 @@ class FeodalSimulator:
         def save_children() -> None:
             node_data["noble_children"] = list(children)
             self.save_current_world()
+
+        def edit_child(index: int) -> None:
+            if index < 0 or index >= len(children):
+                return
+            cid = self._entry_char_id(children[index])
+            if cid is None:
+                return
+            self._open_character_editor(cid, return_to_node)
 
         def rebuild_child_rows() -> None:
             for child in child_rows_frame.winfo_children():
@@ -4661,7 +4796,10 @@ class FeodalSimulator:
                 display = self._person_entry_display(entry or {}, characters)
                 if display and display not in option_map:
                     if entry and entry.get("kind") == "character":
-                        option_map[display] = ("character", entry_char_id(entry))
+                        option_map[display] = (
+                            "character",
+                            self._entry_char_id(entry),
+                        )
                     else:
                         option_map[display] = ("placeholder", child_default_label)
                 var = tk.StringVar(value=display or child_default_label)
@@ -4704,12 +4842,27 @@ class FeodalSimulator:
                     return handler
 
                 combo.bind("<<ComboboxSelected>>", make_child_handler(idx))
+                edit_btn = ttk.Button(
+                    frame,
+                    text="Editera",
+                    command=lambda i=idx: edit_child(i),
+                )
+                edit_btn.pack(side=tk.LEFT, padx=5)
                 ttk.Button(
                     frame,
                     text="Radera",
                     command=lambda i=idx: remove_child(i),
                 ).pack(side=tk.LEFT, padx=5)
-                child_rows.append({"var": var, "combo": combo})
+                child_rows.append({"var": var, "combo": combo, "edit_btn": edit_btn})
+
+                def refresh_child_edit(button=edit_btn, index=idx) -> None:
+                    entry_local = children[index] if index < len(children) else None
+                    if self._entry_char_id(entry_local) is None:
+                        button.state(["disabled"])
+                    else:
+                        button.state(["!disabled"])
+
+                refresh_child_edit()
 
         def remove_child(index: int) -> None:
             if 0 <= index < len(children):
@@ -4781,7 +4934,7 @@ class FeodalSimulator:
             display = self._person_entry_display(entry or {}, characters)
             if display and display not in option_map:
                 if entry and entry.get("kind") == "character":
-                    option_map[display] = ("character", entry_char_id(entry))
+                    option_map[display] = ("character", self._entry_char_id(entry))
                 else:
                     option_map[display] = ("placeholder", relative_default_label)
             return option_map
@@ -4790,21 +4943,35 @@ class FeodalSimulator:
             node_data["noble_relatives"] = list(relatives)
             self.save_current_world()
 
+        def edit_relative(index: int) -> None:
+            if index < 0 or index >= len(relatives):
+                return
+            cid = self._entry_char_id(relatives[index])
+            if cid is None:
+                return
+            self._open_character_editor(cid, return_to_node)
+
         def refresh_relative_styles() -> None:
             seen: dict[int, int] = {}
             for entry in relatives:
-                cid_val = entry_char_id(entry)
+                cid_val = self._entry_char_id(entry)
                 if cid_val is None:
                     continue
                 seen[cid_val] = seen.get(cid_val, 0) + 1
             for idx, row in enumerate(relative_rows):
                 entry = relatives[idx] if idx < len(relatives) else None
-                cid_val = entry_char_id(entry)
+                cid_val = self._entry_char_id(entry)
                 combo = row["combo"]
                 if cid_val is not None and seen.get(cid_val, 0) > 1:
                     combo.config(style="Linked.TCombobox")
                 else:
                     combo.config(style="BlackWhite.TCombobox")
+                button = row.get("edit_btn")
+                if button:
+                    if cid_val is None:
+                        button.state(["disabled"])
+                    else:
+                        button.state(["!disabled"])
 
         def rebuild_relative_rows() -> None:
             for child in relative_rows_frame.winfo_children():
@@ -4857,12 +5024,27 @@ class FeodalSimulator:
                     return handler
 
                 combo.bind("<<ComboboxSelected>>", make_relative_handler(idx))
+                edit_btn = ttk.Button(
+                    frame,
+                    text="Editera",
+                    command=lambda i=idx: edit_relative(i),
+                )
+                edit_btn.pack(side=tk.LEFT, padx=5)
                 ttk.Button(
                     frame,
                     text="Radera",
                     command=lambda i=idx: remove_relative(i),
                 ).pack(side=tk.LEFT, padx=5)
-                relative_rows.append({"var": var, "combo": combo})
+                relative_rows.append({"var": var, "combo": combo, "edit_btn": edit_btn})
+
+                def refresh_relative_button(button=edit_btn, index=idx) -> None:
+                    entry_local = relatives[index] if index < len(relatives) else None
+                    if self._entry_char_id(entry_local) is None:
+                        button.state(["disabled"])
+                    else:
+                        button.state(["!disabled"])
+
+                refresh_relative_button()
             refresh_relative_styles()
 
         def remove_relative(index: int) -> None:
