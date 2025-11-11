@@ -206,6 +206,44 @@ def test_person_entry_display_uses_character_name_and_fallbacks(monkeypatch):
     )
 
 
+def test_grid_set_visibility_handles_missing_widgets():
+    class DummyWidget:
+        def __init__(self, *, exists=True, fail_exists=False):
+            self.exists = exists
+            self.fail_exists = fail_exists
+            self.grid_calls = 0
+            self.grid_remove_calls = 0
+
+        def winfo_exists(self):
+            if self.fail_exists:
+                raise tk.TclError("bad widget")
+            return int(self.exists)
+
+        def grid(self):
+            if not self.exists:
+                raise tk.TclError("missing")
+            self.grid_calls += 1
+
+        def grid_remove(self):
+            if not self.exists:
+                raise tk.TclError("missing")
+            self.grid_remove_calls += 1
+
+    existing = DummyWidget()
+    missing = DummyWidget(exists=False)
+    broken = DummyWidget(fail_exists=True)
+
+    fs.FeodalSimulator._grid_set_visibility([existing, missing, broken], True)
+    assert existing.grid_calls == 1
+    assert missing.grid_calls == 0
+    assert broken.grid_calls == 0
+
+    fs.FeodalSimulator._grid_set_visibility([existing, missing, broken], False)
+    assert existing.grid_remove_calls == 1
+    assert missing.grid_remove_calls == 0
+    assert broken.grid_remove_calls == 0
+
+
 def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
     try:
         root = tk.Tk()

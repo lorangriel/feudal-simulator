@@ -2724,6 +2724,27 @@ class FeodalSimulator:
             return entry.get("label", "")
         return ""
 
+    @staticmethod
+    def _grid_set_visibility(widgets, show: bool) -> None:
+        """Safely show or hide a collection of widgets using ``grid``."""
+
+        for widget in widgets:
+            if widget is None:
+                continue
+            try:
+                exists = widget.winfo_exists()
+            except tk.TclError:
+                continue
+            if not exists:
+                continue
+            try:
+                if show:
+                    widget.grid()
+                else:
+                    widget.grid_remove()
+            except tk.TclError:
+                continue
+
     def _show_resource_editor(self, parent_frame, node_data, depth):
         """Editor for resource nodes at depth >=4."""
         node_id = node_data["node_id"]
@@ -4693,6 +4714,12 @@ class FeodalSimulator:
         )
 
         def _update_staff_tab() -> None:
+            try:
+                exists = staff_tab.winfo_exists()
+            except tk.TclError:
+                return
+            if not exists:
+                return
             summary = calculate_noble_household(node_data)
             living_level = get_living_level_for_standard(node_data.get("noble_standard"))
             household_total_var.set(str(summary.total))
@@ -4719,13 +4746,11 @@ class FeodalSimulator:
                     else:
                         cost_text = str(role_total_cost)
                     row["cost_var"].set(cost_text)
-                    for widget in widgets:
-                        widget.grid()
+                    self._grid_set_visibility(widgets, True)
                 else:
                     row["count_var"].set("0")
                     row["cost_var"].set("0")
-                    for widget in widgets:
-                        widget.grid_remove()
+                    self._grid_set_visibility(widgets, False)
             staff_total_cost_var.set(str(total_cost))
 
         refresh_staff_tab = _update_staff_tab
