@@ -96,3 +96,107 @@ def test_open_character_editor_missing_shows_error(monkeypatch):
     monkeypatch.setattr(fs.messagebox, "showerror", lambda *args, **kwargs: errors.append(args))
     sim._open_character_editor(42, lambda: None)
     assert errors
+
+
+def _make_sim_with_world(characters):
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = {"characters": characters}
+    return sim
+
+
+def test_get_sorted_character_choices_orders_casefolded():
+    sim = _make_sim_with_world(
+        {
+            "2": {"name": "Bertil"},
+            "1": {"name": "Åke"},
+            "3": {"name": "adam"},
+        }
+    )
+
+    assert sim._get_sorted_character_choices() == [
+        (3, "adam"),
+        (2, "Bertil"),
+        (1, "Åke"),
+    ]
+
+
+def test_find_generic_character_id_returns_smallest():
+    sim = _make_sim_with_world(
+        {
+            "10": {"name": "Generisk"},
+            "7": {"name": " generisk "},
+            "3": {"name": "Annan"},
+            "foo": {"name": "Generisk"},
+        }
+    )
+
+    assert sim._find_generic_character_id() == 7
+
+
+def test_coerce_person_entry_handles_various_inputs():
+    sim = _make_sim_with_world({})
+    default_label = "saknas"
+
+    assert sim._coerce_person_entry({"kind": "character", "char_id": "5"}, default_label) == {
+        "kind": "character",
+        "char_id": 5,
+    }
+    assert sim._coerce_person_entry({"char_id": 6}, default_label) == {
+        "kind": "character",
+        "char_id": 6,
+    }
+    assert sim._coerce_person_entry({"kind": "placeholder", "label": ""}, default_label) == {
+        "kind": "placeholder",
+        "label": default_label,
+    }
+    assert sim._coerce_person_entry("15", default_label) == {
+        "kind": "character",
+        "char_id": 15,
+    }
+    assert sim._coerce_person_entry("", default_label) == {
+        "kind": "placeholder",
+        "label": default_label,
+    }
+    assert sim._coerce_person_entry(3.0, default_label) == {
+        "kind": "character",
+        "char_id": 3,
+    }
+    assert sim._coerce_person_entry(object(), default_label) is None
+
+
+def test_normalise_person_entries_wraps_single_and_filters():
+    sim = _make_sim_with_world({})
+    default_label = "saknas"
+
+    raw = [
+        {"kind": "character", "char_id": "2"},
+        "placeholder",
+        None,
+    ]
+    assert sim._normalise_person_entries(raw, default_label) == [
+        {"kind": "character", "char_id": 2},
+        {"kind": "placeholder", "label": "placeholder"},
+    ]
+
+    # Single entry becomes list
+    assert sim._normalise_person_entries({"char_id": 9}, default_label) == [
+        {"kind": "character", "char_id": 9},
+    ]
+
+
+def test_person_entry_display_uses_character_name_and_fallbacks(monkeypatch):
+    sim = _make_sim_with_world({})
+    characters = {"1": {"name": "Anna"}}
+
+    assert sim._person_entry_display({"kind": "character", "char_id": 1}, characters) == "1: Anna"
+
+    # Missing character falls back to ID string
+    assert sim._person_entry_display({"kind": "character", "char_id": 4}, characters) == "4: ID 4"
+
+    # Placeholder just returns label
+    assert (
+        sim._person_entry_display(
+            {"kind": "placeholder", "label": "Okänd"}, characters
+        )
+        == "Okänd"
+    )
