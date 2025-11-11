@@ -44,6 +44,14 @@ from population_utils import calculate_population_from_fields
 from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 from status_service import StatusService
 from world_manager_ui import WorldManagerUI
+from noble_staff import (
+    STAFF_ROLE_ORDER,
+    calculate_noble_household,
+    calculate_staff_costs,
+    calculate_staff_requirements,
+    get_housing_requirement_for_level,
+    get_living_level_for_standard,
+)
 
 
 # --------------------------------------------------
@@ -4417,6 +4425,8 @@ class FeodalSimulator:
         editor_frame.grid_columnconfigure(3, weight=1)
         return_to_node = self._make_return_to_node_command(node_data)
 
+        refresh_staff_tab: Callable[[], None] = lambda: None
+
         standard_to_display = {opt[0]: opt[1] for opt in NOBLE_STANDARD_OPTIONS}
         display_to_standard = {opt[1]: opt[0] for opt in NOBLE_STANDARD_OPTIONS}
         standard_to_housing = {opt[0]: opt[2] for opt in NOBLE_STANDARD_OPTIONS}
@@ -4514,6 +4524,7 @@ class FeodalSimulator:
                 node_data["noble_lord"] = entry
             else:
                 node_data.pop("noble_lord", None)
+            refresh_staff_tab()
             self.save_current_world()
 
         def on_lord_selected(_event=None):
@@ -4527,6 +4538,7 @@ class FeodalSimulator:
 
                 def assign_new_lord(new_id: int) -> None:
                     node_data["noble_lord"] = {"kind": "character", "char_id": new_id}
+                    refresh_staff_tab()
                     self.save_current_world()
 
                 self._open_character_creator_for_node(node_data, assign_new_lord)
@@ -4583,6 +4595,7 @@ class FeodalSimulator:
                 return
             node_data["noble_standard"] = key
             housing_var.set(standard_to_housing.get(key, ""))
+            refresh_staff_tab()
             self.save_current_world()
 
         standard_var.trace_add("write", on_standard_change)
@@ -4599,8 +4612,124 @@ class FeodalSimulator:
 
         spouse_tab = ttk.Frame(notebook)
         relatives_tab = ttk.Frame(notebook)
+        staff_tab = ttk.Frame(notebook)
         notebook.add(spouse_tab, text="Gemål")
         notebook.add(relatives_tab, text="Släktingar")
+        notebook.add(staff_tab, text="Tjänstefolk")
+
+        staff_summary_frame = ttk.Frame(staff_tab)
+        staff_summary_frame.pack(fill="x", padx=5, pady=5)
+        staff_summary_frame.grid_columnconfigure(1, weight=1)
+        staff_summary_frame.grid_columnconfigure(3, weight=1)
+
+        household_total_var = tk.StringVar(value="0")
+        household_breakdown_var = tk.StringVar(
+            value="Länsherre 0, Gemål 0, Barn 0, Släktingar 0"
+        )
+        living_level_var = tk.StringVar(value="")
+        housing_requirement_var = tk.StringVar(value="")
+
+        ttk.Label(staff_summary_frame, text="Antal adliga (A):").grid(
+            row=0, column=0, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(staff_summary_frame, textvariable=household_total_var).grid(
+            row=0, column=1, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(staff_summary_frame, text="Levnadsnivå:").grid(
+            row=0, column=2, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(staff_summary_frame, textvariable=living_level_var).grid(
+            row=0, column=3, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(staff_summary_frame, text="Bostadskrav:").grid(
+            row=1, column=0, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(staff_summary_frame, textvariable=housing_requirement_var).grid(
+            row=1, column=1, columnspan=3, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(staff_summary_frame, textvariable=household_breakdown_var).grid(
+            row=2, column=0, columnspan=4, sticky="w", padx=5, pady=(4, 0)
+        )
+
+        staff_rows_frame = ttk.Frame(staff_tab)
+        staff_rows_frame.pack(fill="x", padx=5, pady=(0, 5))
+        staff_rows_frame.grid_columnconfigure(0, weight=1)
+        ttk.Label(staff_rows_frame, text="Yrke", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=5, pady=(0, 4)
+        )
+        ttk.Label(staff_rows_frame, text="Antal", font=("Arial", 10, "bold")).grid(
+            row=0, column=1, sticky="e", padx=5, pady=(0, 4)
+        )
+        ttk.Label(staff_rows_frame, text="Kostnad/år", font=("Arial", 10, "bold")).grid(
+            row=0, column=2, sticky="e", padx=5, pady=(0, 4)
+        )
+
+        staff_rows: dict[str, dict[str, object]] = {}
+        for idx, role in enumerate(STAFF_ROLE_ORDER, start=1):
+            role_label = ttk.Label(staff_rows_frame, text=role)
+            role_label.grid(row=idx, column=0, sticky="w", padx=5, pady=2)
+            count_var = tk.StringVar(value="0")
+            count_label = ttk.Label(
+                staff_rows_frame, textvariable=count_var, width=6, anchor="e"
+            )
+            count_label.grid(row=idx, column=1, sticky="e", padx=5, pady=2)
+            cost_var = tk.StringVar(value="0")
+            cost_label = ttk.Label(
+                staff_rows_frame, textvariable=cost_var, anchor="e"
+            )
+            cost_label.grid(row=idx, column=2, sticky="e", padx=5, pady=2)
+            staff_rows[role] = {
+                "count_var": count_var,
+                "cost_var": cost_var,
+                "widgets": (role_label, count_label, cost_label),
+            }
+
+        staff_total_cost_var = tk.StringVar(value="0")
+        total_frame = ttk.Frame(staff_tab)
+        total_frame.pack(fill="x", padx=5, pady=(0, 10))
+        ttk.Label(total_frame, text="Total kostnad per år:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(total_frame, textvariable=staff_total_cost_var).pack(
+            side=tk.LEFT, padx=5
+        )
+
+        def _update_staff_tab() -> None:
+            summary = calculate_noble_household(node_data)
+            living_level = get_living_level_for_standard(node_data.get("noble_standard"))
+            household_total_var.set(str(summary.total))
+            household_breakdown_var.set(
+                "Länsherre {0}, Gemål {1}, Barn {2}, Släktingar {3}".format(
+                    summary.lord, summary.spouses, summary.children, summary.relatives
+                )
+            )
+            living_level_var.set(living_level)
+            housing_requirement_var.set(
+                get_housing_requirement_for_level(living_level)
+            )
+
+            counts = calculate_staff_requirements(living_level, summary.total)
+            cost_map, total_cost = calculate_staff_costs(counts, living_level)
+            for role, row in staff_rows.items():
+                count = counts.get(role, 0)
+                widgets = row["widgets"]
+                if count > 0:
+                    row["count_var"].set(str(count))
+                    unit_cost, role_total_cost = cost_map.get(role, (0, 0))
+                    if unit_cost:
+                        cost_text = f"{role_total_cost} (à {unit_cost})"
+                    else:
+                        cost_text = str(role_total_cost)
+                    row["cost_var"].set(cost_text)
+                    for widget in widgets:
+                        widget.grid()
+                else:
+                    row["count_var"].set("0")
+                    row["cost_var"].set("0")
+                    for widget in widgets:
+                        widget.grid_remove()
+            staff_total_cost_var.set(str(total_cost))
+
+        refresh_staff_tab = _update_staff_tab
+        refresh_staff_tab()
 
         # --- Gemål Section ---
         spouses = [
@@ -4653,6 +4782,7 @@ class FeodalSimulator:
             node_data["noble_children"] = [
                 child for group in spouse_children for child in group
             ]
+            refresh_staff_tab()
 
         persist_spouse_children()
 
@@ -5144,6 +5274,7 @@ class FeodalSimulator:
 
         def save_relatives() -> None:
             node_data["noble_relatives"] = list(relatives)
+            refresh_staff_tab()
             self.save_current_world()
 
         def edit_relative(index: int) -> None:

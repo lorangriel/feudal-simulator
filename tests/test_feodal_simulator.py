@@ -251,7 +251,7 @@ def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
         notebook = notebooks[0]
         tab_ids = notebook.tabs()
         tab_texts = [notebook.tab(tab_id, "text") for tab_id in tab_ids]
-        assert tab_texts == ["Gemål", "Släktingar"]
+        assert tab_texts == ["Gemål", "Släktingar", "Tjänstefolk"]
 
         def collect_texts(widget):
             texts = []
@@ -267,6 +267,7 @@ def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
 
         spouse_tab_widget = notebook.nametowidget(tab_ids[0])
         relatives_tab_widget = notebook.nametowidget(tab_ids[1])
+        staff_tab_widget = notebook.nametowidget(tab_ids[2])
 
         spouse_texts = collect_texts(spouse_tab_widget)
         assert "Gemål:" in spouse_texts
@@ -275,6 +276,11 @@ def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
         relatives_texts = collect_texts(relatives_tab_widget)
         assert "Släktingar:" in relatives_texts
         assert "Barn:" not in relatives_texts
+
+        staff_texts = collect_texts(staff_tab_widget)
+        assert "Antal adliga (A):" in staff_texts
+        assert "Levnadsnivå:" in staff_texts
+        assert "Total kostnad per år:" in staff_texts
     finally:
         root.destroy()
 
