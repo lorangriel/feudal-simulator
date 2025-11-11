@@ -1256,12 +1256,66 @@ class FeodalSimulator:
         desc_scroll.grid(row=0, column=1, sticky="ns")
         desc_text.config(yscrollcommand=desc_scroll.set)
 
-        # Skills - presented as up to 9 dropdown rows with dynamic add/remove
+        ttk.Label(form_frame, text="Typ:").grid(
+            row=4, column=0, padx=5, pady=5, sticky="w"
+        )
+        type_var = tk.StringVar(value=char_defaults.get("type", ""))
+        type_combo = ttk.Combobox(
+            form_frame,
+            textvariable=type_var,
+            values=list(CHARACTER_TYPES),
+            state="readonly",
+            width=30,
+        )
+        type_combo.grid(row=4, column=1, padx=5, pady=5, sticky="w")
+
+        ttk.Label(form_frame, text="Jarld\u00f6me:").grid(
+            row=5, column=0, padx=5, pady=5, sticky="w"
+        )
+        ruler_var = tk.StringVar()
+        jarldom_options = []
+        if self.world_data and "nodes" in self.world_data:
+            jarldoms = []
+            for nid_str, n in self.world_data["nodes"].items():
+                try:
+                    nid = int(nid_str)
+                except ValueError:
+                    continue
+                if self.get_depth_of_node(nid) == 3:
+                    name = n.get("custom_name", f"Jarld\u00f6me {nid}")
+                    jarldoms.append((nid, name))
+            jarldoms.sort(key=lambda j: j[1].lower())
+            jarldom_options = [f"{jid}: {name}" for jid, name in jarldoms]
+        if char_defaults.get("ruler_of") is not None:
+            rid = char_defaults["ruler_of"]
+            for opt in jarldom_options:
+                if opt.startswith(f"{rid}:"):
+                    ruler_var.set(opt)
+                    break
+        ruler_combo = ttk.Combobox(
+            form_frame,
+            textvariable=ruler_var,
+            values=jarldom_options,
+            state="readonly",
+            width=40,
+        )
+        ruler_combo.grid(row=5, column=1, padx=5, pady=5, sticky="w")
+
+        def refresh_ruler_visibility(*_):
+            if type_var.get() == "H\u00e4rskare":
+                ruler_combo.grid()
+            else:
+                ruler_combo.grid_remove()
+                ruler_var.set("")
+
+        type_var.trace_add("write", refresh_ruler_visibility)
+        refresh_ruler_visibility()
+
         ttk.Label(form_frame, text="F\u00e4rdigheter:").grid(
-            row=4, column=0, padx=5, pady=5, sticky="nw"
+            row=6, column=0, padx=5, pady=5, sticky="nw"
         )
         skills_frame = ttk.Frame(form_frame)
-        skills_frame.grid(row=4, column=1, padx=5, pady=5, sticky="w")
+        skills_frame.grid(row=6, column=1, padx=5, pady=5, sticky="w")
 
         none_skill = "Ingen skill"
         skill_choices = [f"Skill #{i}" for i in range(1, 10)]
@@ -1338,60 +1392,53 @@ class FeodalSimulator:
             add_skill_var()
         render_skill_rows()
 
-        ttk.Label(form_frame, text="Typ:").grid(
-            row=5, column=0, padx=5, pady=5, sticky="w"
-        )
-        type_var = tk.StringVar(value=char_defaults.get("type", ""))
-        type_combo = ttk.Combobox(
-            form_frame,
-            textvariable=type_var,
-            values=list(CHARACTER_TYPES),
-            state="readonly",
-            width=30,
-        )
-        type_combo.grid(row=5, column=1, padx=5, pady=5, sticky="w")
+        initial_skills = [
+            (var.get(), lvl.get()) for var, lvl in zip(skill_vars, level_vars)
+        ]
+        initial_state = {
+            "name": name_var.get(),
+            "gender": gender_var.get(),
+            "wealth": wealth_var.get(),
+            "description": desc_text.get("1.0", tk.END).strip(),
+            "type": type_var.get(),
+            "ruler_selection": ruler_var.get(),
+            "skills": list(initial_skills),
+            "auto_name": auto_name["value"],
+            "name_was_modified": name_was_modified["value"],
+        }
 
-        ttk.Label(form_frame, text="Jarld\u00f6me:").grid(
-            row=6, column=0, padx=5, pady=5, sticky="w"
-        )
-        ruler_var = tk.StringVar()
-        jarldom_options = []
-        if self.world_data and "nodes" in self.world_data:
-            jarldoms = []
-            for nid_str, n in self.world_data["nodes"].items():
-                try:
-                    nid = int(nid_str)
-                except ValueError:
-                    continue
-                if self.get_depth_of_node(nid) == 3:
-                    name = n.get("custom_name", f"Jarld\u00f6me {nid}")
-                    jarldoms.append((nid, name))
-            jarldoms.sort(key=lambda j: j[1].lower())
-            jarldom_options = [f"{jid}: {name}" for jid, name in jarldoms]
-        if char_defaults.get("ruler_of") is not None:
-            rid = char_defaults["ruler_of"]
-            for opt in jarldom_options:
-                if opt.startswith(f"{rid}:"):
-                    ruler_var.set(opt)
-                    break
-        ruler_combo = ttk.Combobox(
-            form_frame,
-            textvariable=ruler_var,
-            values=jarldom_options,
-            state="readonly",
-            width=40,
-        )
-        ruler_combo.grid(row=6, column=1, padx=5, pady=5, sticky="w")
-
-        def refresh_ruler_visibility(*_):
-            if type_var.get() == "H\u00e4rskare":
-                ruler_combo.grid()
+        def reset_form() -> None:
+            name_var.set(initial_state["name"])
+            gender_value = initial_state["gender"]
+            if gender_value not in CHARACTER_GENDERS:
+                gender_value = CHARACTER_GENDERS[0]
+            gender_var.set(gender_value)
+            wealth_var.set(str(initial_state["wealth"]))
+            desc_text.delete("1.0", tk.END)
+            desc_text.insert("1.0", initial_state["description"])
+            type_value = initial_state["type"]
+            if type_value not in CHARACTER_TYPES:
+                type_value = ""
+            type_var.set(type_value)
+            ruler_selection = initial_state["ruler_selection"]
+            if ruler_selection in jarldom_options:
+                ruler_var.set(ruler_selection)
             else:
-                ruler_combo.grid_remove()
                 ruler_var.set("")
 
-        type_var.trace_add("write", refresh_ruler_visibility)
-        refresh_ruler_visibility()
+            skill_vars.clear()
+            level_vars.clear()
+            for skill_name, level in initial_state["skills"]:
+                add_skill_var(skill_name or none_skill, level or "1")
+            if not skill_vars:
+                add_skill_var()
+            render_skill_rows()
+
+            if is_new:
+                auto_name["value"] = initial_state["auto_name"]
+                name_was_modified["value"] = initial_state["name_was_modified"]
+
+            refresh_ruler_visibility()
 
         # Make the entry column expand
         form_frame.grid_columnconfigure(1, weight=1)
@@ -1401,6 +1448,7 @@ class FeodalSimulator:
 
         # --- Save Action ---
         def do_save():
+            nonlocal initial_skills
             name = name_var.get().strip()
             if not name:
                 messagebox.showwarning(
@@ -1416,6 +1464,7 @@ class FeodalSimulator:
                 wealth = int(wealth_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 wealth = 0
+            wealth_var.set(str(wealth))
 
             gender_val = gender_var.get()
             if gender_val not in CHARACTER_GENDERS:
@@ -1483,10 +1532,15 @@ class FeodalSimulator:
                     self.save_current_world()
                     self.show_node_view(parent_node_data)
                     return  # Don't go to character list
-                if return_command:
-                    self.save_current_world()
-                    return_command()
-                    return
+                self.save_current_world()
+                self.show_edit_character_view(
+                    new_char_data,
+                    is_new=False,
+                    parent_node_data=parent_node_data,
+                    after_save=after_save,
+                    return_command=return_command,
+                )
+                return
 
             else:  # Editing existing
                 char_id_str = str(char_id)  # Use the ID passed in
@@ -1528,6 +1582,20 @@ class FeodalSimulator:
                         if new_node:
                             new_node["ruler_id"] = char_id_str
                             self.refresh_tree_item(ruler_of)
+
+                    initial_state["name"] = name
+                    initial_state["gender"] = gender_val
+                    initial_state["wealth"] = wealth_var.get()
+                    initial_state["description"] = description
+                    initial_state["type"] = type_val
+                    initial_state["ruler_selection"] = ruler_var.get()
+                    initial_skills = [
+                        (var.get(), level_var.get())
+                        for var, level_var in zip(skill_vars, level_vars)
+                    ]
+                    initial_state["skills"] = list(initial_skills)
+                    initial_state["auto_name"] = auto_name["value"]
+                    initial_state["name_was_modified"] = name_was_modified["value"]
                 else:
                     messagebox.showerror(
                         "Fel",
@@ -1537,11 +1605,6 @@ class FeodalSimulator:
                     return
 
             self.save_current_world()
-            # Go back to the desired view after saving/creating
-            if return_command and not parent_node_data:
-                return_command()
-            elif not parent_node_data:
-                self.show_manage_characters_view()
 
         # --- Buttons ---
         button_frame = ttk.Frame(container)
@@ -1557,7 +1620,10 @@ class FeodalSimulator:
         ttk.Button(button_frame, text="Spara", command=do_save).pack(
             side=tk.LEFT, padx=10
         )
-        ttk.Button(button_frame, text="Avbryt", command=back_command).pack(
+        ttk.Button(button_frame, text="Avbryt", command=reset_form).pack(
+            side=tk.LEFT, padx=10
+        )
+        ttk.Button(button_frame, text="Tillbaka", command=back_command).pack(
             side=tk.LEFT, padx=10
         )
 
