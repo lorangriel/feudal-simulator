@@ -2720,7 +2720,7 @@ class FeodalSimulator:
         """Editor for resource nodes at depth >=4."""
         node_id = node_data["node_id"]
 
-        res_options = available_resource_types(self.world_data, node_id)
+        res_options = available_resource_types(self.world_data, node_id, depth=depth)
         initial_res_type = node_data.get("res_type")
         if not initial_res_type or initial_res_type not in res_options:
             initial_res_type = res_options[0]

@@ -26,6 +26,8 @@ class DummyWidget:
     def configure(self, *a, **k):
         return self
     config = configure
+    def state(self, *a, **k):
+        return self
     def bind(self, *a, **k):
         return self
     def insert(self, *a, **k):
@@ -48,10 +50,14 @@ class DummyWidget:
         return None
     def winfo_exists(self):
         return True
+    def winfo_children(self):
+        return []
     def yview(self, *a, **k):
         return None
     def xview(self, *a, **k):
         return None
+    def add(self, *a, **k):
+        return self
 
 class DummyTkModule(types.SimpleNamespace):
     StringVar = DummyVar
@@ -72,6 +78,7 @@ class DummyTtkModule(types.SimpleNamespace):
     Combobox = DummyWidget
     Button = DummyWidget
     Separator = DummyWidget
+    Notebook = DummyWidget
 
 class DummyMessageBox(types.SimpleNamespace):
     askyesno = staticmethod(lambda *a, **k: True)
@@ -115,3 +122,43 @@ def test_resource_population_preserved(monkeypatch):
     sim._show_resource_editor(parent, world["nodes"]["1"], depth=4)
     sim.commit_pending_changes()
     assert world["nodes"]["1"]["population"] == 5
+
+
+def test_noble_family_type_removed_at_depth_four(monkeypatch):
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": 0,
+                "res_type": "Adelsfamilj",
+                "custom_name": "Familjen Ek",
+                "population": 0,
+                "children": [],
+            }
+        },
+        "characters": {},
+    }
+    sim = make_sim(monkeypatch, world)
+    parent = DummyWidget()
+    sim._show_resource_editor(parent, world["nodes"]["1"], depth=4)
+    assert world["nodes"]["1"]["res_type"] != "Adelsfamilj"
+
+
+def test_noble_family_type_allowed_at_depth_five(monkeypatch):
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": 0,
+                "res_type": "Adelsfamilj",
+                "custom_name": "Familjen Ek",
+                "population": 0,
+                "children": [],
+            }
+        },
+        "characters": {},
+    }
+    sim = make_sim(monkeypatch, world)
+    parent = DummyWidget()
+    sim._show_resource_editor(parent, world["nodes"]["1"], depth=5)
+    assert world["nodes"]["1"]["res_type"] == "Adelsfamilj"

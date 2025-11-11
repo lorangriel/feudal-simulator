@@ -96,9 +96,19 @@ def roll_dice(expr: str, debug=False):
     return total, ""
 
 
-def available_resource_types(world_data: dict | None, current_node_id: int | None = None) -> list[str]:
-    """Return allowed resource types, hiding ``Väder`` if already in use."""
+def available_resource_types(
+    world_data: dict | None,
+    current_node_id: int | None = None,
+    depth: int | None = None,
+) -> list[str]:
+    """Return allowed resource types, hiding ``Väder`` if already in use.
+
+    When ``depth`` is provided, ``Adelsfamilj`` becomes available first at depth 5.
+    """
+
     options = list(JARLDOM_RESOURCE_TYPES)
+    if depth is not None and depth < 5:
+        options = [opt for opt in options if opt != "Adelsfamilj"]
     if not world_data:
         return options
     nodes = world_data.get("nodes", {})
