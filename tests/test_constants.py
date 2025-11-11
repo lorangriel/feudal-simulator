@@ -46,6 +46,28 @@ def test_res_types_not_mutated():
     assert constants.RES_TYPES[-1] != "Ny resurs"
 
 
+def test_building_types_catalog():
+    """Building types should include both legacy and newly added options."""
+    expected_buildings = {
+        "Kvarn - vatten",
+        "Kvarn - vind",
+        "Bageri",
+        "Smedja",
+        "Garveri",
+        "Trästuga liten",
+        "Trästuga 2 våningar",
+        "Stenhus",
+        "Borgkärna",
+        "Sammansatt borgkärna",
+    }
+
+    assert constants.BUILDING_TYPES == expected_buildings
+    for building in expected_buildings:
+        assert (
+            building in constants.RES_TYPES
+        ), f"{building} måste listas som en resurtyp"
+
+
 def test_craftsman_types_and_fees_consistency():
     """Craftsman types mirror the license fee keys and stay unchanged."""
     expected_types = list(constants.CRAFTSMAN_LICENSE_FEES.keys())
