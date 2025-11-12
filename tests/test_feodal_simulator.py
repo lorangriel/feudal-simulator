@@ -289,6 +289,42 @@ def test_grid_set_visibility_handles_missing_widgets():
     assert failing_remove.grid_remove_calls == 0
 
 
+def test_widget_exists_handles_destroyed_widgets():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        frame = ttk.Frame(root)
+        frame.pack()
+        assert fs.FeodalSimulator._widget_exists(frame)
+        frame.destroy()
+        assert not fs.FeodalSimulator._widget_exists(frame)
+        assert not fs.FeodalSimulator._widget_exists(None)
+    finally:
+        root.destroy()
+
+
+def test_destroy_child_widgets_is_safe_on_destroyed_parent():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        frame = ttk.Frame(root)
+        frame.pack()
+        child = ttk.Frame(frame)
+        child.pack()
+        fs.FeodalSimulator._destroy_child_widgets(frame)
+        assert not child.winfo_exists()
+        frame.destroy()
+        fs.FeodalSimulator._destroy_child_widgets(frame)
+    finally:
+        root.destroy()
+
+
 def test_noble_family_editor_uses_tabs_for_spouses_and_relatives():
     try:
         root = tk.Tk()
