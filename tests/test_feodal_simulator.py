@@ -1,3 +1,4 @@
+import random
 import types
 import tkinter as tk
 from tkinter import ttk
@@ -433,3 +434,85 @@ def test_noble_family_editor_places_lord_before_standard():
         assert (0, 3) in edit_button_positions
     finally:
         root.destroy()
+
+
+def test_generate_auto_character_name_inherits_surname():
+    state = random.getstate()
+    try:
+        random.seed(0)
+        name = fs.FeodalSimulator._generate_auto_character_name("m", "Tor")
+    finally:
+        random.setstate(state)
+
+    parts = name.split()
+    assert parts[-1] == "Tor"
+    assert len(parts) >= 2
+
+
+def test_make_relation_creation_context_includes_surname():
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = {"characters": {"7": {"name": "Garan Tel"}}}
+
+    sim.get_depth_of_node = types.MethodType(lambda self, node_id: 3, sim)
+    sim.get_display_name_for_node = types.MethodType(
+        lambda self, node_data, depth: node_data.get("name", f"Node {node_data.get('node_id')}")
+        if isinstance(node_data, dict)
+        else "",
+        sim,
+    )
+
+    node_data = {
+        "node_id": 5,
+        "name": "Jarldöme Test",
+        "noble_lord": {"kind": "character", "char_id": 7},
+    }
+
+    context = sim._make_relation_creation_context(node_data, "child")
+
+    assert context["inherit_surname"] is True
+    assert context["inherited_surname"] == "Tel"
+    assert context["node_name"] == "Jarldöme Test"
+    assert context["lord_name"] == "Garan Tel"
+
+
+def test_gather_liege_relationships_identifies_roles():
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = {
+        "characters": {
+            "1": {"name": "Lord One"},
+            "2": {"name": "Spouse"},
+            "3": {"name": "Child"},
+            "4": {"name": "Relative"},
+        },
+        "nodes": {
+            "10": {
+                "node_id": 10,
+                "name": "Jarldöme Ten",
+                "noble_lord": {"kind": "character", "char_id": 1},
+                "noble_spouses": [{"kind": "character", "char_id": 2}],
+                "noble_spouse_children": [
+                    [{"kind": "character", "char_id": 3}]
+                ],
+                "noble_relatives": [{"kind": "character", "char_id": 4}],
+            }
+        },
+    }
+
+    sim.get_depth_of_node = types.MethodType(lambda self, node_id: 3, sim)
+    sim.get_display_name_for_node = types.MethodType(
+        lambda self, node_data, depth: node_data.get("name", f"Node {node_data.get('node_id')}")
+        if isinstance(node_data, dict)
+        else "",
+        sim,
+    )
+
+    spouse_rel = sim._gather_liege_relationships(2)
+    assert {rel["kind"] for rel in spouse_rel} == {"spouse"}
+    assert spouse_rel[0]["lord_name"] == "Lord One"
+
+    child_rel = sim._gather_liege_relationships(3)
+    assert {rel["kind"] for rel in child_rel} == {"child"}
+    assert child_rel[0]["node_name"] == "Jarldöme Ten"
+
+    relative_rel = sim._gather_liege_relationships(4)
+    assert {rel["kind"] for rel in relative_rel} == {"relative"}
