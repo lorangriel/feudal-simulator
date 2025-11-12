@@ -3083,28 +3083,17 @@ class FeodalSimulator:
             return entry.get("label", "")
         return ""
 
-    @staticmethod
-    def _grid_set_visibility(widgets, show: bool) -> None:
+    @classmethod
+    def _grid_set_visibility(cls, widgets, show: bool) -> None:
         """Safely show or hide a collection of widgets using ``grid``."""
 
         for widget in widgets:
-            if widget is None:
-                continue
-            try:
-                exists = widget.winfo_exists()
-            except tk.TclError:
-                continue
-            if not exists:
+            if not cls._widget_exists(widget):
                 continue
             if show:
                 master = getattr(widget, "master", None)
-                if master is not None:
-                    try:
-                        master_exists = master.winfo_exists()
-                    except tk.TclError:
-                        continue
-                    if not master_exists:
-                        continue
+                if master is not None and not cls._widget_exists(master):
+                    continue
             try:
                 manager = widget.winfo_manager()
             except tk.TclError:

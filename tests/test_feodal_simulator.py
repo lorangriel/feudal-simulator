@@ -27,6 +27,46 @@ def test_entry_char_id_helper():
     assert fs.FeodalSimulator._entry_char_id(None) is None
 
 
+class DummyWidget:
+    def __init__(self, *, exists="1", master=None, manager="grid"):
+        self._exists = exists
+        self.master = master
+        self._manager = manager
+        self.grid_called = False
+        self.grid_remove_called = False
+
+    def winfo_exists(self):
+        return self._exists
+
+    def winfo_manager(self):
+        return self._manager
+
+    def grid(self):
+        self.grid_called = True
+
+    def grid_remove(self):
+        self.grid_remove_called = True
+
+
+def test_grid_set_visibility_skips_destroyed_widgets():
+    widget = DummyWidget(exists="0")
+    fs.FeodalSimulator._grid_set_visibility((widget,), True)
+    assert widget.grid_called is False
+
+
+def test_grid_set_visibility_checks_master_existence():
+    master = DummyWidget(exists="0")
+    widget = DummyWidget(master=master)
+    fs.FeodalSimulator._grid_set_visibility((widget,), True)
+    assert widget.grid_called is False
+
+
+def test_grid_set_visibility_hides_widgets():
+    widget = DummyWidget()
+    fs.FeodalSimulator._grid_set_visibility((widget,), False)
+    assert widget.grid_remove_called is True
+
+
 def test_make_return_to_node_command_uses_latest():
     sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
     latest_node = {"node_id": 5, "value": "new"}
