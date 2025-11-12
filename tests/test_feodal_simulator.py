@@ -552,3 +552,67 @@ def test_gather_liege_relationships_identifies_roles():
 
     relative_rel = sim._gather_liege_relationships(4)
     assert {rel["kind"] for rel in relative_rel} == {"relative"}
+
+
+# --- Automatic character creation -------------------------------------------------
+
+
+def test_open_character_creator_for_node_creates_character_without_editor():
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = {"characters": {"5": {"char_id": 5, "name": "Test", "gender": "Man"}}}
+
+    saved = {"called": False}
+    sim.add_status_message = lambda *_args, **_kwargs: None
+    sim.save_current_world = lambda: saved.__setitem__("called", True)
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("Editor should not be opened for automatic characters")
+
+    sim.show_edit_character_view = fail
+    sim._generate_auto_character_name = lambda gender_code, _surname: f"auto-{gender_code}"
+
+    created_ids: list[int] = []
+
+    sim._open_character_creator_for_node({"node_id": 2}, lambda cid: created_ids.append(cid))
+
+    assert created_ids, "Callback should be invoked with new character id"
+    new_id = created_ids[0]
+    assert new_id == 6
+    assert str(new_id) in sim.world_data["characters"]
+    assert sim.world_data["characters"][str(new_id)]["name"] == "auto-m"
+    assert saved["called"]
+
+
+def test_open_character_creator_for_node_spouse_inherits_surname_and_gender():
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = {
+        "characters": {
+            "10": {
+                "char_id": 10,
+                "name": "Karl av Test",
+                "gender": "Man",
+            }
+        }
+    }
+
+    sim.add_status_message = lambda *_args, **_kwargs: None
+    sim.save_current_world = lambda: None
+    sim._node_display_name = lambda _node, _id: "Förläning"
+    sim._generate_auto_character_name = (
+        lambda gender_code, inherited_surname: f"{gender_code}:{inherited_surname or 'none'}"
+    )
+
+    node_data = {"node_id": 1, "noble_lord": {"kind": "character", "char_id": 10}}
+    context = sim._make_relation_creation_context(node_data, "spouse")
+
+    created_ids: list[int] = []
+    sim._open_character_creator_for_node(
+        node_data, lambda cid: created_ids.append(cid), creation_context=context
+    )
+
+    assert created_ids, "Expected automatic creation callback"
+    new_id = created_ids[0]
+    new_char = sim.world_data["characters"][str(new_id)]
+    assert new_char["gender"] == "Kvinna"
+    assert new_char["name"].endswith("Test")
+    assert context["inherit_surname"] is True

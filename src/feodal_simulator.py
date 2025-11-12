@@ -2890,12 +2890,97 @@ class FeodalSimulator:
         lord_name = self._character_name(lord_id)
         context["lord_name"] = lord_name
 
+        lord_gender: str | None = None
+        if lord_id is not None and self.world_data:
+            try:
+                char_data = self.world_data.get("characters", {}).get(str(lord_id))
+            except AttributeError:  # pragma: no cover - defensive guard
+                char_data = None
+            if isinstance(char_data, dict):
+                gender_value = char_data.get("gender")
+                if isinstance(gender_value, str) and gender_value in CHARACTER_GENDERS:
+                    lord_gender = gender_value
+        context["lord_gender"] = lord_gender
+
         surname = self._extract_surname(lord_name)
-        inherit = relation_kind in {"child", "relative"} and bool(surname)
+        inherit = relation_kind in {"child", "relative", "spouse"} and bool(surname)
         context["inherit_surname"] = inherit
         context["inherited_surname"] = surname if inherit else ""
 
         return context
+
+    @staticmethod
+    def _opposite_gender(gender: str | None) -> str | None:
+        """Return the opposite gender if recognised, otherwise ``None``."""
+
+        if not isinstance(gender, str):
+            return None
+        gender = gender.strip()
+        if gender == "Man" and "Kvinna" in CHARACTER_GENDERS:
+            return "Kvinna"
+        if gender == "Kvinna" and "Man" in CHARACTER_GENDERS:
+            return "Man"
+        return None
+
+    def _auto_create_character(
+        self, creation_context: dict[str, object] | None = None
+    ) -> dict:
+        """Create and persist a new character using automatic defaults."""
+
+        if self.world_data is None:
+            self.world_data = {}
+        characters = self.world_data.setdefault("characters", {})
+
+        existing_ids: list[int] = []
+        for key in characters.keys():
+            try:
+                existing_ids.append(int(key))
+            except (TypeError, ValueError):
+                continue
+        new_id = max(existing_ids) + 1 if existing_ids else 1
+
+        inherited_surname: str | None = None
+        relation_kind = None
+        if creation_context:
+            relation_kind = creation_context.get("relation_kind")
+            if creation_context.get("inherit_surname"):
+                surname_candidate = str(
+                    creation_context.get("inherited_surname", "")
+                ).strip()
+                if surname_candidate:
+                    inherited_surname = surname_candidate
+
+        gender_value = None
+        if relation_kind == "spouse" and creation_context:
+            opposite = self._opposite_gender(creation_context.get("lord_gender"))
+            if opposite in CHARACTER_GENDERS:
+                gender_value = opposite
+        if gender_value not in CHARACTER_GENDERS:
+            gender_value = CHARACTER_GENDERS[0]
+
+        gender_code = "f" if gender_value == "Kvinna" else "m"
+        name = self._generate_auto_character_name(gender_code, inherited_surname)
+
+        new_char_data = {
+            "char_id": new_id,
+            "name": name,
+            "gender": gender_value,
+            "wealth": 0,
+            "description": "",
+            "skills": [],
+            "type": "",
+            "ruler_of": None,
+        }
+        characters[str(new_id)] = new_char_data
+
+        if hasattr(self, "add_status_message"):
+            self.add_status_message(
+                f"Skapade ny karaktär: '{name}' (ID: {new_id})."
+            )
+        if hasattr(self, "save_current_world"):
+            self.save_current_world()
+
+        return dict(new_char_data)
 
     def _open_character_editor(
         self, char_id: int, return_command: Callable[[], None]
@@ -2924,20 +3009,13 @@ class FeodalSimulator:
         on_created: Callable[[int], None],
         creation_context: dict[str, object] | None = None,
     ) -> None:
-        def handle_save(char_info: dict) -> None:
-            try:
-                cid = int(char_info.get("char_id"))
-            except (TypeError, ValueError):
-                return
-            on_created(cid)
-
-        self.show_edit_character_view(
-            char_data={},
-            is_new=True,
-            after_save=handle_save,
-            return_command=self._make_return_to_node_command(node_data),
-            creation_context=creation_context,
-        )
+        creation_details = creation_context or {}
+        new_char = self._auto_create_character(creation_details)
+        try:
+            new_id = int(new_char.get("char_id"))
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            return
+        on_created(new_id)
 
     @staticmethod
     def _coerce_person_entry(entry: object, default_label: str) -> dict | None:
