@@ -1138,6 +1138,7 @@ class FeodalSimulator:
         parent_node_data=None,
         after_save: Callable[[dict], None] | None = None,
         return_command: Callable[[], None] | None = None,
+        creation_context: dict[str, object] | None = None,
     ):
         """Shows the form to create or edit a character. char_data is the dict or None if new."""
         self._clear_right_frame()
@@ -1147,8 +1148,67 @@ class FeodalSimulator:
         char_id = (
             char_data.get("char_id") if char_data and not is_new else None
         )  # Get existing ID only if editing
+
+        inherited_surname: str | None = None
+        relation_messages: list[str] = []
+
+        def lord_phrase(name: str) -> str:
+            clean = (name or "").strip()
+            return f"länsherre {clean}" if clean else "okänd länsherre"
+
+        def node_phrase(name: str) -> str:
+            clean = (name or "").strip()
+            return clean if clean else "okänd förläning"
+
+        creation_terms = {"child": "barn", "relative": "släkting", "spouse": "gemål"}
+        relation_titles = {
+            "child": "Barn till",
+            "relative": "Släkting till",
+            "spouse": "Gemål till",
+        }
+
+        if creation_context:
+            if creation_context.get("inherit_surname"):
+                surname_candidate = str(creation_context.get("inherited_surname", "")).strip()
+                if surname_candidate:
+                    inherited_surname = surname_candidate
+            kind_value = creation_context.get("relation_kind")
+            if isinstance(kind_value, str) and kind_value in creation_terms:
+                lord_name = str(creation_context.get("lord_name", ""))
+                node_name = str(creation_context.get("node_name", ""))
+                relation_messages.append(
+                    f"Skapas som {creation_terms[kind_value]} till {lord_phrase(lord_name)} i {node_phrase(node_name)}."
+                )
+
+        if char_id is not None:
+            for relation in self._gather_liege_relationships(char_id):
+                kind = relation.get("kind")
+                if not isinstance(kind, str) or kind not in relation_titles:
+                    continue
+                lord_name = str(relation.get("lord_name", ""))
+                node_name = str(relation.get("node_name", ""))
+                relation_messages.append(
+                    f"{relation_titles[kind]} {lord_phrase(lord_name)} i {node_phrase(node_name)}"
+                )
+
         title = "Skapa Ny Karaktär" if is_new else f"Redigera Karaktär (ID: {char_id})"
         ttk.Label(container, text=title, font=("Arial", 14)).pack(pady=(5, 15))
+
+        if relation_messages:
+            relation_frame = ttk.Frame(container)
+            relation_frame.pack(fill="x", pady=(0, 10))
+            ttk.Label(
+                relation_frame,
+                text="Band till länsherre:",
+                font=("Arial", 10, "bold"),
+            ).pack(anchor="w")
+            for message in relation_messages:
+                ttk.Label(
+                    relation_frame,
+                    text=f"• {message}",
+                    justify="left",
+                    wraplength=600,
+                ).pack(anchor="w", padx=(10, 0))
 
         # Use a frame for the form elements for better alignment
         form_frame = ttk.Frame(container)
@@ -1171,13 +1231,18 @@ class FeodalSimulator:
                 auto_name = {"value": initial_name}
                 name_was_modified = {"value": True}
             else:
-                initial_name = generate_character_name(gender_to_code(default_gender))
+                initial_name = self._generate_auto_character_name(
+                    gender_to_code(default_gender), inherited_surname
+                )
                 auto_name = {"value": initial_name}
                 name_was_modified = {"value": False}
         else:
             initial_name = str(
                 char_defaults.get(
-                    "name", generate_character_name(gender_to_code(default_gender))
+                    "name",
+                    self._generate_auto_character_name(
+                        gender_to_code(default_gender), inherited_surname
+                    ),
                 )
             )
             auto_name = {"value": None}
@@ -1218,7 +1283,9 @@ class FeodalSimulator:
 
             def on_gender_change(*_args: object) -> None:
                 if not name_was_modified["value"]:
-                    new_name = generate_character_name(gender_to_code(gender_var.get()))
+                    new_name = self._generate_auto_character_name(
+                        gender_to_code(gender_var.get()), inherited_surname
+                    )
                     auto_name["value"] = new_name
                     name_var.set(new_name)
 
@@ -2620,6 +2687,216 @@ class FeodalSimulator:
                 return None
         return None
 
+    @staticmethod
+    def _generate_auto_character_name(
+        gender_code: str, inherited_surname: str | None
+    ) -> str:
+        """Generate a random name, optionally enforcing a specific surname."""
+
+        base_name = generate_character_name(gender_code)
+        surname = (inherited_surname or "").strip()
+        if not surname:
+            return base_name
+        first_part = base_name.split()[0]
+        return f"{first_part} {surname}".strip()
+
+    @staticmethod
+    def _extract_surname(full_name: str | None) -> str:
+        """Extract the trailing name segment used as surname."""
+
+        if not full_name:
+            return ""
+        tokens = [token for token in str(full_name).strip().split() if token]
+        if not tokens:
+            return ""
+        return tokens[-1]
+
+    def _character_name(self, char_id: int | None) -> str:
+        """Return the display name for a character id, falling back to the id."""
+
+        if char_id is None or not self.world_data:
+            return ""
+        char = self.world_data.get("characters", {}).get(str(char_id))
+        if isinstance(char, dict):
+            name = str(char.get("name", "")).strip()
+            if name:
+                return name
+        return f"ID {char_id}"
+
+    def _node_display_name(self, node_data: dict, node_id: int | None) -> str:
+        """Return a user friendly display name for a node."""
+
+        display = ""
+        if node_id is not None:
+            try:
+                depth = self.get_depth_of_node(node_id)
+                display = self.get_display_name_for_node(node_data, depth)
+            except Exception:  # pragma: no cover - defensive fallback
+                display = ""
+        if not display:
+            display = str(
+                node_data.get("custom_name")
+                or node_data.get("name")
+                or (f"Nod {node_id}" if node_id is not None else "Okänd förläning")
+            )
+        return display
+
+    def _gather_liege_relationships(self, char_id: int) -> list[dict[str, object]]:
+        """Collect noble household relations between ``char_id`` and lords."""
+
+        try:
+            target_id = int(char_id)
+        except (TypeError, ValueError):
+            return []
+
+        if not self.world_data:
+            return []
+
+        relations: list[dict[str, object]] = []
+        seen: set[tuple[object, str]] = set()
+        nodes = self.world_data.get("nodes", {})
+        if not isinstance(nodes, dict):
+            return []
+
+        for node_id_str, node_data in nodes.items():
+            if not isinstance(node_data, dict):
+                continue
+
+            node_id: int | None = None
+            if isinstance(node_id_str, str):
+                try:
+                    node_id = int(node_id_str)
+                except ValueError:
+                    pass
+            if node_id is None:
+                raw_node_id = node_data.get("node_id")
+                if isinstance(raw_node_id, str) and raw_node_id.isdigit():
+                    node_id = int(raw_node_id)
+                elif isinstance(raw_node_id, int):
+                    node_id = raw_node_id
+
+            lord_entry = self._coerce_person_entry(node_data.get("noble_lord"), "")
+            lord_id = self._entry_char_id(lord_entry)
+            if lord_id is None:
+                continue
+
+            node_name = self._node_display_name(node_data, node_id)
+            lord_name = self._character_name(lord_id)
+
+            key_base = (node_id if node_id is not None else node_name)
+
+            # Spouses
+            spouse_entries = self._normalise_person_entries(
+                node_data.get("noble_spouses"), ""
+            )
+            for entry in spouse_entries:
+                if self._entry_char_id(entry) == target_id:
+                    key = (key_base, "spouse")
+                    if key not in seen:
+                        relations.append(
+                            {
+                                "kind": "spouse",
+                                "node_name": node_name,
+                                "lord_name": lord_name,
+                                "lord_id": lord_id,
+                                "node_id": node_id,
+                            }
+                        )
+                        seen.add(key)
+                    break
+
+            # Children (per spouse groups first)
+            child_found = False
+            raw_spouse_children = node_data.get("noble_spouse_children")
+            if isinstance(raw_spouse_children, list):
+                for raw_group in raw_spouse_children:
+                    entries = self._normalise_person_entries(raw_group, "")
+                    for entry in entries:
+                        if self._entry_char_id(entry) == target_id:
+                            child_found = True
+                            break
+                    if child_found:
+                        break
+            if not child_found:
+                fallback_children = self._normalise_person_entries(
+                    node_data.get("noble_children"), ""
+                )
+                for entry in fallback_children:
+                    if self._entry_char_id(entry) == target_id:
+                        child_found = True
+                        break
+            if child_found:
+                key = (key_base, "child")
+                if key not in seen:
+                    relations.append(
+                        {
+                            "kind": "child",
+                            "node_name": node_name,
+                            "lord_name": lord_name,
+                            "lord_id": lord_id,
+                            "node_id": node_id,
+                        }
+                    )
+                    seen.add(key)
+
+            # Relatives
+            relative_entries = self._normalise_person_entries(
+                node_data.get("noble_relatives"), ""
+            )
+            for entry in relative_entries:
+                if self._entry_char_id(entry) == target_id:
+                    key = (key_base, "relative")
+                    if key not in seen:
+                        relations.append(
+                            {
+                                "kind": "relative",
+                                "node_name": node_name,
+                                "lord_name": lord_name,
+                                "lord_id": lord_id,
+                                "node_id": node_id,
+                            }
+                        )
+                        seen.add(key)
+                    break
+
+        return relations
+
+    def _make_relation_creation_context(
+        self, node_data: dict, relation_kind: str
+    ) -> dict[str, object]:
+        """Build metadata used when creating a character from a node relation."""
+
+        context: dict[str, object] = {"relation_kind": relation_kind}
+
+        node_id = node_data.get("node_id")
+        if isinstance(node_id, str) and node_id.isdigit():
+            node_id = int(node_id)
+        elif not isinstance(node_id, int):
+            node_id = None
+
+        context["node_id"] = node_id
+        context["node_name"] = self._node_display_name(node_data, node_id)
+
+        lord_entry = self._coerce_person_entry(node_data.get("noble_lord"), "")
+        lord_id = self._entry_char_id(lord_entry)
+        if lord_id is None:
+            raw_ruler = node_data.get("ruler_id")
+            try:
+                lord_id = int(raw_ruler) if raw_ruler is not None else None
+            except (TypeError, ValueError):
+                lord_id = None
+
+        context["lord_char_id"] = lord_id
+        lord_name = self._character_name(lord_id)
+        context["lord_name"] = lord_name
+
+        surname = self._extract_surname(lord_name)
+        inherit = relation_kind in {"child", "relative"} and bool(surname)
+        context["inherit_surname"] = inherit
+        context["inherited_surname"] = surname if inherit else ""
+
+        return context
+
     def _open_character_editor(
         self, char_id: int, return_command: Callable[[], None]
     ) -> None:
@@ -2642,7 +2919,10 @@ class FeodalSimulator:
         )
 
     def _open_character_creator_for_node(
-        self, node_data: dict, on_created: Callable[[int], None]
+        self,
+        node_data: dict,
+        on_created: Callable[[int], None],
+        creation_context: dict[str, object] | None = None,
     ) -> None:
         def handle_save(char_info: dict) -> None:
             try:
@@ -2656,6 +2936,7 @@ class FeodalSimulator:
             is_new=True,
             after_save=handle_save,
             return_command=self._make_return_to_node_command(node_data),
+            creation_context=creation_context,
         )
 
     @staticmethod
@@ -5069,7 +5350,11 @@ class FeodalSimulator:
                                 save_children()
 
                             self._open_character_creator_for_node(
-                                node_data, assign_new_child
+                                node_data,
+                                assign_new_child,
+                                creation_context=self._make_relation_creation_context(
+                                    node_data, "child"
+                                ),
                             )
                             return
                         if action == "character":
@@ -5171,7 +5456,13 @@ class FeodalSimulator:
                                 save_spouses()
                                 rebuild_spouse_rows()
 
-                            self._open_character_creator_for_node(node_data, assign_new)
+                            self._open_character_creator_for_node(
+                                node_data,
+                                assign_new,
+                                creation_context=self._make_relation_creation_context(
+                                    node_data, "spouse"
+                                ),
+                            )
                             return
                         if action == "character":
                             if payload is None:
@@ -5384,7 +5675,13 @@ class FeodalSimulator:
                                 relatives[index] = {"kind": "character", "char_id": new_id}
                                 save_relatives()
 
-                            self._open_character_creator_for_node(node_data, assign_new_relative)
+                            self._open_character_creator_for_node(
+                                node_data,
+                                assign_new_relative,
+                                creation_context=self._make_relation_creation_context(
+                                    node_data, "relative"
+                                ),
+                            )
                             return
                         if action == "character":
                             if payload is not None:
