@@ -3041,6 +3041,33 @@ class FeodalSimulator:
             except tk.TclError:
                 continue
 
+    @staticmethod
+    def _widget_exists(widget) -> bool:
+        """Return ``True`` if ``widget`` exists in the Tk interpreter."""
+
+        if widget is None:
+            return False
+        try:
+            return bool(int(widget.winfo_exists()))
+        except tk.TclError:
+            return False
+
+    @classmethod
+    def _destroy_child_widgets(cls, widget) -> None:
+        """Safely destroy all children for ``widget`` if it exists."""
+
+        if not cls._widget_exists(widget):
+            return
+        try:
+            children = list(widget.winfo_children())
+        except tk.TclError:
+            return
+        for child in children:
+            try:
+                child.destroy()
+            except tk.TclError:
+                continue
+
     def _show_resource_editor(self, parent_frame, node_data, depth):
         """Editor for resource nodes at depth >=4."""
         node_id = node_data["node_id"]
@@ -5294,8 +5321,9 @@ class FeodalSimulator:
             persist_spouse_children()
             row_info = spouse_rows[spouse_index]
             frame = row_info["child_rows_frame"]
-            for child in frame.winfo_children():
-                child.destroy()
+            if not self._widget_exists(frame):
+                return
+            self._destroy_child_widgets(frame)
             row_info["child_rows"].clear()
             parent_counts = calculate_child_parent_counts()
             group = spouse_children[spouse_index] if spouse_index < len(spouse_children) else []
@@ -5410,8 +5438,9 @@ class FeodalSimulator:
 
         def rebuild_spouse_rows() -> None:
             align_spouse_children()
-            for child in spouse_rows_frame.winfo_children():
-                child.destroy()
+            if not self._widget_exists(spouse_rows_frame):
+                return
+            self._destroy_child_widgets(spouse_rows_frame)
             spouse_rows.clear()
             for idx, entry in enumerate(spouses):
                 frame = ttk.Frame(spouse_rows_frame)
@@ -5639,8 +5668,9 @@ class FeodalSimulator:
                         button.state(["!disabled"])
 
         def rebuild_relative_rows() -> None:
-            for child in relative_rows_frame.winfo_children():
-                child.destroy()
+            if not self._widget_exists(relative_rows_frame):
+                return
+            self._destroy_child_widgets(relative_rows_frame)
             relative_rows.clear()
             for idx, entry in enumerate(relatives):
                 frame = ttk.Frame(relative_rows_frame)
