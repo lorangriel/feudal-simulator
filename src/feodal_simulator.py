@@ -4840,6 +4840,14 @@ class FeodalSimulator:
             for cid, name in char_choices
         }
 
+        def refresh_character_choices() -> None:
+            nonlocal char_choices, char_display_lookup
+            char_choices = self._get_sorted_character_choices()
+            char_display_lookup = {
+                cid: self._format_character_display(cid, name)
+                for cid, name in char_choices
+            }
+
         default_placeholder = "karaktären raderad"
         child_default_label = "Barn levande"
         relative_default_label = "Släkting levande"
@@ -4889,38 +4897,71 @@ class FeodalSimulator:
         else:
             node_data.pop("noble_lord", None)
 
-        lord_option_map: dict[str, tuple[str, int | str | None]] = {
-            "": ("none", None),
-            "Ny": ("new", None),
-            default_placeholder: ("placeholder", default_placeholder),
-        }
-        for cid, name in char_choices:
-            display = char_display_lookup[cid]
-            lord_option_map[display] = ("character", cid)
-
         initial_lord_display = ""
         if noble_lord_entry:
-            initial_lord_display = self._person_entry_display(noble_lord_entry, characters)
+            initial_lord_display = self._person_entry_display(
+                noble_lord_entry, characters
+            )
             if noble_lord_entry.get("kind") == "character":
                 cid_val = self._entry_char_id(noble_lord_entry)
-                if cid_val is not None and initial_lord_display not in lord_option_map:
-                    lord_option_map[initial_lord_display] = ("character", cid_val)
-            elif initial_lord_display not in lord_option_map:
-                lord_option_map[initial_lord_display] = (
-                    "placeholder",
-                    noble_lord_entry.get("label", default_placeholder),
-                )
+                if cid_val is not None and cid_val not in char_display_lookup:
+                    char_display_lookup[cid_val] = initial_lord_display
 
         lord_var = tk.StringVar(value=initial_lord_display)
         lord_combo = ttk.Combobox(
             editor_frame,
             textvariable=lord_var,
-            values=list(lord_option_map.keys()),
+            values=(),
             state="readonly",
             width=40,
             style="BlackWhite.TCombobox",
         )
         lord_combo.grid(row=row_idx, column=1, columnspan=2, sticky="ew", padx=5, pady=(10, 3))
+
+        lord_previous = {"display": initial_lord_display}
+        lord_option_map: dict[str, tuple[str, int | str | None]] = {}
+
+        def current_lord_display() -> str:
+            entry = node_data.get("noble_lord")
+            if isinstance(entry, dict):
+                return self._person_entry_display(entry, characters) or ""
+            return ""
+
+        def build_lord_option_map() -> dict[str, tuple[str, int | str | None]]:
+            option_map: dict[str, tuple[str, int | str | None]] = {
+                "": ("none", None),
+                "Ny": ("new", None),
+                default_placeholder: ("placeholder", default_placeholder),
+            }
+            for cid, _ in char_choices:
+                option_map[char_display_lookup[cid]] = ("character", cid)
+            display = current_lord_display()
+            entry_obj = node_data.get("noble_lord")
+            entry = entry_obj if isinstance(entry_obj, dict) else None
+            if display and display not in option_map:
+                if entry and entry.get("kind") == "character":
+                    cid_val = self._entry_char_id(entry)
+                    if cid_val is not None:
+                        option_map[display] = ("character", cid_val)
+                else:
+                    label = default_placeholder
+                    if entry:
+                        label = str(entry.get("label", default_placeholder)) or default_placeholder
+                    option_map[display] = ("placeholder", label)
+            return option_map
+
+        def refresh_lord_options(select_display: str | None = None) -> None:
+            nonlocal lord_option_map
+            refresh_character_choices()
+            option_map = build_lord_option_map()
+            lord_option_map = option_map
+            lord_combo.configure(values=list(option_map.keys()))
+            display_value = select_display if select_display is not None else current_lord_display()
+            display_value = display_value or ""
+            lord_var.set(display_value)
+            lord_previous["display"] = display_value
+
+        refresh_lord_options(initial_lord_display)
 
         def edit_lord() -> None:
             sel = lord_var.get()
@@ -4939,13 +4980,12 @@ class FeodalSimulator:
         )
         edit_lord_btn.grid(row=row_idx, column=3, sticky="e", padx=5, pady=(10, 3))
 
-        lord_previous = {"display": initial_lord_display}
-
         def save_lord(entry: dict | None) -> None:
             if entry:
                 node_data["noble_lord"] = entry
             else:
                 node_data.pop("noble_lord", None)
+            refresh_lord_options()
             refresh_staff_tab()
             self.save_current_world()
 
@@ -4959,25 +4999,19 @@ class FeodalSimulator:
                 lord_var.set(lord_previous["display"])
 
                 def assign_new_lord(new_id: int) -> None:
-                    node_data["noble_lord"] = {"kind": "character", "char_id": new_id}
-                    refresh_staff_tab()
-                    self.save_current_world()
+                    save_lord({"kind": "character", "char_id": new_id})
 
                 self._open_character_creator_for_node(node_data, assign_new_lord)
                 return
             if action == "character":
                 if payload is None:
                     save_lord(None)
-                    lord_previous["display"] = ""
                 else:
                     save_lord({"kind": "character", "char_id": int(payload)})
-                    lord_previous["display"] = sel
             elif action == "placeholder":
                 save_lord({"kind": "placeholder", "label": default_placeholder})
-                lord_previous["display"] = default_placeholder
             else:
                 save_lord(None)
-                lord_previous["display"] = ""
 
         def refresh_lord_edit_state(*_args) -> None:
             sel = lord_var.get()

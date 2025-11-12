@@ -472,6 +472,66 @@ def test_noble_family_editor_places_lord_before_standard():
         root.destroy()
 
 
+def test_creating_noble_lord_updates_combobox_immediately():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.root = root
+        sim.world_data = {"characters": {}, "nodes": {}}
+        sim.add_status_message = lambda *_args, **_kwargs: None
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+        sim._generate_auto_character_name = lambda _gender_code, _surname: "Auto Lord"
+
+        node_data = {"node_id": 1, "noble_standard": "Välbärgad"}
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        lord_combo = None
+        for child in editor_frame.grid_slaves():
+            if not isinstance(child, ttk.Combobox):
+                continue
+            info = child.grid_info()
+            if int(info.get("row", -1)) == 0 and int(info.get("column", -1)) == 1:
+                lord_combo = child
+                break
+
+        assert lord_combo is not None, "Expected to find combobox for länsherre"
+        assert lord_combo.get() == ""
+
+        lord_combo.set("Ny")
+        lord_combo.event_generate("<<ComboboxSelected>>")
+        root.update_idletasks()
+
+        entry = node_data.get("noble_lord")
+        assert isinstance(entry, dict)
+        assert entry.get("kind") == "character"
+        display_value = lord_combo.get()
+        assert display_value
+        values = lord_combo.cget("values")
+        if isinstance(values, str):
+            values = (values,)
+        assert display_value in values
+        char_id = entry.get("char_id")
+        assert isinstance(char_id, int)
+        assert str(char_id) in display_value
+        assert str(char_id) in sim.world_data["characters"]
+    finally:
+        root.destroy()
+
+
 def test_generate_auto_character_name_inherits_surname():
     state = random.getstate()
     try:
