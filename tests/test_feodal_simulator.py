@@ -143,6 +143,60 @@ def test_open_character_editor_missing_shows_error(monkeypatch):
     assert errors
 
 
+def test_show_edit_character_view_uses_scrollable_frame():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+
+    try:
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.root = root
+        sim.right_frame = ttk.Frame(root)
+        sim.right_frame.pack()
+        sim.static_map_canvas = None
+        sim.dynamic_map_view = None
+        sim.world_data = {
+            "characters": {
+                "1": {"char_id": 1, "name": "Test", "gender": "Man"}
+            },
+            "nodes": {},
+        }
+        sim.world_manager = fs.WorldManager(sim.world_data)
+        sim.pending_save_callback = None
+        sim.add_status_message = lambda *a, **k: None
+        sim.save_current_world = lambda: None
+        sim.refresh_tree_item = lambda *a, **k: None
+        sim.show_manage_characters_view = lambda: None
+        sim.show_node_view = lambda *_: None
+        sim._generate_auto_character_name = lambda *_: "Auto"
+        sim.tree = types.SimpleNamespace(winfo_exists=lambda: False)
+
+        sim.show_edit_character_view(sim.world_data["characters"]["1"], is_new=False)
+        root.update_idletasks()
+
+        children = sim.right_frame.winfo_children()
+        assert len(children) == 1
+        scrollable = children[0]
+        assert scrollable.__class__.__name__ == "ScrollableFrame"
+        assert scrollable.__class__.__module__.endswith("utils")
+        canvas_children = [
+            child for child in scrollable.winfo_children() if isinstance(child, tk.Canvas)
+        ]
+        assert canvas_children, "Scrollbehållaren ska använda en canvas"
+        assert hasattr(scrollable, "vscroll")
+        assert scrollable.vscroll.cget("orient") == "vertical"
+        titles = [
+            child.cget("text")
+            for child in scrollable.content.winfo_children()
+            if hasattr(child, "cget")
+        ]
+        assert any("Karakt" in text for text in titles)
+    finally:
+        root.destroy()
+
+
 def _make_sim_with_world(characters):
     sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
     sim.world_data = {"characters": characters}

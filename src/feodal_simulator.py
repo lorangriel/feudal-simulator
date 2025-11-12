@@ -1142,8 +1142,10 @@ class FeodalSimulator:
     ):
         """Shows the form to create or edit a character. char_data is the dict or None if new."""
         self._clear_right_frame()
-        container = ttk.Frame(self.right_frame, padding="10 10 10 10")
-        container.pack(expand=True, pady=20, padx=20, fill="both")  # Fill frame
+        # Use a scrollable container so longer forms do not push content off-screen
+        scroll_view = ScrollableFrame(self.right_frame, padding="10 10 10 10")
+        scroll_view.pack(expand=True, pady=20, padx=20, fill="both")
+        container = scroll_view.content
 
         char_id = (
             char_data.get("char_id") if char_data and not is_new else None

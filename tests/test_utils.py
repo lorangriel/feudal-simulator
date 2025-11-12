@@ -1,4 +1,9 @@
 import random
+import tkinter as tk
+from tkinter import ttk
+
+import pytest
+
 from src import utils
 
 
@@ -60,3 +65,27 @@ def test_parse_int_10_valid_and_invalid():
     assert utils.parse_int_10(None) == 0
     # Object raising in __str__ should yield 0
     assert utils.parse_int_10(Bad()) == 0
+
+
+def test_scrollable_frame_adds_scrollbar_when_content_overflows():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+
+    try:
+        frame = utils.ScrollableFrame(root)
+        frame.pack(fill="both", expand=True)
+        root.update_idletasks()
+
+        # Initially the scrollbar should stay hidden for small content
+        assert not frame.vscroll.winfo_ismapped()
+
+        for _ in range(40):
+            ttk.Label(frame.content, text="rad").pack()
+        root.update_idletasks()
+
+        assert frame.vscroll.winfo_ismapped()
+    finally:
+        root.destroy()
