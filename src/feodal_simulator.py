@@ -5312,6 +5312,7 @@ class FeodalSimulator:
         def save_spouses() -> None:
             node_data["noble_spouses"] = list(spouses)
             persist_spouse_children()
+            refresh_character_choices()
             self.save_current_world()
 
         def edit_spouse(index: int) -> None:
@@ -5376,6 +5377,7 @@ class FeodalSimulator:
 
         def save_children() -> None:
             persist_spouse_children()
+            refresh_character_choices()
             self.save_current_world()
 
         def edit_child(spouse_index: int, child_index: int) -> None:
@@ -5756,6 +5758,7 @@ class FeodalSimulator:
 
         def save_relatives() -> None:
             node_data["noble_relatives"] = list(relatives)
+            refresh_character_choices()
             refresh_staff_tab()
             self.save_current_world()
 

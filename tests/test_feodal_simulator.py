@@ -640,6 +640,183 @@ def test_creating_noble_lord_updates_combobox_immediately():
         root.destroy()
 
 
+def _find_combobox_with_value(widget, target):
+    if isinstance(widget, ttk.Combobox):
+        values = widget.cget("values")
+        if isinstance(values, str):
+            values = widget.tk.splitlist(values)
+        if target in values:
+            return widget
+    for child in widget.winfo_children():
+        found = _find_combobox_with_value(child, target)
+        if found is not None:
+            return found
+    return None
+
+
+def _combobox_values(combo):
+    values = combo.cget("values")
+    if isinstance(values, str):
+        return combo.tk.splitlist(values)
+    return tuple(values)
+
+
+def test_creating_noble_child_updates_combobox_immediately():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.root = root
+        sim.world_data = {
+            "characters": {
+                "1": {"name": "Lord", "gender": "Man"},
+            },
+            "nodes": {},
+        }
+        sim.add_status_message = lambda *_args, **_kwargs: None
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        created_ids: list[int] = []
+
+        def fake_creator(self, _node, callback, creation_context=None):
+            new_id = 10 + len(created_ids)
+            self.world_data["characters"][str(new_id)] = {
+                "char_id": new_id,
+                "name": f"Barn {new_id}",
+                "gender": "Man",
+            }
+            created_ids.append(new_id)
+            callback(new_id)
+
+        sim._open_character_creator_for_node = types.MethodType(fake_creator, sim)
+
+        node_data = {
+            "node_id": 1,
+            "noble_standard": "Välbärgad",
+            "noble_lord": {"kind": "character", "char_id": 1},
+            "noble_spouses": [{"kind": "placeholder", "label": ""}],
+            "noble_spouse_children": [
+                [{"kind": "placeholder", "label": "Barn levande"}]
+            ],
+            "noble_children": [{"kind": "placeholder", "label": "Barn levande"}],
+            "noble_relatives": [],
+        }
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        child_combo = _find_combobox_with_value(editor_frame, "Barn levande")
+        assert child_combo is not None, "Barn-kombo bör finnas"
+
+        child_combo.set("Ny")
+        child_combo.event_generate("<<ComboboxSelected>>")
+        root.update_idletasks()
+
+        assert created_ids, "Ny karaktär ska skapas"
+        new_id = created_ids[0]
+
+        expected_display = f"{new_id}: Barn {new_id}"
+        updated_combo = _find_combobox_with_value(editor_frame, expected_display)
+        assert updated_combo is not None, "Ny skapad karaktär ska visas"
+
+        values = _combobox_values(updated_combo)
+        display_value = updated_combo.get()
+        assert expected_display in values
+        assert display_value == expected_display
+        assert str(new_id) in sim.world_data["characters"]
+    finally:
+        root.destroy()
+
+
+def test_creating_noble_relative_updates_combobox_immediately():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.root = root
+        sim.world_data = {
+            "characters": {
+                "1": {"name": "Lord", "gender": "Man"},
+            },
+            "nodes": {},
+        }
+        sim.add_status_message = lambda *_args, **_kwargs: None
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        created_ids: list[int] = []
+
+        def fake_creator(self, _node, callback, creation_context=None):
+            new_id = 20 + len(created_ids)
+            self.world_data["characters"][str(new_id)] = {
+                "char_id": new_id,
+                "name": f"Släkting {new_id}",
+                "gender": "Man",
+            }
+            created_ids.append(new_id)
+            callback(new_id)
+
+        sim._open_character_creator_for_node = types.MethodType(fake_creator, sim)
+
+        node_data = {
+            "node_id": 1,
+            "noble_standard": "Välbärgad",
+            "noble_lord": {"kind": "character", "char_id": 1},
+            "noble_spouses": [],
+            "noble_spouse_children": [],
+            "noble_children": [],
+            "noble_relatives": [
+                {"kind": "placeholder", "label": "Släkting levande"}
+            ],
+        }
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        relative_combo = _find_combobox_with_value(editor_frame, "Släkting levande")
+        assert relative_combo is not None, "Släkting-kombo bör finnas"
+
+        relative_combo.set("Ny")
+        relative_combo.event_generate("<<ComboboxSelected>>")
+        root.update_idletasks()
+
+        assert created_ids, "Ny släkting ska skapas"
+        new_id = created_ids[0]
+
+        expected_display = f"{new_id}: Släkting {new_id}"
+        updated_combo = _find_combobox_with_value(editor_frame, expected_display)
+        assert updated_combo is not None, "Ny släkting ska visas"
+
+        values = _combobox_values(updated_combo)
+        display_value = updated_combo.get()
+        assert expected_display in values
+        assert display_value == expected_display
+        assert str(new_id) in sim.world_data["characters"]
+    finally:
+        root.destroy()
+
+
 def test_generate_auto_character_name_inherits_surname():
     state = random.getstate()
     try:
