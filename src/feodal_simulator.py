@@ -3070,12 +3070,17 @@ class FeodalSimulator:
         return entries
 
     def _person_entry_display(
-        self, entry: dict, characters: dict[str, dict]
+        self,
+        entry: dict,
+        characters: dict[str, dict],
+        display_lookup: dict[int, str] | None = None,
     ) -> str:
         if entry.get("kind") == "character":
             cid = entry.get("char_id")
             if cid is None:
                 return ""
+            if display_lookup and cid in display_lookup:
+                return display_lookup[cid]
             char = characters.get(str(cid)) if characters else None
             name = char.get("name", f"ID {cid}") if isinstance(char, dict) else f"ID {cid}"
             return self._format_character_display(cid, name)
@@ -4889,7 +4894,7 @@ class FeodalSimulator:
         initial_lord_display = ""
         if noble_lord_entry:
             initial_lord_display = self._person_entry_display(
-                noble_lord_entry, characters
+                noble_lord_entry, characters, char_display_lookup
             )
             if noble_lord_entry.get("kind") == "character":
                 cid_val = self._entry_char_id(noble_lord_entry)
@@ -4913,7 +4918,10 @@ class FeodalSimulator:
         def current_lord_display() -> str:
             entry = node_data.get("noble_lord")
             if isinstance(entry, dict):
-                return self._person_entry_display(entry, characters) or ""
+                return (
+                    self._person_entry_display(entry, characters, char_display_lookup)
+                    or ""
+                )
             return ""
 
         def build_lord_option_map() -> dict[str, tuple[str, int | str | None]]:
@@ -5399,7 +5407,8 @@ class FeodalSimulator:
             except ValueError:
                 target = len(spouse_children[spouse_index])
             target = max(0, min(9, target))
-            if row_info["child_count_var"].get() != str(target):
+            current_value = row_info["child_count_var"].get()
+            if current_value != str(target):
                 row_info["child_count_var"].set(str(target))
                 return
             group = spouse_children[spouse_index]
@@ -5412,9 +5421,9 @@ class FeodalSimulator:
                 changed = True
             if changed:
                 save_children()
+                rebuild_child_rows(spouse_index)
             else:
                 persist_spouse_children()
-            rebuild_child_rows(spouse_index)
 
         def rebuild_child_rows(spouse_index: int) -> None:
             if spouse_index < 0 or spouse_index >= len(spouse_rows):
@@ -5428,13 +5437,17 @@ class FeodalSimulator:
             row_info["child_rows"].clear()
             parent_counts = calculate_child_parent_counts()
             group = spouse_children[spouse_index] if spouse_index < len(spouse_children) else []
-            row_info["child_count_var"].set(str(len(group)))
+            new_count_value = str(len(group))
+            if row_info["child_count_var"].get() != new_count_value:
+                row_info["child_count_var"].set(new_count_value)
             for idx, entry in enumerate(group):
                 row = ttk.Frame(frame)
                 row.pack(fill="x", pady=2)
                 ttk.Label(row, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
                 option_map = build_child_option_map(spouse_index, idx, parent_counts)
-                display = self._person_entry_display(entry or {}, characters)
+                display = self._person_entry_display(
+                    entry or {}, characters, char_display_lookup
+                )
                 if display and display not in option_map:
                     if entry and entry.get("kind") == "character":
                         option_map[display] = (
@@ -5467,7 +5480,9 @@ class FeodalSimulator:
                         action, payload = option
                         if action == "new":
                             prev = self._person_entry_display(
-                                spouse_children[s_index][c_index], characters
+                                spouse_children[s_index][c_index],
+                                characters,
+                                char_display_lookup,
                             )
                             row_local["var"].set(prev or child_default_label)
 
@@ -5550,7 +5565,9 @@ class FeodalSimulator:
                 top_row.pack(fill="x")
                 ttk.Label(top_row, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
                 option_map = build_spouse_option_map(idx)
-                display = self._person_entry_display(entry or {}, characters)
+                display = self._person_entry_display(
+                    entry or {}, characters, char_display_lookup
+                )
                 if display and display not in option_map:
                     if entry and entry.get("kind") == "character":
                         option_map[display] = (
@@ -5578,7 +5595,9 @@ class FeodalSimulator:
                             return
                         action, payload = option
                         if action == "new":
-                            prev = self._person_entry_display(spouses[index], characters)
+                            prev = self._person_entry_display(
+                                spouses[index], characters, char_display_lookup
+                            )
                             spouse_rows[index]["var"].set(prev)
 
                             def assign_new(new_id: int, s_index=index) -> None:
@@ -5725,7 +5744,9 @@ class FeodalSimulator:
             for cid, name in char_choices:
                 option_map[char_display_lookup[cid]] = ("character", cid)
             entry = relatives[index] if index < len(relatives) else None
-            display = self._person_entry_display(entry or {}, characters)
+            display = self._person_entry_display(
+                entry or {}, characters, char_display_lookup
+            )
             if display and display not in option_map:
                 if entry and entry.get("kind") == "character":
                     option_map[display] = ("character", self._entry_char_id(entry))
@@ -5778,7 +5799,9 @@ class FeodalSimulator:
                 frame.pack(fill="x", pady=2)
                 ttk.Label(frame, text=f"{idx + 1}.", width=3).pack(side=tk.LEFT)
                 option_map = build_relative_option_map(idx)
-                display = self._person_entry_display(entry or {}, characters)
+                display = self._person_entry_display(
+                    entry or {}, characters, char_display_lookup
+                )
                 var = tk.StringVar(value=display or relative_default_label)
                 combo = ttk.Combobox(
                     frame,
@@ -5799,7 +5822,9 @@ class FeodalSimulator:
                             return
                         action, payload = option
                         if action == "new":
-                            prev = self._person_entry_display(relatives[index], characters)
+                            prev = self._person_entry_display(
+                                relatives[index], characters, char_display_lookup
+                            )
                             relative_rows[index]["var"].set(prev or relative_default_label)
 
                             def assign_new_relative(new_id: int) -> None:
