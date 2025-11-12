@@ -15,6 +15,21 @@ def test_living_level_mapping_and_housing_requirement():
     assert get_housing_requirement_for_level("Lyxliv") == "Sammansatt borgkärna"
 
 
+def test_staff_roles_are_ordered_by_seniority():
+    expected_order = (
+        "Köksmästare",
+        "Hovmästare",
+        "Kammarherre",
+        "Kock",
+        "Kammarjungfru",
+        "Kallskänka",
+        "Kokerka",
+        "Tjänare",
+        "Hushållspersonal",
+    )
+    assert STAFF_ROLE_ORDER == expected_order
+
+
 def test_calculate_noble_household_counts_entries():
     node_data = {
         "noble_lord": {"kind": "character", "char_id": 1},

@@ -26,15 +26,15 @@ HOUSING_REQUIREMENTS: Dict[str, str] = {
 
 # Display order for staff roles in the UI.
 STAFF_ROLE_ORDER: Tuple[str, ...] = (
-    "Hushållspersonal",
-    "Tjänare",
-    "Kokerka",
-    "Kallskänka",
-    "Kammarjungfru",
-    "Kock",
-    "Kammarherre",
-    "Hovmästare",
     "Köksmästare",
+    "Hovmästare",
+    "Kammarherre",
+    "Kock",
+    "Kammarjungfru",
+    "Kallskänka",
+    "Kokerka",
+    "Tjänare",
+    "Hushållspersonal",
 )
 
 # Base and luxury level costs per role (per year).
