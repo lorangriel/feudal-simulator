@@ -512,6 +512,74 @@ def test_noble_family_editor_places_lord_before_standard():
         root.destroy()
 
 
+def test_noble_family_children_display_once_with_character_names():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.world_data = {
+            "characters": {
+                "1": {"name": "Lord"},
+                "2": {"name": "Partner"},
+                "3": {"name": "Barn"},
+            },
+            "nodes": {},
+        }
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._open_character_creator_for_node = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        node_data = {
+            "node_id": 1,
+            "noble_standard": "Välbärgad",
+            "noble_lord": {"kind": "character", "char_id": 1},
+            "noble_spouses": [{"kind": "character", "char_id": 2}],
+            "noble_spouse_children": [[{"kind": "character", "char_id": 3}]],
+            "noble_children": [{"kind": "character", "char_id": 3}],
+            "noble_relatives": [],
+        }
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        notebook = next(
+            child
+            for child in editor_frame.winfo_children()
+            if isinstance(child, ttk.Notebook)
+        )
+        spouse_tab = notebook.nametowidget(notebook.tabs()[0])
+
+        def collect_widgets(widget, cls):
+            collected = []
+            if isinstance(widget, cls):
+                collected.append(widget)
+            for child in widget.winfo_children():
+                collected.extend(collect_widgets(child, cls))
+            return collected
+
+        child_display = sim._format_character_display(3, "Barn")
+        child_combos = [
+            widget
+            for widget in collect_widgets(spouse_tab, ttk.Combobox)
+            if widget.get() == child_display
+        ]
+
+        assert len(child_combos) == 1
+        assert child_combos[0].get() == child_display
+    finally:
+        root.destroy()
+
+
 def test_creating_noble_lord_updates_combobox_immediately():
     try:
         root = tk.Tk()
