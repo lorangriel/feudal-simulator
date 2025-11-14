@@ -5835,6 +5835,8 @@ class FeodalSimulator:
                             def assign_new_relative(new_id: int) -> None:
                                 relatives[index] = {"kind": "character", "char_id": new_id}
                                 save_relatives()
+                                rebuild_relative_rows()
+                                refresh_relative_styles()
 
                             self._open_character_creator_for_node(
                                 node_data,
