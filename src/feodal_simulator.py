@@ -5209,6 +5209,7 @@ class FeodalSimulator:
         staff_summary_frame = ttk.Frame(staff_tab)
         staff_summary_frame.pack(fill="x", padx=5, pady=5)
         staff_summary_frame.grid_columnconfigure(1, weight=1)
+        staff_summary_frame.grid_columnconfigure(2, weight=1)
 
         household_total_var = tk.StringVar(value="0")
         household_breakdown_var = tk.StringVar(
@@ -5222,7 +5223,7 @@ class FeodalSimulator:
             row=0, column=1, sticky="w", padx=5, pady=2
         )
         ttk.Label(staff_summary_frame, textvariable=household_breakdown_var).grid(
-            row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(4, 0)
+            row=0, column=2, sticky="w", padx=5, pady=2
         )
 
         staff_rows_frame = ttk.Frame(staff_tab)
@@ -5270,8 +5271,9 @@ class FeodalSimulator:
 
         staff_base_total_var = tk.StringVar(value="0")
         staff_lyx_total_var = tk.StringVar(value="0")
-        total_frame = ttk.Frame(staff_tab)
-        total_frame.pack(fill="x", padx=5, pady=(0, 10))
+        total_frame = ttk.Frame(staff_rows_frame)
+        totals_row = len(STAFF_ROLE_ORDER) + 1
+        total_frame.grid(row=totals_row, column=0, columnspan=4, sticky="w", padx=5, pady=(4, 10))
         ttk.Label(total_frame, text="BAS:").grid(row=0, column=0, sticky="w", padx=5)
         ttk.Label(total_frame, textvariable=staff_base_total_var).grid(
             row=0, column=1, sticky="w", padx=(0, 10)
