@@ -2698,6 +2698,12 @@ class FeodalSimulator:
 
     def _building_entries_for_parent(self, parent_id: int | None) -> list[dict]:
         entries: list[dict] = []
+        if self.world_data:
+            parent_node = self.world_data.get("nodes", {}).get(str(parent_id))
+            if parent_node and parent_node.get("res_type") == "Byggnader":
+                parent_buildings = parent_node.get("buildings", [])
+                if isinstance(parent_buildings, list):
+                    entries.extend(parent_buildings)
         for ndata in self._iter_nodes_with_parent(parent_id) or []:
             if ndata.get("res_type") != "Byggnader":
                 continue
@@ -2757,6 +2763,9 @@ class FeodalSimulator:
             return True, None
         parent_id = node_data.get("parent_id")
         families = list(self._noble_family_nodes_for_parent(parent_id))
+        node_id = self._coerce_int(node_data.get("node_id"))
+        if node_id is not None:
+            families.extend(self._noble_family_nodes_for_parent(node_id))
         if not families:
             return True, None
         new_rank = get_highest_building_rank(new_buildings)

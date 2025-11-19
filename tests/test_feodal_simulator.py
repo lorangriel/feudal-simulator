@@ -1131,6 +1131,29 @@ def test_noble_family_creation_allowed_with_valid_buildings():
     assert message is None
 
 
+def test_noble_family_creation_allowed_with_buildings_on_parent_node():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [{"type": "Stenhus", "count": 1}],
+            },
+        },
+    }
+    sim = _make_sim_with_world_data(world)
+
+    allowed, message = sim._evaluate_noble_family_placement(
+        {"node_id": 3, "parent_id": 2}
+    )
+
+    assert allowed is True
+    assert message is None
+
+
 def test_building_change_blocked_when_family_standard_too_high():
     world = {
         "characters": {},
@@ -1145,6 +1168,36 @@ def test_building_change_blocked_when_family_standard_too_high():
             "3": {
                 "node_id": 3,
                 "parent_id": 1,
+                "res_type": "Adelsfamilj",
+                "noble_standard": "Förnäm",
+            },
+        },
+    }
+    sim = _make_sim_with_world_data(world)
+    node_data = world["nodes"]["2"]
+
+    allowed, message = sim._validate_building_update(
+        node_data, [{"type": "Stenhus", "count": 1}]
+    )
+
+    assert allowed is False
+    assert message == sim.NOBLE_BUILDING_DOWNGRADE_MSG
+
+
+def test_building_change_blocked_when_family_is_child_of_building_node():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [{"type": "Borgkärna", "count": 1}],
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 2,
                 "res_type": "Adelsfamilj",
                 "noble_standard": "Förnäm",
             },
