@@ -45,11 +45,12 @@ from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 from status_service import StatusService
 from world_manager_ui import WorldManagerUI
 from noble_staff import (
+    ROLE_DESCRIPTIONS,
     STAFF_ROLE_ORDER,
     calculate_noble_household,
-    calculate_staff_costs,
+    calculate_staff_cost_totals,
     calculate_staff_requirements,
-    get_housing_requirement_for_level,
+    get_role_costs,
     get_living_level_for_standard,
 )
 
@@ -5072,17 +5073,51 @@ class FeodalSimulator:
         notebook.add(relatives_tab, text="Släktingar")
         notebook.add(staff_tab, text="Tjänstefolk")
 
+        tooltip_state: dict[str, tk.Toplevel | None] = {"window": None}
+
+        def hide_role_tooltip(event=None) -> None:
+            win = tooltip_state.get("window")
+            if win and self._widget_exists(win):
+                win.destroy()
+            tooltip_state["window"] = None
+
+        def show_role_tooltip(event, text: str) -> None:
+            if not text:
+                return
+            hide_role_tooltip()
+            win = tk.Toplevel(self.root)
+            win.wm_overrideredirect(True)
+            label = ttk.Label(
+                win,
+                text=text,
+                background="#ffffe0",
+                relief=tk.SOLID,
+                borderwidth=1,
+                padding=(6, 4),
+                wraplength=320,
+                justify=tk.LEFT,
+            )
+            label.pack()
+            x = event.x_root + 10
+            y = event.y_root + 10
+            win.wm_geometry(f"+{x}+{y}")
+            tooltip_state["window"] = win
+
+        def attach_role_tooltip(widget: object, role: str) -> None:
+            text = ROLE_DESCRIPTIONS.get(role, "")
+            if not text:
+                return
+            widget.bind("<Enter>", lambda e, t=text: show_role_tooltip(e, t))
+            widget.bind("<Leave>", hide_role_tooltip)
+
         staff_summary_frame = ttk.Frame(staff_tab)
         staff_summary_frame.pack(fill="x", padx=5, pady=5)
         staff_summary_frame.grid_columnconfigure(1, weight=1)
-        staff_summary_frame.grid_columnconfigure(3, weight=1)
 
         household_total_var = tk.StringVar(value="0")
         household_breakdown_var = tk.StringVar(
             value="Länsherre 0, Gemål 0, Barn 0, Släktingar 0"
         )
-        living_level_var = tk.StringVar(value="")
-        housing_requirement_var = tk.StringVar(value="")
 
         ttk.Label(staff_summary_frame, text="Antal adliga (A):").grid(
             row=0, column=0, sticky="w", padx=5, pady=2
@@ -5090,20 +5125,8 @@ class FeodalSimulator:
         ttk.Label(staff_summary_frame, textvariable=household_total_var).grid(
             row=0, column=1, sticky="w", padx=5, pady=2
         )
-        ttk.Label(staff_summary_frame, text="Levnadsnivå:").grid(
-            row=0, column=2, sticky="w", padx=5, pady=2
-        )
-        ttk.Label(staff_summary_frame, textvariable=living_level_var).grid(
-            row=0, column=3, sticky="w", padx=5, pady=2
-        )
-        ttk.Label(staff_summary_frame, text="Bostadskrav:").grid(
-            row=1, column=0, sticky="w", padx=5, pady=2
-        )
-        ttk.Label(staff_summary_frame, textvariable=housing_requirement_var).grid(
-            row=1, column=1, columnspan=3, sticky="w", padx=5, pady=2
-        )
         ttk.Label(staff_summary_frame, textvariable=household_breakdown_var).grid(
-            row=2, column=0, columnspan=4, sticky="w", padx=5, pady=(4, 0)
+            row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(4, 0)
         )
 
         staff_rows_frame = ttk.Frame(staff_tab)
@@ -5115,8 +5138,11 @@ class FeodalSimulator:
         ttk.Label(staff_rows_frame, text="Antal", font=("Arial", 10, "bold")).grid(
             row=0, column=1, sticky="e", padx=5, pady=(0, 4)
         )
-        ttk.Label(staff_rows_frame, text="Kostnad/år", font=("Arial", 10, "bold")).grid(
+        ttk.Label(staff_rows_frame, text="BAS", font=("Arial", 10, "bold")).grid(
             row=0, column=2, sticky="e", padx=5, pady=(0, 4)
+        )
+        ttk.Label(staff_rows_frame, text="Lyx", font=("Arial", 10, "bold")).grid(
+            row=0, column=3, sticky="e", padx=5, pady=(0, 4)
         )
 
         staff_rows: dict[str, dict[str, object]] = {}
@@ -5128,23 +5154,35 @@ class FeodalSimulator:
                 staff_rows_frame, textvariable=count_var, width=6, anchor="e"
             )
             count_label.grid(row=idx, column=1, sticky="e", padx=5, pady=2)
-            cost_var = tk.StringVar(value="0")
-            cost_label = ttk.Label(
-                staff_rows_frame, textvariable=cost_var, anchor="e"
+            base_var = tk.StringVar(value="0")
+            base_label = ttk.Label(
+                staff_rows_frame, textvariable=base_var, anchor="e"
             )
-            cost_label.grid(row=idx, column=2, sticky="e", padx=5, pady=2)
+            base_label.grid(row=idx, column=2, sticky="e", padx=5, pady=2)
+            lyx_var = tk.StringVar(value="–")
+            lyx_label = ttk.Label(
+                staff_rows_frame, textvariable=lyx_var, anchor="e"
+            )
+            lyx_label.grid(row=idx, column=3, sticky="e", padx=5, pady=2)
             staff_rows[role] = {
                 "count_var": count_var,
-                "cost_var": cost_var,
-                "widgets": (role_label, count_label, cost_label),
+                "base_var": base_var,
+                "lyx_var": lyx_var,
+                "widgets": (role_label, count_label, base_label, lyx_label),
             }
+            attach_role_tooltip(role_label, role)
 
-        staff_total_cost_var = tk.StringVar(value="0")
+        staff_base_total_var = tk.StringVar(value="0")
+        staff_lyx_total_var = tk.StringVar(value="0")
         total_frame = ttk.Frame(staff_tab)
         total_frame.pack(fill="x", padx=5, pady=(0, 10))
-        ttk.Label(total_frame, text="Total kostnad per år:").pack(side=tk.LEFT, padx=5)
-        ttk.Label(total_frame, textvariable=staff_total_cost_var).pack(
-            side=tk.LEFT, padx=5
+        ttk.Label(total_frame, text="BAS:").grid(row=0, column=0, sticky="w", padx=5)
+        ttk.Label(total_frame, textvariable=staff_base_total_var).grid(
+            row=0, column=1, sticky="w", padx=(0, 10)
+        )
+        ttk.Label(total_frame, text="Lyx:").grid(row=0, column=2, sticky="w", padx=5)
+        ttk.Label(total_frame, textvariable=staff_lyx_total_var).grid(
+            row=0, column=3, sticky="w"
         )
 
         def _update_staff_tab() -> None:
@@ -5162,30 +5200,35 @@ class FeodalSimulator:
                     summary.lord, summary.spouses, summary.children, summary.relatives
                 )
             )
-            living_level_var.set(living_level)
-            housing_requirement_var.set(
-                get_housing_requirement_for_level(living_level)
-            )
 
             counts = calculate_staff_requirements(living_level, summary.total)
-            cost_map, total_cost = calculate_staff_costs(counts, living_level)
+            cost_map, base_total, lyx_total = calculate_staff_cost_totals(counts)
             for role, row in staff_rows.items():
                 count = counts.get(role, 0)
                 widgets = row["widgets"]
                 if count > 0:
                     row["count_var"].set(str(count))
-                    unit_cost, role_total_cost = cost_map.get(role, (0, 0))
-                    if unit_cost:
-                        cost_text = f"{role_total_cost} (à {unit_cost})"
+                    role_base_total, role_lyx_total = cost_map.get(role, (0, None))
+                    base_unit, lyx_unit = get_role_costs(role)
+                    base_text = (
+                        f"{role_base_total} (à {base_unit})" if base_unit else str(role_base_total)
+                    )
+                    if role_lyx_total is None:
+                        lyx_text = "–"
+                    elif lyx_unit:
+                        lyx_text = f"{role_lyx_total} (à {lyx_unit})"
                     else:
-                        cost_text = str(role_total_cost)
-                    row["cost_var"].set(cost_text)
+                        lyx_text = str(role_lyx_total)
+                    row["base_var"].set(base_text)
+                    row["lyx_var"].set(lyx_text)
                     self._grid_set_visibility(widgets, True)
                 else:
                     row["count_var"].set("0")
-                    row["cost_var"].set("0")
+                    row["base_var"].set("0")
+                    row["lyx_var"].set("–")
                     self._grid_set_visibility(widgets, False)
-            staff_total_cost_var.set(str(total_cost))
+            staff_base_total_var.set(str(base_total))
+            staff_lyx_total_var.set(str(lyx_total))
 
         refresh_staff_tab = _update_staff_tab
         refresh_staff_tab()
