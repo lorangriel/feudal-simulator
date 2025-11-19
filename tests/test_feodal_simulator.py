@@ -27,6 +27,23 @@ def test_entry_char_id_helper():
     assert fs.FeodalSimulator._entry_char_id(None) is None
 
 
+def test_dagsverken_change_detection_handles_defaults():
+    node = {"dagsverken": "normalt"}
+    assert fs.FeodalSimulator._has_dagsverken_changed(node, "högt") is True
+    assert fs.FeodalSimulator._has_dagsverken_changed(node, "normalt") is False
+    assert (
+        fs.FeodalSimulator._has_dagsverken_changed({}, None)
+        is False
+    ), "Missing values should fall back to the default"
+
+
+def test_dagsverken_change_detection_strips_whitespace():
+    node = {"dagsverken": "högt"}
+    assert (
+        fs.FeodalSimulator._has_dagsverken_changed(node, " högt ") is False
+    ), "Whitespace differences should be ignored"
+
+
 class DummyWidget:
     def __init__(self, *, exists="1", master=None, manager="grid"):
         self._exists = exists
