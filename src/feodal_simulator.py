@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Main application class for the feudal simulator."""
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, simpledialog, messagebox
 import random
 import math
@@ -266,7 +267,15 @@ class FeodalSimulator:
             pass  # Sometimes fails on first launch
 
         try:
-            vertical_sash = int(self.root.winfo_height() * 0.8)
+            total_height = self.root.winfo_height()
+            preferred_sash = int(total_height * 0.8)
+
+            status_font = tkfont.Font(font=self.status_text.cget("font"))
+            line_height = status_font.metrics("linespace")
+            min_status_height = max(line_height * 4 + 30, 0)
+            max_sash = max(total_height - min_status_height, 0)
+            vertical_sash = min(preferred_sash, max_sash)
+
             self.main_vertical_paned.sash_place(0, 0, vertical_sash)
         except tk.TclError:
             pass
