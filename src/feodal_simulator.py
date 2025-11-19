@@ -1899,6 +1899,14 @@ class FeodalSimulator:
         )
         return delete_button
 
+    @staticmethod
+    def _has_dagsverken_changed(node_data, new_value):
+        """Return True if dagsverken level differs from stored data."""
+
+        existing = str(node_data.get("dagsverken", "normalt") or "normalt").strip()
+        candidate = (new_value or "normalt").strip()
+        return candidate != existing
+
     def _auto_save_field(self, node_data, key, value, refresh_tree=False):
         node_data[key] = value
         if key in {
@@ -4854,6 +4862,7 @@ class FeodalSimulator:
                 new_boats = int(boats_var.get() or "0", 10)
             except (tk.TclError, ValueError):
                 new_boats = 0
+            new_dags = (dagsverken_var.get() or "").strip() or "normalt"
             jk_sel = gamekeeper_var.get()
             new_gamekeeper = None
             if jk_sel and jk_sel != "Ingen karaktär" and ":" in jk_sel:
@@ -4963,7 +4972,7 @@ class FeodalSimulator:
                 or new_unfree != int(node_data.get("unfree_peasants", 0))
                 or new_thralls != int(node_data.get("thralls", 0))
                 or new_burghers != int(node_data.get("burghers", 0))
-                or new_dags != node_data.get("dagsverken", "normalt")
+                or self._has_dagsverken_changed(node_data, new_dags)
                 or new_craftsmen != node_data.get("craftsmen", [])
                 or new_soldiers != node_data.get("soldiers", [])
                 or new_characters != node_data.get("characters", [])
