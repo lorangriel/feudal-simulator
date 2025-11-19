@@ -694,6 +694,27 @@ def test_creating_noble_lord_updates_combobox_immediately():
         root.destroy()
 
 
+def test_available_noble_standards_use_buildings():
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [{"type": "Trästuga 2 våningar", "count": 1}],
+            },
+        }
+    }
+
+    node_data = {"node_id": 3, "parent_id": 1}
+
+    available = sim._available_noble_standards(node_data)
+
+    assert available == {"Enkel", "Anständig"}
+
+
 def _find_combobox_with_value(widget, target):
     if isinstance(widget, ttk.Combobox):
         values = widget.cget("values")
@@ -789,6 +810,63 @@ def test_creating_noble_child_updates_combobox_immediately():
         assert expected_display in values
         assert display_value == expected_display
         assert str(new_id) in sim.world_data["characters"]
+    finally:
+        root.destroy()
+
+
+def test_unavailable_noble_standard_resets_to_allowed_choice():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.root = root
+        sim.world_data = {
+            "characters": {},
+            "nodes": {
+                "1": {"node_id": 1, "parent_id": None},
+                "2": {
+                    "node_id": 2,
+                    "parent_id": 1,
+                    "res_type": "Byggnader",
+                    "buildings": [{"type": "Trästuga 2 våningar", "count": 1}],
+                },
+            },
+        }
+        sim.add_status_message = lambda *_args, **_kwargs: None
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._open_character_creator_for_node = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        node_data = {"node_id": 3, "parent_id": 1, "noble_standard": "Furstlig"}
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        display_lookup = {key: display for key, display, _ in fs.NOBLE_STANDARD_OPTIONS}
+        standard_combo = _find_combobox_with_value(
+            editor_frame, display_lookup.get("Furstlig")
+        )
+        assert standard_combo is not None
+
+        root.update_idletasks()
+
+        assert standard_combo.get() == display_lookup["Anständig"]
+
+        standard_combo.set(display_lookup["Furstlig"])
+        root.update_idletasks()
+
+        assert standard_combo.get() == display_lookup["Anständig"]
+        assert node_data.get("noble_standard") == "Anständig"
     finally:
         root.destroy()
 
