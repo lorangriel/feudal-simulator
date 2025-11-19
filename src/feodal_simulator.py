@@ -244,7 +244,7 @@ class FeodalSimulator:
         )
         self.status_text = tk.Text(
             self.status_frame,
-            height=6,
+            height=4,
             wrap="word",
             state="disabled",
             relief=tk.FLAT,
@@ -268,13 +268,10 @@ class FeodalSimulator:
 
         try:
             total_height = self.root.winfo_height()
-            preferred_sash = int(total_height * 0.8)
-
             status_font = tkfont.Font(font=self.status_text.cget("font"))
-            line_height = status_font.metrics("linespace")
-            min_status_height = max(line_height * 4 + 30, 0)
-            max_sash = max(total_height - min_status_height, 0)
-            vertical_sash = min(preferred_sash, max_sash)
+            line_height = max(status_font.metrics("linespace"), 1)
+            desired_status_height = max(line_height * 4 + 30, 0)
+            vertical_sash = max(total_height - desired_status_height, 0)
 
             self.main_vertical_paned.sash_place(0, 0, vertical_sash)
         except tk.TclError:
