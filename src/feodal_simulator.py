@@ -50,7 +50,10 @@ from noble_staff import (
     calculate_noble_household,
     calculate_staff_cost_totals,
     calculate_staff_requirements,
+    get_housing_requirement_for_level,
     get_role_costs,
+    HOUSING_REQUIREMENTS,
+    STANDARD_TO_LIVING_LEVEL,
     get_living_level_for_standard,
 )
 
@@ -2628,6 +2631,57 @@ class FeodalSimulator:
     def _format_character_display(char_id: int, name: str) -> str:
         return f"{char_id}: {name}"
 
+    def _available_noble_standards(self, node_data: dict) -> set[str]:
+        """Return noble standards allowed by the parent's buildings."""
+
+        if not self.world_data:
+            return set(STANDARD_TO_LIVING_LEVEL.keys())
+
+        building_order = [
+            "Trästuga liten",
+            "Trästuga 2 våningar",
+            "Stenhus",
+            "Borgkärna",
+            "Sammansatt borgkärna",
+        ]
+        building_rank = {name: idx for idx, name in enumerate(building_order)}
+        living_rank = {
+            level: building_rank.get(get_housing_requirement_for_level(level), -1)
+            for level in HOUSING_REQUIREMENTS
+        }
+
+        parent_id = node_data.get("parent_id")
+        if parent_id is None:
+            return set(STANDARD_TO_LIVING_LEVEL.keys())
+
+        max_rank = -1
+        for ndata in self.world_data.get("nodes", {}).values():
+            if ndata.get("parent_id") != parent_id:
+                continue
+            if ndata.get("res_type") != "Byggnader":
+                continue
+            for building in ndata.get("buildings", []):
+                btype = building.get("type")
+                try:
+                    bcount = int(building.get("count") or 0)
+                except (TypeError, ValueError):
+                    bcount = 0
+                if not btype or bcount <= 0:
+                    continue
+                rank = building_rank.get(btype)
+                if rank is not None and rank > max_rank:
+                    max_rank = rank
+
+        if max_rank < 0:
+            return set(STANDARD_TO_LIVING_LEVEL.keys())
+
+        available: set[str] = set()
+        for standard, living in STANDARD_TO_LIVING_LEVEL.items():
+            required_rank = living_rank.get(living, -1)
+            if required_rank < 0 or required_rank <= max_rank:
+                available.add(standard)
+        return available
+
     def _find_generic_character_id(self) -> int | None:
         if not self.world_data:
             return None
@@ -4862,7 +4916,22 @@ class FeodalSimulator:
         standard_key = node_data.get("noble_standard", "Välbärgad")
         if standard_key not in standard_to_display:
             standard_key = "Välbärgad"
+
+        available_standards = self._available_noble_standards(node_data)
+        if available_standards and standard_key not in available_standards:
+            for key, _, _ in reversed(NOBLE_STANDARD_OPTIONS):
+                if key in available_standards:
+                    standard_key = key
+                    node_data["noble_standard"] = key
+                    break
+
         node_data["noble_standard"] = standard_key
+        unavailable_displays = {
+            standard_to_display[key]
+            for key in standard_to_display
+            if key not in available_standards
+        }
+        last_valid_display = standard_to_display[standard_key]
 
         def resolve_missing(entry: dict | None, label: str = default_placeholder) -> dict | None:
             if not entry or entry.get("kind") != "character":
@@ -5045,16 +5114,43 @@ class FeodalSimulator:
         housing_entry.grid(row=row_idx, column=3, sticky="ew", padx=5, pady=3)
 
         def on_standard_change(*_):
+            nonlocal last_valid_display
             display = standard_var.get()
             key = display_to_standard.get(display)
             if not key:
                 return
+            if key not in available_standards:
+                standard_var.set(last_valid_display)
+                self.add_status_message(
+                    "Levnadsstandarden kräver byggnader som saknas i denna förläning."
+                )
+                return
+            last_valid_display = display
             node_data["noble_standard"] = key
             housing_var.set(standard_to_housing.get(key, ""))
             refresh_staff_tab()
             self.save_current_world()
 
         standard_var.trace_add("write", on_standard_change)
+
+        def style_standard_dropdown() -> None:
+            try:
+                popdown = standard_combo.tk.call(
+                    "ttk::combobox::PopdownWindow", standard_combo
+                )
+                listbox = standard_combo.nametowidget(f"{popdown}.f.l")
+            except Exception:
+                return
+            for idx, display in enumerate(display_values):
+                try:
+                    if display in unavailable_displays:
+                        listbox.itemconfigure(idx, foreground="gray")
+                    else:
+                        listbox.itemconfigure(idx, foreground="black")
+                except tk.TclError:
+                    continue
+
+        standard_combo.configure(postcommand=style_standard_dropdown)
 
         def current_lord_id() -> int | None:
             entry = node_data.get("noble_lord")
