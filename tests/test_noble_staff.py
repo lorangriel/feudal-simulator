@@ -1,4 +1,6 @@
 from noble_staff import (
+    NOBLE_BUILDING_ORDER,
+    NOBLE_STANDARD_ORDER,
     STAFF_ROLE_ORDER,
     calculate_noble_household,
     calculate_staff_costs,
@@ -6,6 +8,7 @@ from noble_staff import (
     calculate_staff_requirements,
     get_housing_requirement_for_level,
     get_living_level_for_standard,
+    get_max_allowed_standard_for_buildings,
 )
 
 
@@ -14,6 +17,33 @@ def test_living_level_mapping_and_housing_requirement():
     assert get_living_level_for_standard("Furstlig") == "Lyxliv"
     assert get_living_level_for_standard(None) == "God"
     assert get_housing_requirement_for_level("Lyxliv") == "Sammansatt borgkärna"
+
+
+def test_noble_standard_and_building_order_match_spec():
+    assert NOBLE_STANDARD_ORDER == (
+        "Enkel",
+        "Anständig",
+        "Välbärgad",
+        "Förnäm",
+        "Furstlig",
+    )
+    assert NOBLE_BUILDING_ORDER == (
+        "Trästuga liten",
+        "Trästuga 2 våningar",
+        "Stenhus",
+        "Borgkärna",
+        "Sammansatt borgkärna",
+    )
+
+
+def test_building_types_map_to_correct_noble_standard():
+    for building, standard in zip(NOBLE_BUILDING_ORDER, NOBLE_STANDARD_ORDER):
+        allowed = get_max_allowed_standard_for_buildings(
+            [{"type": building, "count": 1}]
+        )
+        assert (
+            allowed == standard
+        ), f"{building} ska maximalt stödja {standard}, fick {allowed}"
 
 
 def test_staff_roles_are_ordered_by_seniority():
