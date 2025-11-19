@@ -2,6 +2,7 @@ from noble_staff import (
     STAFF_ROLE_ORDER,
     calculate_noble_household,
     calculate_staff_costs,
+    calculate_staff_cost_totals,
     calculate_staff_requirements,
     get_housing_requirement_for_level,
     get_living_level_for_standard,
@@ -17,9 +18,9 @@ def test_living_level_mapping_and_housing_requirement():
 
 def test_staff_roles_are_ordered_by_seniority():
     expected_order = (
-        "Köksmästare",
-        "Hovmästare",
         "Kammarherre",
+        "Hovmästare",
+        "Köksmästare",
         "Kock",
         "Kammarjungfru",
         "Kallskänka",
@@ -87,3 +88,13 @@ def test_staff_requirements_and_costs_for_lyxliv():
     assert cost_map["Köksmästare"] == (1, 1)
     assert cost_map["Kammarherre"] == (2, 2)
     assert total >= 1
+
+
+def test_staff_base_and_lyx_cost_totals():
+    counts = {"Kammarherre": 2, "Kock": 3, "Tjänare": 0}
+    cost_totals, base_total, lyx_total = calculate_staff_cost_totals(counts)
+
+    assert cost_totals["Kammarherre"] == (4, 4)
+    assert cost_totals["Kock"] == (9, None)
+    assert base_total == 13
+    assert lyx_total == 4

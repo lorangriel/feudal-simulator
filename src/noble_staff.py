@@ -26,9 +26,9 @@ HOUSING_REQUIREMENTS: Dict[str, str] = {
 
 # Display order for staff roles in the UI.
 STAFF_ROLE_ORDER: Tuple[str, ...] = (
-    "Köksmästare",
-    "Hovmästare",
     "Kammarherre",
+    "Hovmästare",
+    "Köksmästare",
     "Kock",
     "Kammarjungfru",
     "Kallskänka",
@@ -36,6 +36,45 @@ STAFF_ROLE_ORDER: Tuple[str, ...] = (
     "Tjänare",
     "Hushållspersonal",
 )
+
+ROLE_DESCRIPTIONS: Dict[str, str] = {
+    "Kammarherre": (
+        "Hushållets ekonomiska och administrativa chef. Sköter räkenskaper, "
+        "inköp, egendomsförvaltning och övervakning av personal."
+    ),
+    "Hovmästare": (
+        "Leder tjänarna och ansvarar för ordning, servering och gästbemötande. "
+        "Representerar hushållet och organiserar större tillställningar."
+    ),
+    "Köksmästare": (
+        "Kökschef som planerar menyer, väljer råvaror och övervakar kockar och "
+        "servering."
+    ),
+    "Kock": (
+        "Professionell matlagare. Sköter huvudrätter och festmåltider. I större "
+        "hushåll arbetar han under köksmästaren."
+    ),
+    "Kammarjungfru": (
+        "Personlig tjänare åt länsherrens familj. Ansvarar för kläder, frisyr, "
+        "toalett, resor och diskreta tjänster. Motsvarighet i herrhushåll: valet."
+    ),
+    "Kallskänka": (
+        "Ansvarar för kalla rätter, bröd, bakverk, uppläggning, servering och i "
+        "större hushåll även förvaring, sylter och bakhus."
+    ),
+    "Kokerka": (
+        "Arbetar i köket med enkla sysslor: disk, vatten, ved, rengöring, "
+        "råvaruförberedelser och enklare matlagning."
+    ),
+    "Tjänare": (
+        "Frontpersonal som serverar, bär, öppnar dörrar, följer med på resor och "
+        "hjälper gäster. Vid högre nivåer bär de livré och ansvarar för etikett."
+    ),
+    "Hushållspersonal": (
+        "Städ, tvätt, eldning, bäddning och enklare underhåll. Ansvarar för att "
+        "hushållet fungerar dagligen."
+    ),
+}
 
 # Base and luxury level costs per role (per year).
 _ROLE_COST_BASE: Dict[str, int] = {
@@ -170,6 +209,7 @@ def _role_cost(role: str, living_level: str) -> int:
 
 StaffCounts = Dict[str, int]
 RoleCostSummary = Dict[str, Tuple[int, int]]
+RoleCostTotals = Dict[str, Tuple[int, int | None]]
 
 
 def calculate_staff_requirements(living_level: str, nobles_count: int) -> StaffCounts:
@@ -234,3 +274,33 @@ def calculate_staff_costs(counts: StaffCounts, living_level: str) -> Tuple[RoleC
         per_role[role] = (unit_cost, role_total)
         total += role_total
     return per_role, total
+
+
+def get_role_costs(role: str) -> Tuple[int, int | None]:
+    """Return the base and lyx per-person cost for a role."""
+
+    return _ROLE_COST_BASE.get(role, 0), _ROLE_COST_LYX.get(role)
+
+
+def calculate_staff_cost_totals(
+    counts: StaffCounts,
+) -> Tuple[RoleCostTotals, int, int]:
+    """Calculate base and lyx totals for each role and overall sums."""
+
+    per_role: RoleCostTotals = {}
+    base_total = 0
+    lyx_total = 0
+    for role, count in counts.items():
+        if count <= 0:
+            continue
+        base_cost, lyx_cost = get_role_costs(role)
+        role_base_total = base_cost * count
+        role_lyx_total: int | None
+        if lyx_cost is None:
+            role_lyx_total = None
+        else:
+            role_lyx_total = lyx_cost * count
+            lyx_total += role_lyx_total
+        per_role[role] = (role_base_total, role_lyx_total)
+        base_total += role_base_total
+    return per_role, base_total, lyx_total
