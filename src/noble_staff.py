@@ -3,26 +3,103 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import ceil
-from typing import Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Tuple
+
+
+@dataclass(frozen=True)
+class NobleHousingTier:
+    """Represents one mapping between standard, living level and housing."""
+
+    standard: str
+    living_level: str
+    building_type: str
+
+
+NOBLE_HOUSING_TIERS: Tuple[NobleHousingTier, ...] = (
+    NobleHousingTier("Enkel", "Nödtorftig", "Trästuga liten"),
+    NobleHousingTier("Anständig", "Gemen", "Trästuga 2 våningar"),
+    NobleHousingTier("Välbärgad", "God", "Stenhus"),
+    NobleHousingTier("Förnäm", "Mycket god", "Borgkärna"),
+    NobleHousingTier("Furstlig", "Lyxliv", "Sammansatt borgkärna"),
+)
+
+NOBLE_STANDARD_ORDER: Tuple[str, ...] = tuple(t.standard for t in NOBLE_HOUSING_TIERS)
+NOBLE_BUILDING_ORDER: Tuple[str, ...] = tuple(t.building_type for t in NOBLE_HOUSING_TIERS)
+_STANDARD_RANK: Dict[str, int] = {standard: idx for idx, standard in enumerate(NOBLE_STANDARD_ORDER)}
+_BUILDING_RANK: Dict[str, int] = {building: idx for idx, building in enumerate(NOBLE_BUILDING_ORDER)}
 
 # Mapping from noble standard keys used in the UI to the living levels
 # referenced by the staff requirement tables.
 STANDARD_TO_LIVING_LEVEL: Dict[str, str] = {
-    "Enkel": "Nödtorftig",
-    "Anständig": "Gemen",
-    "Välbärgad": "God",
-    "Förnäm": "Mycket god",
-    "Furstlig": "Lyxliv",
+    tier.standard: tier.living_level for tier in NOBLE_HOUSING_TIERS
 }
 
 # Housing requirement descriptions per living level.
 HOUSING_REQUIREMENTS: Dict[str, str] = {
-    "Nödtorftig": "Trästuga liten",
-    "Gemen": "Trästuga 2 våningar",
-    "God": "Stenhus",
-    "Mycket god": "Borgkärna",
-    "Lyxliv": "Sammansatt borgkärna",
+    tier.living_level: tier.building_type for tier in NOBLE_HOUSING_TIERS
 }
+
+
+def get_standard_rank(standard_key: str | None) -> int:
+    """Return the ordinal rank for a noble standard or ``-1`` if unknown."""
+
+    if not standard_key:
+        return -1
+    return _STANDARD_RANK.get(standard_key, -1)
+
+
+def get_allowed_standards_for_rank(rank: int) -> Tuple[str, ...]:
+    """Return standards allowed up to ``rank`` (inclusive)."""
+
+    if rank < 0:
+        return ()
+    limit = min(rank + 1, len(NOBLE_STANDARD_ORDER))
+    return NOBLE_STANDARD_ORDER[:limit]
+
+
+def get_highest_building_rank(
+    buildings: Iterable[Mapping[str, Any]] | None,
+) -> int:
+    """Return the highest building rank present in ``buildings``."""
+
+    max_rank = -1
+    if not buildings:
+        return max_rank
+    for entry in buildings:
+        if not isinstance(entry, Mapping):
+            continue
+        btype = entry.get("type")
+        if not btype:
+            continue
+        try:
+            count = int(entry.get("count", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if count <= 0:
+            continue
+        rank = _BUILDING_RANK.get(str(btype))
+        if rank is not None and rank > max_rank:
+            max_rank = rank
+    return max_rank
+
+
+def get_max_allowed_standard_for_buildings(
+    buildings: Iterable[Mapping[str, Any]] | None,
+) -> str | None:
+    """Return the highest standard supported by ``buildings`` if any."""
+
+    rank = get_highest_building_rank(buildings)
+    if rank < 0:
+        return None
+    return NOBLE_STANDARD_ORDER[rank]
+
+
+def get_allowed_standards_for_buildings(
+    buildings: Iterable[Mapping[str, Any]] | None,
+) -> Tuple[str, ...]:
+    """Return all standards supported by ``buildings``."""
+
+    return get_allowed_standards_for_rank(get_highest_building_rank(buildings))
 
 # Display order for staff roles in the UI.
 STAFF_ROLE_ORDER: Tuple[str, ...] = (

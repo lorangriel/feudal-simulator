@@ -48,6 +48,15 @@ class DummyWidget:
         self.grid_remove_called = True
 
 
+def _make_sim_with_world_data(world=None):
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    sim.world_data = world or {"nodes": {}, "characters": {}}
+    sim.add_status_message = lambda *_args, **_kwargs: None
+    sim.save_current_world = lambda: None
+    sim.root = None
+    return sim
+
+
 def test_grid_set_visibility_skips_destroyed_widgets():
     widget = DummyWidget(exists="0")
     fs.FeodalSimulator._grid_set_visibility((widget,), True)
@@ -715,6 +724,13 @@ def test_available_noble_standards_use_buildings():
     assert available == {"Enkel", "Anständig"}
 
 
+def test_available_noble_standards_empty_without_buildings():
+    sim = _make_sim_with_world_data({"nodes": {"1": {"node_id": 1, "parent_id": None}}})
+    node_data = {"node_id": 2, "parent_id": 1}
+
+    assert sim._available_noble_standards(node_data) == set()
+
+
 def _find_combobox_with_value(widget, target):
     if isinstance(widget, ttk.Combobox):
         values = widget.cget("values")
@@ -734,6 +750,55 @@ def _combobox_values(combo):
     if isinstance(values, str):
         return combo.tk.splitlist(values)
     return tuple(values)
+
+
+def test_new_noble_family_defaults_to_enkel():
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter display not available")
+    root.withdraw()
+    try:
+        editor_frame = ttk.Frame(root)
+        editor_frame.grid()
+
+        sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+        sim.root = root
+        sim.world_data = {
+            "characters": {},
+            "nodes": {
+                "1": {"node_id": 1, "parent_id": None},
+                "2": {
+                    "node_id": 2,
+                    "parent_id": 1,
+                    "res_type": "Byggnader",
+                    "buildings": [{"type": "Stenhus", "count": 1}],
+                },
+            },
+        }
+        sim.add_status_message = lambda *_args, **_kwargs: None
+        sim.save_current_world = lambda: None
+        sim._open_character_editor = lambda *args, **kwargs: None
+        sim._create_delete_button = lambda parent, *_args, **_kwargs: ttk.Button(
+            parent, text="Radera"
+        )
+        sim.show_no_world_view = lambda: None
+        sim.show_node_view = lambda node: None
+
+        node_data = {"node_id": 3, "parent_id": 1}
+
+        sim._show_noble_family_editor(editor_frame, node_data, depth=0, start_row=0)
+
+        assert node_data.get("noble_standard") == "Enkel"
+
+        display_lookup = {key: display for key, display, _ in fs.NOBLE_STANDARD_OPTIONS}
+        standard_combo = _find_combobox_with_value(
+            editor_frame, display_lookup["Enkel"]
+        )
+        assert standard_combo is not None
+        assert standard_combo.get() == display_lookup["Enkel"]
+    finally:
+        root.destroy()
 
 
 def test_creating_noble_child_updates_combobox_immediately():
@@ -986,6 +1051,130 @@ def test_make_relation_creation_context_includes_surname():
     assert context["inherited_surname"] == "Tel"
     assert context["node_name"] == "Jarldöme Test"
     assert context["lord_name"] == "Garan Tel"
+
+
+def test_noble_family_creation_blocked_without_buildings():
+    world = {"nodes": {"1": {"node_id": 1, "parent_id": None}}, "characters": {}}
+    sim = _make_sim_with_world_data(world)
+    allowed, message = sim._evaluate_noble_family_placement({"node_id": 5, "parent_id": 1})
+
+    assert allowed is False
+    assert message == sim.NOBLE_FAMILY_MISSING_BUILDING_MSG
+
+
+def test_noble_family_creation_blocked_when_family_already_exists():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [{"type": "Stenhus", "count": 1}],
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "res_type": "Adelsfamilj",
+                "noble_standard": "Enkel",
+            },
+        },
+    }
+    sim = _make_sim_with_world_data(world)
+
+    allowed, message = sim._evaluate_noble_family_placement(
+        {"node_id": 4, "parent_id": 1}
+    )
+
+    assert allowed is False
+    assert message == sim.NOBLE_FAMILY_DUPLICATE_MSG
+
+
+def test_noble_family_creation_allowed_with_valid_buildings():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [{"type": "Borgkärna", "count": 1}],
+            },
+        },
+    }
+    sim = _make_sim_with_world_data(world)
+
+    allowed, message = sim._evaluate_noble_family_placement(
+        {"node_id": 3, "parent_id": 1}
+    )
+
+    assert allowed is True
+    assert message is None
+
+
+def test_building_change_blocked_when_family_standard_too_high():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [{"type": "Borgkärna", "count": 1}],
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "res_type": "Adelsfamilj",
+                "noble_standard": "Förnäm",
+            },
+        },
+    }
+    sim = _make_sim_with_world_data(world)
+    node_data = world["nodes"]["2"]
+
+    allowed, message = sim._validate_building_update(
+        node_data, [{"type": "Stenhus", "count": 1}]
+    )
+
+    assert allowed is False
+    assert message == sim.NOBLE_BUILDING_DOWNGRADE_MSG
+
+
+def test_building_change_allowed_when_max_level_retained():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Byggnader",
+                "buildings": [
+                    {"type": "Borgkärna", "count": 1},
+                    {"type": "Trästuga liten", "count": 1},
+                ],
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 1,
+                "res_type": "Adelsfamilj",
+                "noble_standard": "Förnäm",
+            },
+        },
+    }
+    sim = _make_sim_with_world_data(world)
+    node_data = world["nodes"]["2"]
+
+    allowed, message = sim._validate_building_update(
+        node_data, [{"type": "Borgkärna", "count": 1}]
+    )
+
+    assert allowed is True
+    assert message is None
 
 
 def test_gather_liege_relationships_identifies_roles():

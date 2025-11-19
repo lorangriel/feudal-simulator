@@ -56,6 +56,9 @@ from noble_staff import (
     HOUSING_REQUIREMENTS,
     STANDARD_TO_LIVING_LEVEL,
     get_living_level_for_standard,
+    NOBLE_STANDARD_ORDER,
+    get_highest_building_rank,
+    get_standard_rank,
 )
 
 
@@ -63,6 +66,20 @@ from noble_staff import (
 # Main Application Class: FeodalSimulator
 # --------------------------------------------------
 class FeodalSimulator:
+    NOBLE_FAMILY_MISSING_BUILDING_MSG = (
+        "Adelsfamiljer kräver att det finns en bostad (Trästuga liten eller bättre). "
+        "Lägg till en godkänd byggnad innan du skapar familjen."
+    )
+    NOBLE_FAMILY_DUPLICATE_MSG = (
+        "Endast en adelsfamilj får kopplas till dessa byggnader. "
+        "Ta bort den befintliga familjen eller skapa fler byggnadsnoder."
+    )
+    NOBLE_BUILDING_DOWNGRADE_MSG = (
+        "Det finns en adelsfamilj med högre levnadsstandard än vad de kvarvarande "
+        "byggnaderna stödjer. Sänk först familjens levnadsstandard eller bygg en "
+        "finare byggnad."
+    )
+
     def __init__(self, root):
         self.root = root
         self.root.title("Förläningssimulator - Ingen värld")
@@ -2654,56 +2671,108 @@ class FeodalSimulator:
     def _format_character_display(char_id: int, name: str) -> str:
         return f"{char_id}: {name}"
 
+    @staticmethod
+    def _coerce_int(value: object) -> int | None:
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+        return None
+
+    def _iter_nodes_with_parent(self, parent_id: int | None):
+        if not self.world_data:
+            return
+        target_parent = self._coerce_int(parent_id)
+        for ndata in self.world_data.get("nodes", {}).values():
+            pid = self._coerce_int(ndata.get("parent_id"))
+            if pid == target_parent:
+                yield ndata
+
+    def _building_entries_for_parent(self, parent_id: int | None) -> list[dict]:
+        entries: list[dict] = []
+        for ndata in self._iter_nodes_with_parent(parent_id) or []:
+            if ndata.get("res_type") != "Byggnader":
+                continue
+            buildings = ndata.get("buildings", [])
+            if isinstance(buildings, list):
+                entries.extend(buildings)
+        return entries
+
+    def _highest_building_rank_for_parent(self, parent_id: int | None) -> int:
+        return get_highest_building_rank(self._building_entries_for_parent(parent_id))
+
+    def _noble_family_nodes_for_parent(
+        self, parent_id: int | None, exclude_node_id: int | None = None
+    ):
+        exclude_id = self._coerce_int(exclude_node_id)
+        for ndata in self._iter_nodes_with_parent(parent_id) or []:
+            if ndata.get("res_type") != "Adelsfamilj":
+                continue
+            nid = self._coerce_int(ndata.get("node_id"))
+            if exclude_id is not None and nid == exclude_id:
+                continue
+            yield ndata
+
     def _available_noble_standards(self, node_data: dict) -> set[str]:
         """Return noble standards allowed by the parent's buildings."""
 
         if not self.world_data:
-            return set(STANDARD_TO_LIVING_LEVEL.keys())
-
-        building_order = [
-            "Trästuga liten",
-            "Trästuga 2 våningar",
-            "Stenhus",
-            "Borgkärna",
-            "Sammansatt borgkärna",
-        ]
-        building_rank = {name: idx for idx, name in enumerate(building_order)}
-        living_rank = {
-            level: building_rank.get(get_housing_requirement_for_level(level), -1)
-            for level in HOUSING_REQUIREMENTS
-        }
+            return set(NOBLE_STANDARD_ORDER)
 
         parent_id = node_data.get("parent_id")
-        if parent_id is None:
-            return set(STANDARD_TO_LIVING_LEVEL.keys())
-
-        max_rank = -1
-        for ndata in self.world_data.get("nodes", {}).values():
-            if ndata.get("parent_id") != parent_id:
-                continue
-            if ndata.get("res_type") != "Byggnader":
-                continue
-            for building in ndata.get("buildings", []):
-                btype = building.get("type")
-                try:
-                    bcount = int(building.get("count") or 0)
-                except (TypeError, ValueError):
-                    bcount = 0
-                if not btype or bcount <= 0:
-                    continue
-                rank = building_rank.get(btype)
-                if rank is not None and rank > max_rank:
-                    max_rank = rank
-
+        max_rank = self._highest_building_rank_for_parent(parent_id)
         if max_rank < 0:
-            return set(STANDARD_TO_LIVING_LEVEL.keys())
+            return set()
+        return set(NOBLE_STANDARD_ORDER[: max_rank + 1])
 
-        available: set[str] = set()
-        for standard, living in STANDARD_TO_LIVING_LEVEL.items():
-            required_rank = living_rank.get(living, -1)
-            if required_rank < 0 or required_rank <= max_rank:
-                available.add(standard)
-        return available
+    def _evaluate_noble_family_placement(
+        self, node_data: dict
+    ) -> tuple[bool, str | None]:
+        if not self.world_data:
+            return True, None
+        parent_id = node_data.get("parent_id")
+        parent_int = self._coerce_int(parent_id)
+        if parent_int is None:
+            return True, None
+        node_id = self._coerce_int(node_data.get("node_id"))
+        max_rank = self._highest_building_rank_for_parent(parent_int)
+        if max_rank < 0:
+            return False, self.NOBLE_FAMILY_MISSING_BUILDING_MSG
+        for _family in self._noble_family_nodes_for_parent(parent_int, node_id):
+            return False, self.NOBLE_FAMILY_DUPLICATE_MSG
+        return True, None
+
+    def _validate_building_update(
+        self, node_data: dict, new_buildings: list[dict]
+    ) -> tuple[bool, str | None]:
+        if node_data.get("res_type") != "Byggnader":
+            return True, None
+        parent_id = node_data.get("parent_id")
+        families = list(self._noble_family_nodes_for_parent(parent_id))
+        if not families:
+            return True, None
+        new_rank = get_highest_building_rank(new_buildings)
+        if new_rank < 0:
+            return False, self.NOBLE_BUILDING_DOWNGRADE_MSG
+        for family in families:
+            standard_key = family.get("noble_standard", "Enkel")
+            if get_standard_rank(standard_key) > new_rank:
+                return False, self.NOBLE_BUILDING_DOWNGRADE_MSG
+        return True, None
+
+    def _show_blocking_error(self, message: str) -> None:
+        self.add_status_message(message)
+        try:
+            messagebox.showerror("Åtgärd stoppad", message, parent=self.root)
+        except tk.TclError:
+            pass
+
+    def _show_blocking_warning(self, message: str) -> None:
+        self.add_status_message(message)
+        try:
+            messagebox.showwarning("Åtgärd stoppad", message, parent=self.root)
+        except tk.TclError:
+            pass
 
     def _find_generic_character_id(self) -> int | None:
         if not self.world_data:
@@ -3246,8 +3315,21 @@ class FeodalSimulator:
         )
         res_combo.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
 
+        previous_res_type = {"value": initial_res_type}
+
         def on_res_change(*_):
-            self._auto_save_field(node_data, "res_type", res_var.get().strip(), True)
+            new_value = res_var.get().strip()
+            if new_value == previous_res_type["value"]:
+                return
+            if new_value == "Adelsfamilj":
+                allowed, message = self._evaluate_noble_family_placement(node_data)
+                if not allowed:
+                    res_var.set(previous_res_type["value"])
+                    if message:
+                        self._show_blocking_error(message)
+                    return
+            previous_res_type["value"] = new_value
+            self._auto_save_field(node_data, "res_type", new_value, True)
             for child in parent_frame.winfo_children():
                 child.destroy()
             self._show_resource_editor(parent_frame, node_data, depth)
@@ -4178,6 +4260,12 @@ class FeodalSimulator:
                 for r in building_rows
                 if r["type_var"].get()
             ]
+            allowed, message = self._validate_building_update(node_data, data)
+            if not allowed:
+                if message:
+                    self._show_blocking_warning(message)
+                refresh_building_rows_from_node()
+                return
             self._auto_save_field(node_data, "buildings", data, False)
 
         jarldom_options: list[str] = []
@@ -4494,6 +4582,22 @@ class FeodalSimulator:
                 create_building_row(blank=True)
             update_building_options()
 
+        def refresh_building_rows_from_node():
+            for row in list(building_rows):
+                try:
+                    row["frame"].destroy()
+                except Exception:
+                    pass
+            building_rows.clear()
+            buildings = node_data.get("buildings", [])
+            if isinstance(buildings, list):
+                for b in buildings:
+                    btype = b.get("type", "")
+                    bcount = b.get("count", 0)
+                    create_building_row(btype, bcount)
+            add_blank_building_row_if_needed()
+            update_building_options()
+
         for c in node_data.get("craftsmen", []):
             ctype = c.get("type", "")
             count = c.get("count", 1)
@@ -4518,10 +4622,7 @@ class FeodalSimulator:
             acount = a.get("count", 0)
             create_animal_row(atype, acount)
 
-        for b in node_data.get("buildings", []):
-            btype = b.get("type", "")
-            bcount = b.get("count", 0)
-            create_building_row(btype, bcount)
+        refresh_building_rows_from_node()
 
         add_blank_row_if_needed()
         update_craftsman_options()
@@ -4531,8 +4632,6 @@ class FeodalSimulator:
         update_character_options()
         add_blank_animal_row_if_needed()
         update_animal_options()
-        add_blank_building_row_if_needed()
-        update_building_options()
 
         def refresh_settlement_visibility(*args):
             if res_var.get() == "Bosättning":
@@ -4640,11 +4739,20 @@ class FeodalSimulator:
                 ]
             else:
                 node_data.pop("animals", None)
-            node_data["buildings"] = [
+            new_buildings = [
                 {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
                 for r in building_rows
                 if r["type_var"].get()
             ]
+            allowed_buildings, message = self._validate_building_update(
+                node_data, new_buildings
+            )
+            if not allowed_buildings:
+                if message:
+                    self._show_blocking_warning(message)
+                refresh_building_rows_from_node()
+                return
+            node_data["buildings"] = new_buildings
             if res_var.get() in {"Hav", "Flod"}:
                 node_data["fish_quality"] = fish_var.get()
                 try:
@@ -4936,9 +5044,9 @@ class FeodalSimulator:
         standard_to_housing = {opt[0]: opt[2] for opt in NOBLE_STANDARD_OPTIONS}
         display_values = list(display_to_standard.keys())
 
-        standard_key = node_data.get("noble_standard", "Välbärgad")
+        standard_key = node_data.get("noble_standard", "Enkel")
         if standard_key not in standard_to_display:
-            standard_key = "Välbärgad"
+            standard_key = "Enkel"
 
         available_standards = self._available_noble_standards(node_data)
         if available_standards and standard_key not in available_standards:
