@@ -116,8 +116,17 @@ class FeodalSimulator:
         )
 
         # --- Main Layout ---
-        self.main_frame = ttk.Frame(self.root, style="Content.TFrame")
-        self.main_frame.pack(fill="both", expand=True)
+        self.main_vertical_paned = tk.PanedWindow(
+            self.root,
+            orient=tk.VERTICAL,
+            sashrelief=tk.RAISED,
+            bg="#cccccc",
+            sashwidth=8,
+        )
+        self.main_vertical_paned.pack(fill="both", expand=True)
+
+        self.main_frame = ttk.Frame(self.main_vertical_paned, style="Content.TFrame")
+        self.main_vertical_paned.add(self.main_frame)
 
         # --- Menu Bar ---
         menubar = tk.Menu(self.root)
@@ -228,19 +237,12 @@ class FeodalSimulator:
         self.right_frame.pack(fill="both", expand=True)
         self.paned_window.add(self.right_frame)  # Add weight
 
-        # Set initial sash position (approx 1/3)
-        self.root.update_idletasks()  # Ensure sizes are calculated
-        sash_pos = int(self.root.winfo_width() * 0.3)
-        try:
-            self.paned_window.sash_place(0, sash_pos, 0)
-        except tk.TclError:
-            pass  # Sometimes fails on first launch
-
         # --- Status Bar ---
-        status_frame = ttk.LabelFrame(self.root, text="Status", padding=5)
-        status_frame.pack(side=tk.BOTTOM, fill="x", padx=5, pady=5)
+        self.status_frame = ttk.LabelFrame(
+            self.main_vertical_paned, text="Status", padding=5
+        )
         self.status_text = tk.Text(
-            status_frame,
+            self.status_frame,
             height=6,
             wrap="word",
             state="disabled",
@@ -248,11 +250,26 @@ class FeodalSimulator:
             bg="#f0f0f0",
             font=("Arial", 9),
         )  # Smaller font
-        status_scroll = ttk.Scrollbar(status_frame, command=self.status_text.yview)
+        status_scroll = ttk.Scrollbar(self.status_frame, command=self.status_text.yview)
         self.status_text.config(yscrollcommand=status_scroll.set)
         status_scroll.pack(side=tk.RIGHT, fill="y")
         self.status_text.pack(side=tk.LEFT, fill="both", expand=True)
+        self.main_vertical_paned.add(self.status_frame)
         self.status_service.add_listener(self._append_status_text)
+
+        # Set initial sash positions (horizontal and vertical)
+        self.root.update_idletasks()  # Ensure sizes are calculated
+        sash_pos = int(self.root.winfo_width() * 0.3)
+        try:
+            self.paned_window.sash_place(0, sash_pos, 0)
+        except tk.TclError:
+            pass  # Sometimes fails on first launch
+
+        try:
+            vertical_sash = int(self.root.winfo_height() * 0.8)
+            self.main_vertical_paned.sash_place(0, 0, vertical_sash)
+        except tk.TclError:
+            pass
 
         # --- Map related attributes (initialized later) ---
         self.dynamic_map_view = None
