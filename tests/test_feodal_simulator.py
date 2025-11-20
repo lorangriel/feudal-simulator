@@ -74,6 +74,29 @@ def _make_sim_with_world_data(world=None):
     return sim
 
 
+def test_normalize_building_count_defaults_to_one():
+    assert fs.FeodalSimulator._normalize_building_count("") == 1
+    assert fs.FeodalSimulator._normalize_building_count(None) == 1
+    assert fs.FeodalSimulator._normalize_building_count("0") == 1
+    assert fs.FeodalSimulator._normalize_building_count(" 2 ") == 2
+
+
+def test_building_entries_normalize_missing_counts():
+    node = {
+        "buildings": [
+            {"type": "Stenhus", "count": ""},
+            {"type": "Borgkärna", "count": 0},
+        ]
+    }
+
+    entries = fs.FeodalSimulator._building_entries_for_node(node)
+
+    assert entries == [
+        {"type": "Stenhus", "count": 1},
+        {"type": "Borgkärna", "count": 1},
+    ]
+
+
 def test_grid_set_visibility_skips_destroyed_widgets():
     widget = DummyWidget(exists="0")
     fs.FeodalSimulator._grid_set_visibility((widget,), True)

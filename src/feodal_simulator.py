@@ -2715,6 +2715,15 @@ class FeodalSimulator:
             return int(value)
         return None
 
+    @staticmethod
+    def _normalize_building_count(value: object) -> int:
+        try:
+            cleaned = str(value).strip()
+            count = int(cleaned) if cleaned else 0
+        except (TypeError, ValueError):
+            count = 0
+        return max(1, count)
+
     def _iter_nodes_with_parent(self, parent_id: int | None):
         if not self.world_data:
             return
@@ -2733,7 +2742,16 @@ class FeodalSimulator:
             entries.append({"type": node_data.get("res_type"), "count": 1})
         buildings = node_data.get("buildings", [])
         if isinstance(buildings, list):
-            entries.extend(buildings)
+            for building in buildings:
+                if not isinstance(building, dict):
+                    continue
+                b_type = building.get("type")
+                if not b_type:
+                    continue
+                normalized_count = FeodalSimulator._normalize_building_count(
+                    building.get("count", 1)
+                )
+                entries.append({"type": b_type, "count": normalized_count})
         return entries
 
     def _building_entries_for_parent(self, parent_id: int | None) -> list[dict]:
@@ -4306,7 +4324,10 @@ class FeodalSimulator:
 
         def save_buildings() -> None:
             data = [
-                {"type": r["type_var"].get(), "count": int(r["count_var"].get() or 0)}
+                {
+                    "type": r["type_var"].get(),
+                    "count": self._normalize_building_count(r["count_var"].get()),
+                }
                 for r in building_rows
                 if r["type_var"].get()
             ]
@@ -4609,6 +4630,11 @@ class FeodalSimulator:
                         if other is not r and other["type_var"].get() == selected:
                             r["type_var"].set("")
                             return
+                    normalized_count = self._normalize_building_count(
+                        r["count_var"].get()
+                    )
+                    if str(normalized_count) != r["count_var"].get():
+                        r["count_var"].set(str(normalized_count))
                 if r.get("blank") and r["type_var"].get():
                     r["blank"] = False
                     add_blank_building_row_if_needed()
@@ -4643,7 +4669,7 @@ class FeodalSimulator:
             if isinstance(buildings, list):
                 for b in buildings:
                     btype = b.get("type", "")
-                    bcount = b.get("count", 0)
+                    bcount = self._normalize_building_count(b.get("count", 1))
                     create_building_row(btype, bcount)
             add_blank_building_row_if_needed()
             update_building_options()

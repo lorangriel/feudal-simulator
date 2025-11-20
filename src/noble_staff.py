@@ -72,11 +72,11 @@ def get_highest_building_rank(
         if not btype:
             continue
         try:
-            count = int(entry.get("count", 0) or 0)
+            count = int(entry.get("count", 1) or 0)
         except (TypeError, ValueError):
-            continue
+            count = 1
         if count <= 0:
-            continue
+            count = 1
         rank = _BUILDING_RANK.get(str(btype))
         if rank is not None and rank > max_rank:
             max_rank = rank
