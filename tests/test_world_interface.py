@@ -63,6 +63,17 @@ def test_world_file_helpers(tmp_path):
     assert missing == {}
 
 
+def test_save_worlds_file_creates_directories(tmp_path):
+    data = {"value": 42}
+    nested_path = tmp_path / "deep" / "save" / "worlds.json"
+
+    WorldInterface.save_worlds_file(data, nested_path)
+
+    assert nested_path.exists()
+    with open(nested_path, "r", encoding="utf-8") as saved_file:
+        assert json.load(saved_file) == data
+
+
 def test_validate_world_data_basic():
     world = {
         "nodes": {

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """Shared constants and resource definitions for the simulator."""
 
+from pathlib import Path
+
 # Default file used for saving/loading world data
-DEFAULT_WORLDS_FILE = "worlds.json"
+SAVE_DIRECTORY = Path(__file__).resolve().parent / "save" / "saves"
+DEFAULT_WORLDS_FILE = str(SAVE_DIRECTORY / "worlds.json")
 
 # Resource types
 RES_TYPES = [
