@@ -272,7 +272,7 @@ class FeodalSimulator:
         self.status_text.config(yscrollcommand=status_scroll.set)
         status_scroll.pack(side=tk.RIGHT, fill="y")
         self.status_text.pack(side=tk.LEFT, fill="both", expand=True)
-        self.main_vertical_paned.add(self.status_frame)
+        self.main_vertical_paned.add(self.status_frame, stretch="never")
         self.status_service.add_listener(self._append_status_text)
 
         # Set initial sash positions (horizontal and vertical)
@@ -354,6 +354,15 @@ class FeodalSimulator:
             self.main_vertical_paned.sash_place(0, 0, vertical_sash)
             self.main_vertical_paned.paneconfigure(
                 self.status_frame, height=desired_status_height
+            )
+            self.main_vertical_paned.paneconfigure(
+                self.main_frame, stretch="always", minsize=200
+            )
+            self.main_vertical_paned.paneconfigure(
+                self.status_frame,
+                stretch="never",
+                minsize=desired_status_height,
+                height=desired_status_height,
             )
         except tk.TclError:
             pass
