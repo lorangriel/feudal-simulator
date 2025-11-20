@@ -7,6 +7,7 @@ from noble_staff import (
     calculate_staff_cost_totals,
     calculate_staff_requirements,
     get_housing_requirement_for_level,
+    get_highest_building_rank,
     get_living_level_for_standard,
     get_max_allowed_standard_for_buildings,
 )
@@ -44,6 +45,15 @@ def test_building_types_map_to_correct_noble_standard():
         assert (
             allowed == standard
         ), f"{building} ska maximalt stödja {standard}, fick {allowed}"
+
+
+def test_get_highest_building_rank_defaults_missing_counts():
+    rank = get_highest_building_rank([
+        {"type": "Stenhus", "count": ""},
+        {"type": "Borgkärna"},
+    ])
+
+    assert rank == 3
 
 
 def test_staff_roles_are_ordered_by_seniority():
