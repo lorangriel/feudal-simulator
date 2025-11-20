@@ -39,16 +39,17 @@ def test_status_text_initial_height(simulator):
     status_font = tkfont.Font(font=simulator.status_text.cget("font"))
     line_height = max(status_font.metrics("linespace"), 1)
     status_height = simulator.status_text.winfo_height()
+    desired_height = simulator._calculate_status_desired_height(status_font)
 
-    min_expected = line_height * 4
-    max_expected = line_height * 6
-    assert min_expected <= status_height <= max_expected
+    assert line_height * 4 <= desired_height <= line_height * 5
+    assert abs(status_height - desired_height) <= line_height
 
 
 def test_status_text_height_after_resize(simulator, tk_root):
     simulator.root.update_idletasks()
     status_font = tkfont.Font(font=simulator.status_text.cget("font"))
     line_height = max(status_font.metrics("linespace"), 1)
+    desired_height = simulator._calculate_status_desired_height(status_font)
 
     tk_root.geometry("900x700")
     simulator.root.update_idletasks()
@@ -62,10 +63,19 @@ def test_status_text_height_after_resize(simulator, tk_root):
     simulator.root.update_idletasks()
     restored_height = simulator.status_text.winfo_height()
 
-    max_expected = line_height * 6
-    assert larger_height <= max_expected
-    assert restored_height <= max_expected
-    assert abs(larger_height - base_height) <= line_height * 1.5
+    assert base_height <= desired_height + line_height
+    assert larger_height <= desired_height + line_height
+    assert restored_height <= desired_height + line_height
+    assert abs(larger_height - base_height) <= line_height
+
+
+def test_status_desired_height_targets_four_lines(simulator):
+    simulator.root.update_idletasks()
+    status_font = tkfont.Font(font=simulator.status_text.cget("font"))
+    desired_height = simulator._calculate_status_desired_height(status_font)
+    line_height = max(status_font.metrics("linespace"), 1)
+
+    assert line_height * 4 <= desired_height <= line_height * 5
 
 
 def test_treeview_pack_configuration(simulator):

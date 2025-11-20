@@ -283,16 +283,7 @@ class FeodalSimulator:
         except tk.TclError:
             pass  # Sometimes fails on first launch
 
-        try:
-            total_height = self.root.winfo_height()
-            status_font = tkfont.Font(font=self.status_text.cget("font"))
-            line_height = max(status_font.metrics("linespace"), 1)
-            desired_status_height = max(line_height * 4 + 30, 0)
-            vertical_sash = max(total_height - desired_status_height, 0)
-
-            self.main_vertical_paned.sash_place(0, 0, vertical_sash)
-        except tk.TclError:
-            pass
+        self._configure_initial_vertical_split()
 
         # --- Map related attributes (initialized later) ---
         self.dynamic_map_view = None
@@ -347,6 +338,33 @@ class FeodalSimulator:
             pass
         finally:
             self.status_text.config(state="disabled")
+
+    def _configure_initial_vertical_split(self) -> None:
+        """Position the vertical sash so the status area fits roughly four lines."""
+
+        try:
+            self.root.update_idletasks()
+            status_font = tkfont.Font(font=self.status_text.cget("font"))
+            desired_status_height = self._calculate_status_desired_height(status_font)
+            paned_height = self.main_vertical_paned.winfo_height()
+            if paned_height <= 0:
+                paned_height = self.root.winfo_height()
+            vertical_sash = max(paned_height - desired_status_height, 0)
+
+            self.main_vertical_paned.sash_place(0, 0, vertical_sash)
+            self.main_vertical_paned.paneconfigure(
+                self.status_frame, height=desired_status_height
+            )
+        except tk.TclError:
+            pass
+
+    @staticmethod
+    def _calculate_status_desired_height(status_font: tkfont.Font) -> int:
+        """Return the pixel height needed to display four lines in the status box."""
+
+        line_height = max(status_font.metrics("linespace"), 1)
+        # Extra padding keeps the scrollbar and label frame border visible.
+        return max(line_height * 4 + 8, 0)
 
     # --- World Data Handling ---
     def save_current_world(self):
