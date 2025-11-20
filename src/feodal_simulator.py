@@ -57,6 +57,7 @@ from noble_staff import (
     STANDARD_TO_LIVING_LEVEL,
     get_living_level_for_standard,
     NOBLE_STANDARD_ORDER,
+    NOBLE_BUILDING_ORDER,
     get_highest_building_rank,
     get_standard_rank,
 )
@@ -2731,12 +2732,15 @@ class FeodalSimulator:
                 parent_buildings = parent_node.get("buildings", [])
                 if isinstance(parent_buildings, list):
                     entries.extend(parent_buildings)
+            elif parent_node and parent_node.get("res_type") in NOBLE_BUILDING_ORDER:
+                entries.append({"type": parent_node.get("res_type"), "count": 1})
         for ndata in self._iter_nodes_with_parent(parent_id) or []:
-            if ndata.get("res_type") != "Byggnader":
-                continue
-            buildings = ndata.get("buildings", [])
-            if isinstance(buildings, list):
-                entries.extend(buildings)
+            if ndata.get("res_type") == "Byggnader":
+                buildings = ndata.get("buildings", [])
+                if isinstance(buildings, list):
+                    entries.extend(buildings)
+            elif ndata.get("res_type") in NOBLE_BUILDING_ORDER:
+                entries.append({"type": ndata.get("res_type"), "count": 1})
         return entries
 
     def _highest_building_rank_for_parent(self, parent_id: int | None) -> int:
