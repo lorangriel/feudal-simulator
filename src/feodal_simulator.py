@@ -2724,23 +2724,25 @@ class FeodalSimulator:
             if pid == target_parent:
                 yield ndata
 
+    @staticmethod
+    def _building_entries_for_node(node_data: dict | None) -> list[dict]:
+        entries: list[dict] = []
+        if not isinstance(node_data, dict):
+            return entries
+        if node_data.get("res_type") in NOBLE_BUILDING_ORDER:
+            entries.append({"type": node_data.get("res_type"), "count": 1})
+        buildings = node_data.get("buildings", [])
+        if isinstance(buildings, list):
+            entries.extend(buildings)
+        return entries
+
     def _building_entries_for_parent(self, parent_id: int | None) -> list[dict]:
         entries: list[dict] = []
         if self.world_data:
             parent_node = self.world_data.get("nodes", {}).get(str(parent_id))
-            if parent_node and parent_node.get("res_type") == "Byggnader":
-                parent_buildings = parent_node.get("buildings", [])
-                if isinstance(parent_buildings, list):
-                    entries.extend(parent_buildings)
-            elif parent_node and parent_node.get("res_type") in NOBLE_BUILDING_ORDER:
-                entries.append({"type": parent_node.get("res_type"), "count": 1})
+            entries.extend(self._building_entries_for_node(parent_node))
         for ndata in self._iter_nodes_with_parent(parent_id) or []:
-            if ndata.get("res_type") == "Byggnader":
-                buildings = ndata.get("buildings", [])
-                if isinstance(buildings, list):
-                    entries.extend(buildings)
-            elif ndata.get("res_type") in NOBLE_BUILDING_ORDER:
-                entries.append({"type": ndata.get("res_type"), "count": 1})
+            entries.extend(self._building_entries_for_node(ndata))
         return entries
 
     def _highest_building_rank_for_parent(self, parent_id: int | None) -> int:

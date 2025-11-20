@@ -1173,6 +1173,53 @@ def test_noble_family_creation_allowed_with_standalone_housing():
     assert message is None
 
 
+def test_noble_family_creation_allowed_with_buildings_on_non_building_node():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "res_type": "Bosättning",
+                "buildings": [{"type": "Trästuga liten", "count": 1}],
+            },
+        },
+    }
+
+    sim = _make_sim_with_world_data(world)
+
+    allowed, message = sim._evaluate_noble_family_placement(
+        {"node_id": 3, "parent_id": 1}
+    )
+
+    assert allowed is True
+    assert message is None
+
+
+def test_noble_family_creation_allowed_with_buildings_on_parent_node():
+    world = {
+        "characters": {},
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "res_type": "Bosättning",
+                "buildings": [{"type": "Stenhus", "count": 1}],
+            }
+        },
+    }
+
+    sim = _make_sim_with_world_data(world)
+
+    allowed, message = sim._evaluate_noble_family_placement(
+        {"node_id": 2, "parent_id": 1}
+    )
+
+    assert allowed is True
+    assert message is None
+
+
 def test_building_change_blocked_when_family_standard_too_high():
     world = {
         "characters": {},
