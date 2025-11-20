@@ -47,6 +47,9 @@ class WorldInterface(ABC):
     def save_worlds_file(all_worlds: Dict[str, Any], file_path: str) -> None:
         """Save ``all_worlds`` to ``file_path``."""
         try:
+            dir_name = os.path.dirname(file_path)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(all_worlds, f, ensure_ascii=False, indent=2)
         except Exception as e:

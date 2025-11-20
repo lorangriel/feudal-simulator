@@ -1,13 +1,17 @@
 """Tests for global constants to ensure they match expected values and remain unchanged."""
 
 from copy import deepcopy
+from pathlib import Path
 
 from src import constants
 
 
 def test_basic_constant_values():
     """Basic immutable constants should match expected default values."""
-    assert constants.DEFAULT_WORLDS_FILE == "worlds.json"
+    project_root = Path(__file__).resolve().parents[1]
+    expected_default_path = project_root / "src" / "save" / "saves" / "worlds.json"
+    assert Path(constants.DEFAULT_WORLDS_FILE) == expected_default_path
+    assert constants.SAVE_DIRECTORY == expected_default_path.parent
     assert constants.DEFAULT_BORDER_TYPE == "vildmark"
     assert constants.NEIGHBOR_NONE_STR == "<Ingen>"
     assert constants.NEIGHBOR_OTHER_STR == "Annat land"
