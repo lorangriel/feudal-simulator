@@ -64,6 +64,125 @@ from noble_staff import (
 
 
 # --------------------------------------------------
+# Tooltip utilities
+# --------------------------------------------------
+class TooltipManager:
+    """Lightweight tooltip helper that also tracks missing texts."""
+
+    def __init__(self, root: tk.Misc):
+        self.root = root
+        self._tooltips: dict[tk.Misc, str] = {}
+        self._tipwindow: tk.Toplevel | None = None
+
+    def set_tooltip(self, widget: tk.Misc, text: str | None) -> None:
+        """Attach ``text`` to ``widget``. Empty text marks the widget as missing."""
+
+        self._tooltips[widget] = (text or "").strip()
+        widget.bind("<Enter>", lambda event, w=widget: self._maybe_show(w))
+        widget.bind("<Leave>", lambda _event: self._hide())
+        widget.bind("<FocusOut>", lambda _event: self._hide())
+
+    def _maybe_show(self, widget: tk.Misc) -> None:
+        text = self._tooltips.get(widget)
+        if not text:
+            return
+        self._hide()
+        x = widget.winfo_rootx() + 20
+        y = widget.winfo_rooty() + widget.winfo_height() + 5
+        try:
+            self._tipwindow = tw = tk.Toplevel(widget)
+            tw.wm_overrideredirect(True)
+            tw.wm_geometry(f"+{x}+{y}")
+            label = tk.Label(
+                tw,
+                text=text,
+                background="#fdf8d8",
+                relief=tk.SOLID,
+                borderwidth=1,
+                justify=tk.LEFT,
+                font=("Arial", 9),
+                padx=6,
+                pady=3,
+            )
+            label.pack(ipadx=1)
+        except tk.TclError:
+            self._tipwindow = None
+
+    def _hide(self) -> None:
+        if self._tipwindow is not None:
+            try:
+                self._tipwindow.destroy()
+            except tk.TclError:
+                pass
+        self._tipwindow = None
+
+    def _grid_label_for_widget(self, widget: tk.Misc) -> str:
+        """Best-effort lookup for a label in the same grid row."""
+
+        try:
+            info = widget.grid_info()
+        except tk.TclError:
+            return ""
+        parent = widget.nametowidget(widget.winfo_parent())
+        if not hasattr(parent, "grid_slaves"):
+            return ""
+        try:
+            row = int(info.get("row", -1))
+            column = int(info.get("column", 0))
+        except (TypeError, ValueError):
+            return ""
+        if row < 0:
+            return ""
+        for candidate in parent.grid_slaves(row=row):
+            if int(candidate.grid_info().get("column", -1)) == column - 1:
+                if isinstance(candidate, (tk.Label, ttk.Label)):
+                    try:
+                        return str(candidate.cget("text"))
+                    except tk.TclError:
+                        return ""
+        return ""
+
+    def find_missing_tooltips(self) -> list[dict[str, str]]:
+        """Return metadata for widgets missing tooltip text."""
+
+        targets: tuple[type, ...] = (
+            tk.Entry,
+            ttk.Entry,
+            ttk.Combobox,
+            ttk.Checkbutton,
+            ttk.Radiobutton,
+            ttk.Button,
+        )
+        missing: list[dict[str, str]] = []
+
+        def walk(widget: tk.Misc) -> None:
+            try:
+                children = widget.winfo_children()
+            except tk.TclError:
+                return
+            for child in children:
+                if isinstance(child, targets):
+                    text = self._tooltips.get(child, "")
+                    if not text:
+                        toplevel = child.winfo_toplevel()
+                        form_name = getattr(toplevel, "title", lambda: "")()
+                        if not form_name:
+                            form_name = toplevel.__class__.__name__
+                        missing.append(
+                            {
+                                "form": form_name,
+                                "widget": child.winfo_name(),
+                                "label": self._grid_label_for_widget(child),
+                                "type": child.__class__.__name__,
+                            }
+                        )
+                walk(child)
+
+        walk(self.root)
+        return missing
+
+
+# --------------------------------------------------
 # Main Application Class: FeodalSimulator
 # --------------------------------------------------
 class FeodalSimulator:
@@ -94,6 +213,7 @@ class FeodalSimulator:
         self.pending_save_callback: Callable[[], None] | None = None
         self.status_service = StatusService()
         self.world_ui = WorldManagerUI()
+        self.tooltip_manager = TooltipManager(self.root)
 
         # --- Styling ---
         self.style = ttk.Style()
@@ -203,8 +323,8 @@ class FeodalSimulator:
 
         # Left Frame (for Treeview)
         left_frame = ttk.Frame(
-            self.paned_window, width=350, relief=tk.SUNKEN, borderwidth=1
-        )  # Start width, add border
+            self.paned_window, width=350, relief=tk.SUNKEN, borderwidth=1, padding=5
+        )  # Start width, add border with a little breathing room
         left_frame.pack(
             fill="both", expand=True
         )  # Pack is needed for PanedWindow children
@@ -221,6 +341,7 @@ class FeodalSimulator:
             yscrollcommand=tree_vscroll.set,
             xscrollcommand=tree_hscroll.set,
             selectmode="browse",
+            padding=(6, 6),
         )
 
         # Configure scrollbars AFTER tree exists
@@ -231,7 +352,7 @@ class FeodalSimulator:
         tree_vscroll.pack(side=tk.RIGHT, fill="y")
         tree_hscroll.pack(side=tk.BOTTOM, fill="x")  # This puts it under the treeview
         self.tree.pack(
-            side=tk.LEFT, fill="both", expand=True
+            side=tk.LEFT, fill="both", expand=True, padx=(0, 4), pady=4
         )  # Tree fills remaining space
 
         # Treeview setup
@@ -329,6 +450,11 @@ class FeodalSimulator:
     def add_status_message(self, msg):
         """Delegate to ``StatusService`` for handling messages."""
         self.status_service.add_message(msg)
+
+    def add_tooltip(self, widget: tk.Misc, text: str | None) -> None:
+        """Attach tooltip text using the shared tooltip manager."""
+
+        self.tooltip_manager.set_tooltip(widget, text)
 
     def _append_status_text(self, msg: str) -> None:
         try:
@@ -515,10 +641,60 @@ class FeodalSimulator:
             command=self.show_manage_characters_view,
             width=20,
         ).pack(pady=5)
+        ttk.Button(
+            container,
+            text="Tooltips",
+            command=self.show_tooltip_audit_dialog,
+            width=20,
+        ).pack(pady=5)
         ttk.Separator(container, orient=tk.HORIZONTAL).pack(fill="x", pady=15, padx=20)
         ttk.Button(
             container, text="< Tillbaka", command=self.show_no_world_view, width=20
         ).pack(pady=5)
+
+    def show_tooltip_audit_dialog(self) -> None:
+        """List widgets that currently lack tooltip text."""
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Saknade tooltips")
+        dialog.geometry("600x360")
+
+        header = ttk.Label(
+            dialog,
+            text="Kontroller utan tooltip-text",
+            font=("Arial", 12, "bold"),
+        )
+        header.pack(pady=(10, 4))
+
+        tree_frame = ttk.Frame(dialog, padding=(10, 0, 10, 0))
+        tree_frame.pack(fill="both", expand=True)
+
+        columns = ("form", "widget", "label", "type")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=12)
+        for col, text in zip(columns, ["Formulär", "Kontroll", "Label", "Typ"]):
+            tree.heading(col, text=text)
+            tree.column(col, width=130, anchor="w")
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+
+        for entry in self.tooltip_manager.find_missing_tooltips():
+            tree.insert(
+                "",
+                "end",
+                values=(
+                    entry.get("form", ""),
+                    entry.get("widget", ""),
+                    entry.get("label", ""),
+                    entry.get("type", ""),
+                ),
+            )
+
+        ttk.Button(dialog, text="Stäng", command=dialog.destroy).pack(pady=10)
 
     def show_manage_worlds_view(self):
         """Displays the UI for managing worlds (create, load, delete, copy)."""
@@ -1808,9 +1984,9 @@ class FeodalSimulator:
 
         # --- Title Frame ---
         title_frame = ttk.Frame(view_frame)
-        title_frame.pack(fill="x", pady=(0, 15))
+        title_frame.pack(fill="x", pady=(8, 20))
         title_label = ttk.Label(
-            title_frame, text=f"{display_name}", font=("Arial", 16, "bold")
+            title_frame, text=f"{display_name}", font=("Arial", 18, "bold"), padding=(0, 4)
         )
         title_label.pack(side=tk.LEFT)
         ttk.Label(
@@ -2208,7 +2384,13 @@ class FeodalSimulator:
         delete_button = self._create_delete_button(
             delete_back_frame, node_data, unsaved_changes
         )
-        delete_button.pack(side=tk.LEFT, padx=10)
+        delete_button.configure(style="Danger.TButton")
+        ttk.Label(
+            delete_back_frame,
+            text="Raderar noden och alla underliggande förläningar.",
+            foreground="red",
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        delete_button.pack(side=tk.LEFT, padx=10, pady=(4, 0))
 
         ttk.Button(
             delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view
@@ -2280,17 +2462,43 @@ class FeodalSimulator:
         editor_frame = ttk.Frame(parent_frame)
         editor_frame.pack(fill="both", expand=True)
         editor_frame.grid_columnconfigure(1, weight=1)  # Allow entry column to expand
+        editor_frame.grid_columnconfigure(3, weight=1)
 
         row_idx = 0
-        # Custom Name (Primary identifier for Jarldoms)
+
+        def add_section(title: str) -> None:
+            nonlocal row_idx
+            if row_idx > 0:
+                ttk.Separator(editor_frame, orient=tk.HORIZONTAL).grid(
+                    row=row_idx,
+                    column=0,
+                    columnspan=4,
+                    sticky="ew",
+                    pady=(12, 6),
+                )
+                row_idx += 1
+            ttk.Label(
+                editor_frame,
+                text=title,
+                font=("Arial", 12, "bold"),
+                padding=(0, 2),
+            ).grid(row=row_idx, column=0, columnspan=4, sticky="w", padx=5, pady=(10, 4))
+            row_idx += 1
+
+        add_section("Allmänt")
+
         ttk.Label(editor_frame, text="Namn (Jarldöme):").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
         )
         custom_name_var = tk.StringVar(value=node_data.get("custom_name", ""))
         custom_name_entry = ttk.Entry(
             editor_frame, textvariable=custom_name_var, width=40
         )
-        custom_name_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        custom_name_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=6)
+        self.add_tooltip(
+            custom_name_entry,
+            "Beskriver hur detta värde påverkar noden",
+        )
         custom_name_var.trace_add(
             "write",
             lambda *_: self._auto_save_field(
@@ -2299,13 +2507,16 @@ class FeodalSimulator:
         )
         row_idx += 1
 
-        # Population
         pop_label = ttk.Label(editor_frame, text="Befolkning:")
-        pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=3)
+        pop_label.grid(row=row_idx, column=0, sticky="w", padx=5, pady=6)
         calculated_pop = int(node_data.get("population", 0))
         pop_var = tk.StringVar(value=str(calculated_pop))
         pop_entry = ttk.Entry(editor_frame, textvariable=pop_var, width=10)
-        pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        pop_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=6)
+        self.add_tooltip(
+            pop_entry,
+            "Beskriver hur detta värde påverkar noden",
+        )
         pop_var.trace_add(
             "write",
             lambda *_: self._auto_save_field(
@@ -2315,9 +2526,8 @@ class FeodalSimulator:
 
         row_idx += 1
 
-        # Ruler selection
         ttk.Label(editor_frame, text="Härskare:").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
         )
         ruler_var = tk.StringVar()
 
@@ -2354,7 +2564,11 @@ class FeodalSimulator:
             width=40,
             style="BlackWhite.TCombobox",
         )
-        ruler_combo.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        ruler_combo.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=6)
+        self.add_tooltip(
+            ruler_combo,
+            "Beskriver hur detta värde påverkar noden",
+        )
 
         def edit_ruler() -> None:
             sel = option_map.get(ruler_var.get())
@@ -2486,21 +2700,61 @@ class FeodalSimulator:
         update_owner_nodes_list()
         refresh_ruler_edit_state()
 
-        row_idx += 1
+        add_section("Mark och ägande")
 
         ttk.Label(editor_frame, text="Ägarnoder:").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
         )
         extra_owner_entry = ttk.Entry(
             editor_frame, textvariable=extra_owner_var, width=40
         )
-        extra_owner_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=3)
+        extra_owner_entry.grid(row=row_idx, column=1, sticky="ew", padx=5, pady=6)
+        self.add_tooltip(extra_owner_entry, "")
+
+        row_idx += 1
+        ttk.Label(editor_frame, text="Areal totalt:").grid(
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
+        )
+        area_var = tk.StringVar(value=str(node_data.get("jarldom_area", 0)))
+        area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=8)
+        area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=6)
+        self.add_tooltip(
+            area_entry,
+            "Beskriver hur detta värde påverkar noden",
+        )
+        area_var.trace_add(
+            "write",
+            lambda *_: self._auto_save_field(
+                node_data, "jarldom_area", area_var.get().strip(), False
+            ),
+        )
+
+        row_idx += 1
+        info_frame = tk.Frame(
+            editor_frame,
+            bg="#f7f7f7",
+            highlightbackground="#dcdcdc",
+            highlightthickness=1,
+            padx=8,
+            pady=6,
+        )
+        info_frame.grid(
+            row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(0, 10)
+        )
+        tk.Label(
+            info_frame,
+            text="Ägarnoder visar alla förläningar som delar samma härskare.",
+            bg="#f7f7f7",
+            anchor="w",
+            justify="left",
+        ).pack(fill="x")
 
         row_idx += 1
 
-        # Work days available and needed
+        add_section("Arbete")
+
         ttk.Label(editor_frame, text="Dagsverken Tillg.").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
         )
         total_work = self.world_manager.calculate_work_available(node_id)
         self._auto_save_field(node_data, "work_available", total_work, False)
@@ -2508,43 +2762,37 @@ class FeodalSimulator:
         work_av_entry = ttk.Entry(
             editor_frame, textvariable=work_av_var, width=6, state="readonly"
         )
-        work_av_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        work_av_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=6)
+        self.add_tooltip(work_av_entry, "Beskriver hur detta värde påverkar noden")
         day_avail_var = tk.StringVar(
             value=str(node_data.get("day_laborers_available", 0))
         )
         ttk.Label(editor_frame, text="Daglönare tillg.").grid(
-            row=row_idx, column=2, sticky="w", padx=5, pady=3
+            row=row_idx, column=2, sticky="w", padx=5, pady=6
         )
         day_avail_entry = ttk.Entry(editor_frame, textvariable=day_avail_var, width=5)
-        day_avail_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+        day_avail_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=6)
+        self.add_tooltip(day_avail_entry, "Beskriver hur detta värde påverkar noden")
 
         row_idx += 1
 
         ttk.Label(editor_frame, text="Dagsverken Behov:").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
         )
         total_need = self.world_manager.update_work_needed(node_id)
         work_need_var = tk.StringVar(value=str(total_need))
         work_need_entry = ttk.Entry(
             editor_frame, textvariable=work_need_var, width=6, state="readonly"
         )
-        work_need_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
+        work_need_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=6)
+        self.add_tooltip(work_need_entry, "Beskriver hur detta värde påverkar noden")
         ttk.Label(editor_frame, text="Daglönare hyrda:").grid(
-            row=row_idx, column=2, sticky="w", padx=5, pady=3
+            row=row_idx, column=2, sticky="w", padx=5, pady=6
         )
         day_hired_var = tk.StringVar(value=str(node_data.get("day_laborers_hired", 0)))
         day_hired_entry = ttk.Entry(editor_frame, textvariable=day_hired_var, width=5)
-        day_hired_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
-
-        row_idx += 1
-        ttk.Label(editor_frame, text="Förväntad licens:").grid(
-            row=row_idx, column=2, sticky="w", padx=5, pady=3
-        )
-        license_var = tk.StringVar(
-            value=str(node_data.get("expected_license_income", 0))
-        )
-        license_entry = ttk.Entry(editor_frame, textvariable=license_var, width=5)
-        license_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=3)
+        day_hired_entry.grid(row=row_idx, column=3, sticky="w", padx=5, pady=6)
+        self.add_tooltip(day_hired_entry, "Beskriver hur detta värde påverkar noden")
 
         def update_day_laborers(*_args) -> None:
             try:
@@ -2582,53 +2830,47 @@ class FeodalSimulator:
 
         day_avail_var.trace_add("write", update_day_laborers)
         day_hired_var.trace_add("write", update_day_laborers)
+        work_need_var.trace_add("write", lambda *_: self._update_jarldom_work_display())
+        update_day_laborers()
+        self._update_umbarande_totals(node_id)
+
+        row_idx += 1
+        add_section("Ekonomi")
+
+        ttk.Label(editor_frame, text="Förväntad licens:").grid(
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
+        )
+        license_var = tk.StringVar(
+            value=str(node_data.get("expected_license_income", 0))
+        )
+        license_entry = ttk.Entry(editor_frame, textvariable=license_var, width=8)
+        license_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=6)
+        self.add_tooltip(license_entry, "Beskriver hur detta värde påverkar noden")
+        row_idx += 1
+        ttk.Label(editor_frame, text="Summa umbäranden:").grid(
+            row=row_idx, column=0, sticky="w", padx=5, pady=6
+        )
+        ttk.Entry(
+            editor_frame,
+            textvariable=self.umbarande_total_var,
+            width=12,
+            state="readonly",
+        ).grid(row=row_idx, column=1, sticky="w", padx=5, pady=6)
+
+        row_idx += 1
+
         license_var.trace_add(
             "write",
             lambda *_: self._auto_save_field(
                 node_data, "expected_license_income", license_var.get().strip(), False
             ),
         )
-        work_need_var.trace_add("write", lambda *_: self._update_jarldom_work_display())
-        update_day_laborers()
-        self._update_umbarande_totals(node_id)
-        row_idx += 1
-        ttk.Label(editor_frame, text="Summa umbäranden:").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
-        )
-        ttk.Entry(
-            editor_frame,
-            textvariable=self.umbarande_total_var,
-            width=10,
-            state="readonly",
-        ).grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-
-        row_idx += 1
-
-        ttk.Label(editor_frame, text="Areal totalt:").grid(
-            row=row_idx, column=0, sticky="w", padx=5, pady=3
-        )
-        area_var = tk.StringVar(value=str(node_data.get("jarldom_area", 0)))
-        area_entry = ttk.Entry(editor_frame, textvariable=area_var, width=8)
-        area_entry.grid(row=row_idx, column=1, sticky="w", padx=5, pady=3)
-        area_var.trace_add(
-            "write",
-            lambda *_: self._auto_save_field(
-                node_data, "jarldom_area", area_var.get().strip(), False
-            ),
-        )
-
-        row_idx += 1
-
-        # Removed numeric control for subresources
-        row_idx += 0
 
         # --- Actions Frame ---
-        ttk.Separator(editor_frame, orient=tk.HORIZONTAL).grid(
-            row=row_idx, column=0, columnspan=2, sticky="ew", pady=(15, 10)
+        actions_frame = ttk.Labelframe(editor_frame, text="Åtgärder", padding=10)
+        actions_frame.grid(
+            row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(18, 10)
         )
-        row_idx += 1
-        action_button_frame = ttk.Frame(editor_frame)
-        action_button_frame.grid(row=row_idx, column=0, columnspan=2, pady=5)
         row_idx += 1
 
         def create_subnode_action():
@@ -2636,21 +2878,21 @@ class FeodalSimulator:
             self.update_subfiefs_for_node(node_data)
 
         ttk.Button(
-            action_button_frame, text="Skapa Nod", command=create_subnode_action
-        ).pack(side=tk.LEFT, padx=5)
+            actions_frame, text="Skapa Nod", command=create_subnode_action, width=18
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
 
-        # --- Neighbor Editing ---
-        neighbor_button_frame = ttk.Frame(action_button_frame)  # Add to same action row
-        neighbor_button_frame.pack(side=tk.LEFT, padx=15)
         ttk.Button(
-            neighbor_button_frame,
+            actions_frame,
             text="Redigera Grannar",
             command=lambda n=node_data: self.show_neighbor_editor(n),
-        ).pack()
+            width=18,
+        ).grid(row=1, column=0, sticky="w")
 
         # --- Delete and Back Buttons Frame ---
-        delete_back_frame = ttk.Frame(editor_frame)
-        delete_back_frame.grid(row=row_idx, column=0, columnspan=2, pady=(20, 5))
+        delete_back_frame = ttk.Labelframe(editor_frame, text="Radera", padding=10)
+        delete_back_frame.grid(
+            row=row_idx, column=0, columnspan=4, sticky="ew", padx=5, pady=(14, 8)
+        )
         row_idx += 1
 
         def unsaved_changes() -> bool:
