@@ -2700,6 +2700,7 @@ class FeodalSimulator:
         update_owner_nodes_list()
         refresh_ruler_edit_state()
 
+        row_idx += 1
         add_section("Mark och ägande")
 
         ttk.Label(editor_frame, text="Ägarnoder:").grid(
