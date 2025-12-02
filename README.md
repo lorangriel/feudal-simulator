@@ -61,3 +61,11 @@ wheel and pan by dragging with the middle mouse button.
 
 ## Testing
 Run `pytest` in the repository root to execute the automated test suite.
+
+## Personliga provinser
+
+- Nya fält i jarldömen: `owner_assigned_level`, `owner_assigned_id`, `personal_province_path` samt skattandelar `keep_fraction` och `tax_forward_fraction`.
+- Nya nivå 1–2 fält `keep_fraction` och `tax_forward_fraction` för skatteflöden.
+- Administrativ väg redovisar fortsatt befolkning och resurser medan provinsvägen styr skattflödet enligt Modell B.
+- Använd hjälpfunktioner i `personal_province.py` för att validera ägande och fördela skatt.
+- `pytest` kör alla domäntester inklusive de nya scenarierna.
