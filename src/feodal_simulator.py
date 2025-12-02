@@ -511,13 +511,19 @@ class FeodalSimulator:
             "Globalt mushjuls-scrollstöd aktiverat (canvas-yview-backing)",
         )
 
-    def _widget_in_details(self, widget: tk.Misc | None) -> bool:
+    def _widget_in_details(self, widget: tk.Misc | str | None) -> bool:
         """Return ``True`` if ``widget`` belongs to the Detaljer-panelen."""
 
         if widget is None or not hasattr(self, "details_body"):
             return False
+
         try:
-            current: tk.Misc | None = widget
+            current: tk.Misc | None
+            if isinstance(widget, str):
+                current = self.root.nametowidget(widget)
+            else:
+                current = widget
+
             while current is not None:
                 if current is self.details_body:
                     return True
@@ -525,7 +531,7 @@ class FeodalSimulator:
                 if not parent_name:
                     break
                 current = current.nametowidget(parent_name)
-        except tk.TclError:
+        except (tk.TclError, AttributeError, KeyError):
             return False
         return False
 
