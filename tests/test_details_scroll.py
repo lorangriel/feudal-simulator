@@ -133,3 +133,20 @@ def test_mousewheel_noop_when_not_scrollable(simulator):
     end = scroll_frame.canvas.yview()
 
     assert end[0] == pytest.approx(start[0])
+
+
+def test_mousewheel_ignores_missing_pointer_widget(simulator, monkeypatch):
+    scroll_frame, target_label, _ = build_scrollable_details(simulator)
+    start = scroll_frame.canvas.yview()
+
+    def explode(*_args, **_kwargs):
+        raise KeyError("popdown")
+
+    monkeypatch.setattr(simulator.root, "winfo_containing", explode)
+
+    event = type("DummyEvent", (), {"widget": target_label, "delta": -120})()
+    simulator._on_details_mousewheel(event)
+    simulator.root.update_idletasks()
+    end = scroll_frame.canvas.yview()
+
+    assert end[0] > start[0]
