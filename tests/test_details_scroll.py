@@ -150,3 +150,24 @@ def test_mousewheel_ignores_missing_pointer_widget(simulator, monkeypatch):
     end = scroll_frame.canvas.yview()
 
     assert end[0] > start[0]
+
+
+def test_widget_in_details_accepts_widget_name(simulator):
+    _scroll_frame, target_label, _ = build_scrollable_details(simulator)
+
+    assert simulator._widget_in_details(str(target_label))
+    assert simulator._widget_in_details(".missing_widget") is False
+
+
+def test_mousewheel_handles_string_widget(simulator, monkeypatch):
+    scroll_frame, target_label, _ = build_scrollable_details(simulator)
+    start = scroll_frame.canvas.yview()
+
+    event = type("DummyEvent", (), {"widget": str(target_label), "delta": -120})()
+    monkeypatch.setattr(simulator.root, "winfo_containing", lambda *_args: target_label)
+
+    simulator._on_details_mousewheel(event)
+    simulator.root.update_idletasks()
+    end = scroll_frame.canvas.yview()
+
+    assert end[0] > start[0]
