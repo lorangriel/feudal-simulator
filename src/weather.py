@@ -92,9 +92,13 @@ def determine_weather_type(total: int, season: str) -> WeatherType:
     return WeatherType(NORMAL_WEATHER.get(season, "Normal vår (±0)"), 0, 0, 0)
 
 
-def roll_weather(season: str, modifier: int = 0) -> tuple[int, WeatherType]:
-    """Roll 2d6 for ``season``, apply ``modifier`` and return the WeatherType."""
-    roll = random.randint(1, 6) + random.randint(1, 6)
+def roll_weather(
+    season: str, modifier: int = 0, rng: random.Random | None = None
+) -> tuple[int, WeatherType]:
+    """Roll 2d6 for ``season`` using ``rng`` (deterministic if supplied)."""
+
+    roller = rng or random
+    roll = roller.randint(1, 6) + roller.randint(1, 6)
     total = roll + modifier
     wtype = determine_weather_type(total, season)
     return total, wtype

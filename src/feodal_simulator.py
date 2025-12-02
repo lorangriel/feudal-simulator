@@ -47,6 +47,7 @@ from population_utils import calculate_population_from_fields
 from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 from status_service import StatusService
 from world_manager_ui import WorldManagerUI
+from time_engine import SEASON_LABELS, TimeEngine, TimePosition
 from noble_staff import (
     ROLE_DESCRIPTIONS,
     STAFF_ROLE_ORDER,
@@ -108,6 +109,7 @@ class FeodalSimulator:
         self.status_service = StatusService()
         self.world_ui = WorldManagerUI()
         self.tooltip_manager = TooltipManager(self.root)
+        self.time_engine = TimeEngine()
 
         # --- Styling ---
         self.style = ttk.Style()
@@ -195,6 +197,10 @@ class FeodalSimulator:
         ttk.Button(
             top_menu_frame, text="Hantera data", command=self.show_data_menu_view
         ).pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.time_controls_frame = ttk.Frame(top_menu_frame, style="Tool.TFrame")
+        self.time_controls_frame.pack(side=tk.RIGHT, padx=5)
+        self._build_time_controls(self.time_controls_frame)
 
         # Frame specifically for Map buttons (to dynamically add/remove static/dynamic)
         self.map_button_frame = ttk.Frame(top_menu_frame, style="Tool.TFrame")
@@ -312,6 +318,50 @@ class FeodalSimulator:
         """Attach tooltip text using the shared tooltip manager."""
 
         self.tooltip_manager.set_tooltip(widget, text)
+
+    # --- Time Controls ---
+    def _build_time_controls(self, frame: ttk.Frame) -> None:
+        self.time_label_var = tk.StringVar()
+        self.time_label = ttk.Label(
+            frame,
+            textvariable=self.time_label_var,
+            padding=5,
+            font=("Arial", 10, "bold"),
+        )
+        self.time_label.pack(side=tk.LEFT, padx=(0, 8))
+        buttons = [
+            ("−10y", -40),
+            ("−1y", -4),
+            ("−Årstid", -1),
+            ("+Årstid", 1),
+            ("+1y", 4),
+            ("+10y", 40),
+        ]
+        for label, delta in buttons:
+            ttk.Button(frame, text=label, command=lambda d=delta: self.step_time(d)).pack(
+                side=tk.LEFT, padx=2, pady=5
+            )
+        self._update_time_label(self.time_engine.current_position)
+
+    def _format_time_position(self, pos: TimePosition) -> str:
+        season_name = SEASON_LABELS.get(pos.season, pos.season)
+        return f"År {pos.year}, {season_name}"
+
+    def _update_time_label(self, pos: TimePosition) -> None:
+        if hasattr(self, "time_label_var"):
+            self.time_label_var.set(self._format_time_position(pos))
+
+    def step_time(self, delta: int) -> None:
+        target = self.time_engine.step_seasons(delta)
+        self._sync_world_from_engine()
+        self._update_time_label(target)
+        self.add_status_message(f"Tid uppdaterad: {self._format_time_position(target)}")
+
+    def _sync_world_from_engine(self) -> None:
+        """Align the UI world reference with the timeline world state."""
+
+        self.world_data = self.time_engine.world_state
+        self.world_manager.set_world_data(self.world_data)
 
     def _bind_details_mousewheel(self) -> None:
         """Bind global mouse wheel events and filter to Detaljer-panelen."""
@@ -1005,6 +1055,9 @@ class FeodalSimulator:
             )
             return
 
+        if not hasattr(self, "time_engine"):
+            self.time_engine = TimeEngine()
+
         self.active_world_name = wname
         # Make a deep copy to avoid modifying the master dict inadvertently before saving
         import copy
@@ -1023,6 +1076,13 @@ class FeodalSimulator:
         # Ensure population totals are consistent upon load
         self.world_manager.update_population_totals()
 
+        self.time_engine.reset_timeline(
+            world_state=self.world_data,
+            timeline_id=self.active_world_name or "main",
+        )
+        self.world_data = self.time_engine.world_state
+        self.world_manager.set_world_data(self.world_data)
+
         # Load any saved static map positions
         self.load_static_positions()
 
@@ -1031,6 +1091,7 @@ class FeodalSimulator:
         self.show_no_world_view()  # Clear right panel initially
         self._auto_select_single_root()
         self.add_status_message(f"Värld '{wname}' laddad.")
+        self._update_time_label(self.time_engine.current_position)
         # Reset map buttons
         self.hide_map_mode_buttons()
 
