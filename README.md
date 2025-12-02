@@ -19,6 +19,13 @@ python src/http_server.py
 
 Then open `http://localhost:8000` in a browser.
 
+## Gränssnittspaneler
+Det grafiska huvudfönstret använder tre namngivna paneler:
+
+- **Struktur** – visar hierarkiträdet i vänsterkolumnen.
+- **Status** – presenterar statusmeddelanden i den övre högra rutan.
+- **Detaljer: <resursnamn>** – anger den valda noden eller resursen i den nedre högra rutan och uppdateras direkt när användaren byter val.
+
 ## Dual Map Tool
 A lightweight mapper with two synchronised views lives in `src/dual_map_tool.py`.
 Start it with:
