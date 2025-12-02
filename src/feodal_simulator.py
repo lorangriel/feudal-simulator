@@ -31,7 +31,6 @@ from constants import (
     NOBLE_STANDARD_OPTIONS,
     STATUS_DEFAULT_LINE_COUNT,
 )
-from safe_combobox import apply_safe_combobox_patch
 from data_manager import load_worlds_from_file
 from node import Node
 from utils import (
@@ -64,128 +63,15 @@ from noble_staff import (
     get_highest_building_rank,
     get_standard_rank,
 )
-from ui_strings import PANEL_NAMES, format_details_title, panel_tooltip
+from ui.combobox_policy import apply_combobox_policy
+from ui.events import UIEventBus
+from ui.panels.details_panel import DetailsPanel
+from ui.panels.status_panel import StatusPanel
+from ui.panels.structure_panel import StructurePanel
+from ui.strings import PANEL_NAMES, format_details_title, panel_tooltip
+from ui.widgets.tooltips import TooltipManager
 
-apply_safe_combobox_patch()
-
-
-# --------------------------------------------------
-# Tooltip utilities
-# --------------------------------------------------
-class TooltipManager:
-    """Lightweight tooltip helper that also tracks missing texts."""
-
-    def __init__(self, root: tk.Misc):
-        self.root = root
-        self._tooltips: dict[tk.Misc, str] = {}
-        self._tipwindow: tk.Toplevel | None = None
-
-    def set_tooltip(self, widget: tk.Misc, text: str | None) -> None:
-        """Attach ``text`` to ``widget``. Empty text marks the widget as missing."""
-
-        self._tooltips[widget] = (text or "").strip()
-        widget.bind("<Enter>", lambda event, w=widget: self._maybe_show(w))
-        widget.bind("<Leave>", lambda _event: self._hide())
-        widget.bind("<FocusOut>", lambda _event: self._hide())
-
-    def _maybe_show(self, widget: tk.Misc) -> None:
-        text = self._tooltips.get(widget)
-        if not text:
-            return
-        self._hide()
-        x = widget.winfo_rootx() + 20
-        y = widget.winfo_rooty() + widget.winfo_height() + 5
-        try:
-            self._tipwindow = tw = tk.Toplevel(widget)
-            tw.wm_overrideredirect(True)
-            tw.wm_geometry(f"+{x}+{y}")
-            label = tk.Label(
-                tw,
-                text=text,
-                background="#fdf8d8",
-                relief=tk.SOLID,
-                borderwidth=1,
-                justify=tk.LEFT,
-                font=("Arial", 9),
-                padx=6,
-                pady=3,
-            )
-            label.pack(ipadx=1)
-        except tk.TclError:
-            self._tipwindow = None
-
-    def _hide(self) -> None:
-        if self._tipwindow is not None:
-            try:
-                self._tipwindow.destroy()
-            except tk.TclError:
-                pass
-        self._tipwindow = None
-
-    def _grid_label_for_widget(self, widget: tk.Misc) -> str:
-        """Best-effort lookup for a label in the same grid row."""
-
-        try:
-            info = widget.grid_info()
-        except tk.TclError:
-            return ""
-        parent = widget.nametowidget(widget.winfo_parent())
-        if not hasattr(parent, "grid_slaves"):
-            return ""
-        try:
-            row = int(info.get("row", -1))
-            column = int(info.get("column", 0))
-        except (TypeError, ValueError):
-            return ""
-        if row < 0:
-            return ""
-        for candidate in parent.grid_slaves(row=row):
-            if int(candidate.grid_info().get("column", -1)) == column - 1:
-                if isinstance(candidate, (tk.Label, ttk.Label)):
-                    try:
-                        return str(candidate.cget("text"))
-                    except tk.TclError:
-                        return ""
-        return ""
-
-    def find_missing_tooltips(self) -> list[dict[str, str]]:
-        """Return metadata for widgets missing tooltip text."""
-
-        targets: tuple[type, ...] = (
-            tk.Entry,
-            ttk.Entry,
-            ttk.Combobox,
-            ttk.Checkbutton,
-            ttk.Radiobutton,
-            ttk.Button,
-        )
-        missing: list[dict[str, str]] = []
-
-        def walk(widget: tk.Misc) -> None:
-            try:
-                children = widget.winfo_children()
-            except tk.TclError:
-                return
-            for child in children:
-                if isinstance(child, targets):
-                    text = self._tooltips.get(child, "")
-                    if not text:
-                        toplevel = child.winfo_toplevel()
-                        form_name = getattr(toplevel, "title", lambda: "")()
-                        if not form_name:
-                            form_name = toplevel.__class__.__name__
-                        missing.append(
-                            {
-                                "form": form_name,
-                                "widget": child.winfo_name(),
-                                "label": self._grid_label_for_widget(child),
-                                "type": child.__class__.__name__,
-                            }
-                        )
-                walk(child)
-
-        walk(self.root)
-        return missing
+apply_combobox_policy()
 
 
 # --------------------------------------------------
@@ -329,65 +215,17 @@ class FeodalSimulator:
         )  # Thicker sash
         self.paned_window.pack(fill="both", expand=True, padx=5, pady=5)
 
+        self.event_bus = UIEventBus()
+
         # Left Frame (for Treeview)
-        left_frame = ttk.Frame(
-            self.paned_window, width=350, relief=tk.SUNKEN, borderwidth=1, padding=5
-        )  # Start width, add border with a little breathing room
-        left_frame.pack(
-            fill="both", expand=True
-        )  # Pack is needed for PanedWindow children
-
-        structure_header = ttk.Label(
-            left_frame,
-            text=PANEL_NAMES["structure"],
-            font=("Arial", 12, "bold"),
-            anchor="w",
-            padding=(4, 2),
+        self.structure_panel = StructurePanel(
+            self.paned_window, self.tooltip_manager, self.on_tree_double_click
         )
-        structure_header.pack(fill="x", pady=(0, 2))
-        self.add_tooltip(structure_header, panel_tooltip("structure"))
-
-        structure_content = ttk.Frame(left_frame)
-        structure_content.pack(fill="both", expand=True)
-
-        # Treeview scrollbars (Place them correctly relative to the tree)
-        tree_vscroll = ttk.Scrollbar(structure_content, orient="vertical")
-        tree_hscroll = ttk.Scrollbar(
-            structure_content, orient="horizontal"
-        )  # Placed under the tree
-
-        # Treeview widget
-        self.tree = ttk.Treeview(
-            structure_content,
-            yscrollcommand=tree_vscroll.set,
-            xscrollcommand=tree_hscroll.set,
-            selectmode="browse",
-            padding=(6, 6),
-        )
-
-        # Configure scrollbars AFTER tree exists
-        tree_vscroll.config(command=self.tree.yview)
-        tree_hscroll.config(command=self.tree.xview)  # Command for horizontal scrollbar
-
-        # Pack order: vscroll right, hscroll bottom (under tree), tree fills the rest
-        tree_vscroll.pack(side=tk.RIGHT, fill="y")
-        tree_hscroll.pack(side=tk.BOTTOM, fill="x")  # This puts it under the treeview
-        self.tree.pack(
-            side=tk.LEFT, fill="both", expand=True, padx=(0, 4), pady=4
-        )  # Tree fills remaining space
-
-        # Treeview setup
-        self.tree["columns"] = ("#0",)  # Use only the tree column
-        self.tree.heading("#0", text=PANEL_NAMES["structure"])
-        self.tree.column(
-            "#0", width=300, minwidth=200, stretch=tk.YES
-        )  # Allow stretching
-        self.tree.bind("<Double-1>", self.on_tree_double_click)
-        self.add_tooltip(self.tree, panel_tooltip("structure"))
+        self.tree = self.structure_panel.tree
         self._log_panel_event("structure", "Panel initierad")
 
         # Add left frame to PanedWindow
-        self.paned_window.add(left_frame)  # Add weight
+        self.paned_window.add(self.structure_panel.frame)  # Add weight
 
         # Right Frame (for details, editors, maps)
         self.right_frame = ttk.Frame(
@@ -400,41 +238,18 @@ class FeodalSimulator:
         self.right_frame.pack(fill="both", expand=True)
         self.paned_window.add(self.right_frame)  # Add weight
 
-        self.details_header = ttk.Label(
-            self.right_frame,
-            text=format_details_title(None),
-            font=("Arial", 14, "bold"),
-            anchor="w",
-            padding=(10, 6),
-        )
-        self.details_header.pack(fill="x", padx=2, pady=(2, 0))
-        self.add_tooltip(self.details_header, panel_tooltip("details"))
-
-        self.details_body = ttk.Frame(self.right_frame, style="Content.TFrame")
-        self.details_body.pack(fill="both", expand=True)
+        self.details_panel = DetailsPanel(self.right_frame, self.tooltip_manager)
+        self.details_header = self.details_panel.header
+        self.details_body = self.details_panel.body
         self._details_scroll_target: tk.Misc | None = None
         self._details_mousewheel_bound = False
         self._bind_details_mousewheel()
         self._log_panel_event("details", "Panel initierad")
 
         # --- Status Bar ---
-        self.status_frame = ttk.LabelFrame(
-            self.main_vertical_paned, text=PANEL_NAMES["status"], padding=5
-        )
-        self.status_text = tk.Text(
-            self.status_frame,
-            height=STATUS_DEFAULT_LINE_COUNT,
-            wrap="word",
-            state="disabled",
-            relief=tk.FLAT,
-            bg="#f0f0f0",
-            font=("Arial", 9),
-        )  # Smaller font
-        status_scroll = ttk.Scrollbar(self.status_frame, command=self.status_text.yview)
-        self.status_text.config(yscrollcommand=status_scroll.set)
-        status_scroll.pack(side=tk.RIGHT, fill="y")
-        self.status_text.pack(side=tk.LEFT, fill="both", expand=True)
-        self.add_tooltip(self.status_frame, panel_tooltip("status"))
+        self.status_panel = StatusPanel(self.main_vertical_paned, self.tooltip_manager)
+        self.status_frame = self.status_panel.frame
+        self.status_text = self.status_panel.text
         self._log_panel_event("status", "Panel initierad")
         self.main_vertical_paned.add(self.status_frame, stretch="never")
         self.status_service.add_listener(self._append_status_text)
@@ -613,9 +428,9 @@ class FeodalSimulator:
 
         if not hasattr(self, "details_header"):
             return
-        title = format_details_title(resource_name)
         try:
-            self.details_header.config(text=title)
+            self.details_panel.update_title(resource_name)
+            title = format_details_title(resource_name)
         except tk.TclError:
             return
         self._log_panel_event("details", f"Uppdaterad till '{title}'")
@@ -671,24 +486,7 @@ class FeodalSimulator:
     def _calculate_status_heights(self) -> tuple[int, int]:
         """Return desired and minimum status pane heights in pixels."""
 
-        status_font = tkfont.Font(font=self.status_text.cget("font"))
-        line_height = max(status_font.metrics("linespace"), 1)
-        try:
-            self.status_frame.update_idletasks()
-            text_req_height = max(self.status_text.winfo_reqheight(), line_height)
-            frame_req_height = max(self.status_frame.winfo_reqheight(), text_req_height)
-            chrome_height = max(
-                text_req_height - line_height * STATUS_DEFAULT_LINE_COUNT, 0
-            )
-            frame_overhead = max(frame_req_height - text_req_height, 0)
-            desired_height = frame_overhead + text_req_height
-            min_height = frame_overhead + chrome_height + line_height
-            return max(desired_height, 0), max(min_height, 1)
-        except tk.TclError:
-            chrome_height = line_height // 2
-            desired_height = line_height * STATUS_DEFAULT_LINE_COUNT + chrome_height
-            min_height = line_height + chrome_height
-            return desired_height, min_height
+        return self.status_panel.calculate_heights()
 
     def _calculate_status_desired_height(self) -> int:
         """Compatibility wrapper returning the default status height."""

@@ -4,7 +4,13 @@
 This project is a small prototype for a feudal county simulation. The code
 is split across multiple modules under `src/`.
 
-Run the original Tkinter GUI application with:
+Run the Tkinter GUI application with:
+
+```
+python src/Feudal.py
+```
+
+An older shim remains for compatibility and delegates to the same entry point:
 
 ```
 python src/simulator.py
@@ -32,6 +38,12 @@ Det grafiska huvudfönstret använder tre namngivna paneler:
 - Interna widgets med egen scroll (t.ex. `Text`) tar över hjulet; övriga ytor scrollar panelen.
 - Använd `FeodalSimulator.create_details_scrollable_frame(...)` när ett scrollbart innehåll skapas i panelen så kopplas mushjulsbindningen in automatiskt.
 - Tester kan köras headless med `pytest tests/test_details_scroll.py` och skippas automatiskt om ingen Tk-display finns.
+
+### Utvecklaranteckningar för huvud-UI
+- Panelrubriker finns samlade i `src/ui/strings.py` och exponeras som **Struktur**, **Status** samt **Detaljer: <resurs>**. Rubriken i Detaljer-panelen uppdateras via `FeodalSimulator.update_details_header`.
+- Statuspanelen beräknar en standardhöjd som rymmer minst fyra rader text vid uppstart; se `StatusPanel.calculate_heights`.
+- Detaljer-panelen har en global mushjulsbindning som aktiverar scrollning även när fokus ligger på andra element.
+- Alla `ttk.Combobox` använder den säkra mushjulspolicyn via `src/ui/combobox_policy.py` (patchar `ttk.Combobox` globalt så att stängda dropdowns inte byter värde).
 
 ## Dual Map Tool
 A lightweight mapper with two synchronised views lives in `src/dual_map_tool.py`.
