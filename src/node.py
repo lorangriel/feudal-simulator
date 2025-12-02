@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import math
 from typing import List, Optional
 
 from constants import (
@@ -49,6 +50,11 @@ class Node:
     storage_skin: int = 0
     jarldom_area: int = 0
     expected_license_income: int = 0
+    owner_assigned_level: str = "none"
+    owner_assigned_id: Optional[int] = None
+    personal_province_path: List[int] = field(default_factory=list)
+    tax_forward_fraction: float = 0.5
+    keep_fraction: float = 0.5
     free_peasants: int = 0
     unfree_peasants: int = 0
     thralls: int = 0
@@ -237,6 +243,42 @@ class Node:
             except (ValueError, TypeError):
                 fishing_boats = 0
             fishing_boats = max(0, min(fishing_boats, MAX_FISHING_BOATS))
+
+        owner_level_raw = str(data.get("owner_assigned_level", "none") or "none")
+        owner_assigned_level = owner_level_raw if owner_level_raw in {"0", "1", "2", "none"} else "none"
+        owner_assigned_id = data.get("owner_assigned_id")
+        if isinstance(owner_assigned_id, str) and owner_assigned_id.isdigit():
+            owner_assigned_id = int(owner_assigned_id)
+        elif not isinstance(owner_assigned_id, int):
+            owner_assigned_id = None
+
+        def parse_fraction(value: object, default: float) -> float:
+            try:
+                parsed = float(value)
+            except (TypeError, ValueError):
+                return default
+            return max(0.0, min(1.0, parsed))
+
+        keep_fraction = parse_fraction(data.get("keep_fraction", 0.5), 0.5)
+        tax_forward_fraction = parse_fraction(
+            data.get("tax_forward_fraction", 0.5), 0.5
+        )
+        if not math.isclose(keep_fraction + tax_forward_fraction, 1.0, rel_tol=1e-6):
+            total = keep_fraction + tax_forward_fraction
+            if total <= 0:
+                keep_fraction, tax_forward_fraction = 0.5, 0.5
+            else:
+                keep_fraction /= total
+                tax_forward_fraction /= total
+
+        personal_province_path_raw = data.get("personal_province_path", [])
+        personal_province_path: List[int] = []
+        if isinstance(personal_province_path_raw, list):
+            for entry in personal_province_path_raw:
+                if isinstance(entry, int):
+                    personal_province_path.append(entry)
+                elif isinstance(entry, str) and entry.isdigit():
+                    personal_province_path.append(int(entry))
         if res_type == "Flod":
             try:
                 river_level = int(data.get("river_level", 1) or 1)
@@ -367,6 +409,11 @@ class Node:
             storage_skin=storage_skin,
             jarldom_area=jarldom_area,
             expected_license_income=expected_license_income,
+            owner_assigned_level=owner_assigned_level,
+            owner_assigned_id=owner_assigned_id,
+            personal_province_path=personal_province_path,
+            tax_forward_fraction=tax_forward_fraction,
+            keep_fraction=keep_fraction,
         )
 
     def to_dict(self) -> dict:
@@ -411,6 +458,11 @@ class Node:
             "storage_skin": self.storage_skin,
             "jarldom_area": self.jarldom_area,
             "expected_license_income": self.expected_license_income,
+            "owner_assigned_level": self.owner_assigned_level,
+            "owner_assigned_id": self.owner_assigned_id,
+            "personal_province_path": list(self.personal_province_path),
+            "tax_forward_fraction": self.tax_forward_fraction,
+            "keep_fraction": self.keep_fraction,
             "craftsmen": [
                 {"type": c.get("type", ""), "count": c.get("count", 1)}
                 for c in self.craftsmen
