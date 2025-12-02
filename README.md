@@ -59,6 +59,16 @@ right‑click an edge to assign a border type. Map B groups the same nodes
 by overlord. Switch views using the tabs at the top. Zoom with the mouse
 wheel and pan by dragging with the middle mouse button.
 
+## Time engine
+
+The simulator keeps track of years and seasons (spring, summer, autumn, winter).
+
+- **Controls**: Six toolbar buttons (−10y, −1y, −Season, +Season, +1y, +10y) step the active timeline. The current time is shown next to the buttons and updates immediately.
+- **Deterministic RNG**: Use `rng_for(timeline_id, year, season, node_id, subsystem_tag, base_seed)` from `src/time_engine.py` to seed randomness. `roll_weather` accepts an explicit PRNG to keep weather rolls deterministic.
+- **Snapshots and event log**: Every season is stored in `src/save/saves/timelines/` as a compressed snapshot with an accompanying event list. Jumping backwards loads the closest stored snapshot, while jumping forwards auto-plays missing seasons.
+- **Integration points**: Weather now runs per season; orders/production/tax flows can plug in via custom `season_processors` without altering their internal rules.
+- **Testing**: New regression and determinism tests live in `tests/time/`. UI-coupled tests skip automatically when no Tk display is available.
+
 ## Testing
 Run `pytest` in the repository root to execute the automated test suite.
 

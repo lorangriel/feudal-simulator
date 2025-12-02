@@ -20,7 +20,7 @@ def parse_int_10(value: str | int | None) -> int:
         return 0
 
 
-def roll_dice(expr: str, debug=False):
+def roll_dice(expr: str, debug=False, rng: random.Random | None = None):
     """Rolls dice based on standard notation (e.g., '3d6+2', 'ob2d6')."""
     expr_original = expr.strip()
     expr = expr_original.lower().strip()
@@ -61,10 +61,11 @@ def roll_dice(expr: str, debug=False):
 
     total = 0
     details = []
+    roller = rng or random
     if not unlimited:
         rolls = []
         for _ in range(dice_count):
-            val = random.randint(1, die_type)
+            val = roller.randint(1, die_type)
             rolls.append(val)
             total += val
         total += plus_mod
@@ -77,7 +78,7 @@ def roll_dice(expr: str, debug=False):
     queue = dice_count
     roll_count = 0
     while queue > 0 and roll_count < 100:
-        val = random.randint(1, die_type)
+        val = roller.randint(1, die_type)
         queue -= 1
         roll_count += 1
         if val == die_type:
