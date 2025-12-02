@@ -61,6 +61,7 @@ from noble_staff import (
     get_highest_building_rank,
     get_standard_rank,
 )
+from ui_strings import PANEL_NAMES, format_details_title, panel_tooltip
 
 
 # --------------------------------------------------
@@ -329,15 +330,28 @@ class FeodalSimulator:
             fill="both", expand=True
         )  # Pack is needed for PanedWindow children
 
+        structure_header = ttk.Label(
+            left_frame,
+            text=PANEL_NAMES["structure"],
+            font=("Arial", 12, "bold"),
+            anchor="w",
+            padding=(4, 2),
+        )
+        structure_header.pack(fill="x", pady=(0, 2))
+        self.add_tooltip(structure_header, panel_tooltip("structure"))
+
+        structure_content = ttk.Frame(left_frame)
+        structure_content.pack(fill="both", expand=True)
+
         # Treeview scrollbars (Place them correctly relative to the tree)
-        tree_vscroll = ttk.Scrollbar(left_frame, orient="vertical")
+        tree_vscroll = ttk.Scrollbar(structure_content, orient="vertical")
         tree_hscroll = ttk.Scrollbar(
-            left_frame, orient="horizontal"
+            structure_content, orient="horizontal"
         )  # Placed under the tree
 
         # Treeview widget
         self.tree = ttk.Treeview(
-            left_frame,
+            structure_content,
             yscrollcommand=tree_vscroll.set,
             xscrollcommand=tree_hscroll.set,
             selectmode="browse",
@@ -357,11 +371,13 @@ class FeodalSimulator:
 
         # Treeview setup
         self.tree["columns"] = ("#0",)  # Use only the tree column
-        self.tree.heading("#0", text="Struktur")
+        self.tree.heading("#0", text=PANEL_NAMES["structure"])
         self.tree.column(
             "#0", width=300, minwidth=200, stretch=tk.YES
         )  # Allow stretching
         self.tree.bind("<Double-1>", self.on_tree_double_click)
+        self.add_tooltip(self.tree, panel_tooltip("structure"))
+        self._log_panel_event("structure", "Panel initierad")
 
         # Add left frame to PanedWindow
         self.paned_window.add(left_frame)  # Add weight
@@ -377,9 +393,23 @@ class FeodalSimulator:
         self.right_frame.pack(fill="both", expand=True)
         self.paned_window.add(self.right_frame)  # Add weight
 
+        self.details_header = ttk.Label(
+            self.right_frame,
+            text=format_details_title(None),
+            font=("Arial", 14, "bold"),
+            anchor="w",
+            padding=(10, 6),
+        )
+        self.details_header.pack(fill="x", padx=2, pady=(2, 0))
+        self.add_tooltip(self.details_header, panel_tooltip("details"))
+
+        self.details_body = ttk.Frame(self.right_frame, style="Content.TFrame")
+        self.details_body.pack(fill="both", expand=True)
+        self._log_panel_event("details", "Panel initierad")
+
         # --- Status Bar ---
         self.status_frame = ttk.LabelFrame(
-            self.main_vertical_paned, text="Status", padding=5
+            self.main_vertical_paned, text=PANEL_NAMES["status"], padding=5
         )
         self.status_text = tk.Text(
             self.status_frame,
@@ -394,6 +424,8 @@ class FeodalSimulator:
         self.status_text.config(yscrollcommand=status_scroll.set)
         status_scroll.pack(side=tk.RIGHT, fill="y")
         self.status_text.pack(side=tk.LEFT, fill="both", expand=True)
+        self.add_tooltip(self.status_frame, panel_tooltip("status"))
+        self._log_panel_event("status", "Panel initierad")
         self.main_vertical_paned.add(self.status_frame, stretch="never")
         self.status_service.add_listener(self._append_status_text)
 
@@ -455,6 +487,24 @@ class FeodalSimulator:
         """Attach tooltip text using the shared tooltip manager."""
 
         self.tooltip_manager.set_tooltip(widget, text)
+
+    def _log_panel_event(self, panel_key: str, action: str) -> None:
+        """Print a simple log line tied to a specific panel."""
+
+        panel_name = PANEL_NAMES.get(panel_key, panel_key)
+        print(f"{panel_name}: {action}")
+
+    def update_details_header(self, resource_name: str | None) -> None:
+        """Update the Detaljer-rubrik med det aktuella objektet."""
+
+        if not hasattr(self, "details_header"):
+            return
+        title = format_details_title(resource_name)
+        try:
+            self.details_header.config(text=title)
+        except tk.TclError:
+            return
+        self._log_panel_event("details", f"Uppdaterad till '{title}'")
 
     def _append_status_text(self, msg: str) -> None:
         try:
@@ -522,6 +572,8 @@ class FeodalSimulator:
 
     def _clear_right_frame(self):
         """Destroys all widgets in the right frame."""
+        if not hasattr(self, "details_body"):
+            return
         # Important: Unbind map drag events if map exists
         if self.static_map_canvas:
             self.static_map_canvas.unbind("<Motion>")  # For hover effects if added
@@ -534,8 +586,8 @@ class FeodalSimulator:
             except Exception:
                 pass
             self.dynamic_map_view = None
-
-        for widget in self.right_frame.winfo_children():
+        self.update_details_header(None)
+        for widget in self.details_body.winfo_children():
             widget.destroy()
         self.map_drag_start_node_id = None  # Reset drag state
         self.map_drag_line_id = None
@@ -551,7 +603,7 @@ class FeodalSimulator:
             label_text = f"Aktiv värld: {self.active_world_name}\n\nDubbelklicka på en nod i trädet till vänster för att redigera den."
 
         lbl = ttk.Label(
-            self.right_frame,
+            self.details_body,
             text=label_text,
             justify=tk.CENTER,
             font=("Arial", 12),
@@ -623,7 +675,8 @@ class FeodalSimulator:
     def show_data_menu_view(self):
         """Displays the main data management menu."""
         self._clear_right_frame()
-        container = ttk.Frame(self.right_frame)
+        self.update_details_header("Hantera data")
+        container = ttk.Frame(self.details_body)
         container.pack(expand=True)  # Center the buttons
 
         ttk.Label(container, text="Hantera data", font=("Arial", 16, "bold")).pack(
@@ -699,7 +752,8 @@ class FeodalSimulator:
     def show_manage_worlds_view(self):
         """Displays the UI for managing worlds (create, load, delete, copy)."""
         self._clear_right_frame()
-        container = ttk.Frame(self.right_frame)
+        self.update_details_header("Världar")
+        container = ttk.Frame(self.details_body)
         container.pack(expand=True, fill="y", pady=20)
 
         ttk.Label(container, text="Hantera världar", font=("Arial", 14)).pack(pady=5)
@@ -1215,7 +1269,8 @@ class FeodalSimulator:
             return
 
         self._clear_right_frame()
-        container = ttk.Frame(self.right_frame)
+        self.update_details_header("Karaktärer")
+        container = ttk.Frame(self.details_body)
         container.pack(expand=True, fill="y", pady=20)
 
         ttk.Label(container, text="Hantera Karaktärer", font=("Arial", 14)).pack(pady=5)
@@ -1390,8 +1445,10 @@ class FeodalSimulator:
     ):
         """Shows the form to create or edit a character. char_data is the dict or None if new."""
         self._clear_right_frame()
+        header_name = "Ny karaktär" if is_new else (char_data or {}).get("name")
+        self.update_details_header(header_name)
         # Use a scrollable container so longer forms do not push content off-screen
-        scroll_view = ScrollableFrame(self.right_frame, padding="10 10 10 10")
+        scroll_view = ScrollableFrame(self.details_body, padding="10 10 10 10")
         scroll_view.pack(expand=True, pady=20, padx=20, fill="both")
         container = scroll_view.content
 
@@ -1977,7 +2034,7 @@ class FeodalSimulator:
         display_name = self.get_display_name_for_node(node_data, depth)
 
         # --- Main container frame with padding ---
-        view_frame = ttk.Frame(self.right_frame, padding="10 10 10 10")
+        view_frame = ttk.Frame(self.details_body, padding="10 10 10 10")
         view_frame.pack(fill="both", expand=True)
         view_frame.grid_rowconfigure(1, weight=1)
         view_frame.grid_columnconfigure(0, weight=1)
@@ -1985,6 +2042,7 @@ class FeodalSimulator:
         # --- Title Frame ---
         title_frame = ttk.Frame(view_frame)
         title_frame.pack(fill="x", pady=(8, 20))
+        self.update_details_header(display_name)
         title_label = ttk.Label(
             title_frame, text=f"{display_name}", font=("Arial", 18, "bold"), padding=(0, 4)
         )
@@ -6533,9 +6591,10 @@ class FeodalSimulator:
         self._clear_right_frame()
         node_id = node_data["node_id"]
         custom_name = node_data.get("custom_name", f"Jarldom {node_id}")
+        self.update_details_header(f"Grannar för {custom_name}")
 
         # --- Main container frame ---
-        scroll_view = ScrollableFrame(self.right_frame, padding="10 10 10 10")
+        scroll_view = ScrollableFrame(self.details_body, padding="10 10 10 10")
         scroll_view.pack(fill="both", expand=True)
         view_frame = scroll_view.content
 
@@ -6802,7 +6861,8 @@ class FeodalSimulator:
     def show_static_map_view(self):
         """Displays the static hex-based map of Jarldoms."""
         self._clear_right_frame()
-        map_fr = ttk.Frame(self.right_frame)
+        self.update_details_header("Statisk karta")
+        map_fr = ttk.Frame(self.details_body)
         map_fr.pack(fill="both", expand=True)
         map_fr.grid_rowconfigure(0, weight=1)
         map_fr.grid_columnconfigure(0, weight=1)
@@ -6855,7 +6915,7 @@ class FeodalSimulator:
             self.place_jarldomes_bfs()
 
         # Bottom button bar
-        btn_fr = ttk.Frame(self.right_frame, style="Tool.TFrame")
+        btn_fr = ttk.Frame(self.details_body, style="Tool.TFrame")
         btn_fr.pack(fill="x", pady=5)
         ttk.Button(btn_fr, text="< Tillbaka", command=self.show_no_world_view).pack(
             side=tk.LEFT, padx=5
@@ -7492,8 +7552,9 @@ class FeodalSimulator:
             )
             self.show_no_world_view()
             return
+        self.update_details_header("Dynamisk karta")
         self.dynamic_map_view = DynamicMapCanvas(
-            self.right_frame, self, self.world_data
+            self.details_body, self, self.world_data
         )
 
         self.dynamic_map_view.show()
