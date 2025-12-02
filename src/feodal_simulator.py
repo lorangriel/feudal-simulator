@@ -550,7 +550,7 @@ class FeodalSimulator:
             pointer_widget = self.root.winfo_containing(
                 self.root.winfo_pointerx(), self.root.winfo_pointery()
             )
-        except tk.TclError:
+        except (tk.TclError, KeyError):
             pointer_widget = None
 
         target_widget = event.widget if self._widget_in_details(event.widget) else None
