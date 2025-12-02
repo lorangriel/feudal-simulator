@@ -28,6 +28,7 @@ from constants import (
     DAGSVERKEN_UMBARANDE,
     THRALL_WORK_DAYS,
     NOBLE_STANDARD_OPTIONS,
+    STATUS_DEFAULT_LINE_COUNT,
 )
 from data_manager import load_worlds_from_file
 from node import Node
@@ -413,7 +414,7 @@ class FeodalSimulator:
         )
         self.status_text = tk.Text(
             self.status_frame,
-            height=4,
+            height=STATUS_DEFAULT_LINE_COUNT,
             wrap="word",
             state="disabled",
             relief=tk.FLAT,
@@ -517,40 +518,97 @@ class FeodalSimulator:
             self.status_text.config(state="disabled")
 
     def _configure_initial_vertical_split(self) -> None:
-        """Position the vertical sash so the status area fits roughly four lines."""
+        """Position the vertical sash so the status area fits four full lines."""
 
         try:
             self.root.update_idletasks()
-            status_font = tkfont.Font(font=self.status_text.cget("font"))
-            desired_status_height = self._calculate_status_desired_height(status_font)
+            desired_status_height, min_status_height = self._calculate_status_heights()
+            min_main_height = self._minimum_main_content_height()
+            self._ensure_root_height_for_status(desired_status_height, min_main_height)
+            self.root.update_idletasks()
             paned_height = self.main_vertical_paned.winfo_height()
             if paned_height <= 0:
                 paned_height = self.root.winfo_height()
-            vertical_sash = max(paned_height - desired_status_height, 0)
 
-            self.main_vertical_paned.sash_place(0, 0, vertical_sash)
+            sash_position = paned_height - desired_status_height
+            sash_position = max(sash_position, min_main_height)
+            sash_position = min(sash_position, paned_height - min_status_height)
+            sash_position = max(sash_position, 0)
+
+            self.main_vertical_paned.sash_place(0, 0, sash_position)
             self.main_vertical_paned.paneconfigure(
-                self.status_frame, height=desired_status_height
-            )
-            self.main_vertical_paned.paneconfigure(
-                self.main_frame, stretch="always", minsize=200
+                self.main_frame, stretch="always", minsize=min_main_height
             )
             self.main_vertical_paned.paneconfigure(
                 self.status_frame,
                 stretch="never",
-                minsize=desired_status_height,
+                minsize=min_status_height,
                 height=desired_status_height,
+            )
+            self._log_panel_event(
+                "status",
+                (
+                    f"Standardhöjd satt till {STATUS_DEFAULT_LINE_COUNT} rader "
+                    f"({desired_status_height}px)"
+                ),
             )
         except tk.TclError:
             pass
 
-    @staticmethod
-    def _calculate_status_desired_height(status_font: tkfont.Font) -> int:
-        """Return the pixel height needed to display four lines in the status box."""
+    def _calculate_status_heights(self) -> tuple[int, int]:
+        """Return desired and minimum status pane heights in pixels."""
 
+        status_font = tkfont.Font(font=self.status_text.cget("font"))
         line_height = max(status_font.metrics("linespace"), 1)
-        # Extra padding keeps the scrollbar and label frame border visible.
-        return max(line_height * 4 + 8, 0)
+        try:
+            self.status_frame.update_idletasks()
+            text_req_height = max(self.status_text.winfo_reqheight(), line_height)
+            frame_req_height = max(self.status_frame.winfo_reqheight(), text_req_height)
+            chrome_height = max(
+                text_req_height - line_height * STATUS_DEFAULT_LINE_COUNT, 0
+            )
+            frame_overhead = max(frame_req_height - text_req_height, 0)
+            desired_height = frame_overhead + text_req_height
+            min_height = frame_overhead + chrome_height + line_height
+            return max(desired_height, 0), max(min_height, 1)
+        except tk.TclError:
+            chrome_height = line_height // 2
+            desired_height = line_height * STATUS_DEFAULT_LINE_COUNT + chrome_height
+            min_height = line_height + chrome_height
+            return desired_height, min_height
+
+    def _calculate_status_desired_height(self) -> int:
+        """Compatibility wrapper returning the default status height."""
+
+        desired_height, _ = self._calculate_status_heights()
+        return desired_height
+
+    def _ensure_root_height_for_status(
+        self, desired_status_height: int, min_main_height: int
+    ) -> None:
+        """Grow the root window if four status lines would not fit."""
+
+        try:
+            current_height = max(self.root.winfo_height(), self.root.winfo_reqheight())
+            target_height = desired_status_height + min_main_height
+            if current_height < target_height:
+                width = max(self.root.winfo_width(), self.root.winfo_reqwidth())
+                available_height = self.root.winfo_screenheight() - 40
+                if available_height <= 0:
+                    available_height = target_height
+                adjusted_height = min(target_height, available_height)
+                self.root.geometry(f"{width}x{int(adjusted_height)}")
+        except tk.TclError:
+            pass
+
+    def _minimum_main_content_height(self) -> int:
+        """Estimate a sensible minimum height for the main content area."""
+
+        try:
+            self.main_frame.update_idletasks()
+            return max(self.main_frame.winfo_reqheight(), 300)
+        except tk.TclError:
+            return 300
 
     # --- World Data Handling ---
     def save_current_world(self):

@@ -7,6 +7,9 @@ from pathlib import Path
 SAVE_DIRECTORY = Path(__file__).resolve().parent / "save" / "saves"
 DEFAULT_WORLDS_FILE = str(SAVE_DIRECTORY / "worlds.json")
 
+# UI defaults
+STATUS_DEFAULT_LINE_COUNT = 4
+
 # Resource types
 RES_TYPES = [
     "Resurs",  # Generic/Default
