@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Main application class for the feudal simulator."""
+import sys
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk, simpledialog, messagebox
@@ -201,6 +202,8 @@ class FeodalSimulator:
         "byggnaderna stödjer. Sänk först familjens levnadsstandard eller bygg en "
         "finare byggnad."
     )
+
+    DETAILS_SCROLL_UNITS = 3
 
     def __init__(self, root):
         self.root = root
@@ -406,6 +409,9 @@ class FeodalSimulator:
 
         self.details_body = ttk.Frame(self.right_frame, style="Content.TFrame")
         self.details_body.pack(fill="both", expand=True)
+        self._details_scroll_target: tk.Misc | None = None
+        self._details_mousewheel_bound = False
+        self._bind_details_mousewheel()
         self._log_panel_event("details", "Panel initierad")
 
         # --- Status Bar ---
@@ -488,6 +494,104 @@ class FeodalSimulator:
         """Attach tooltip text using the shared tooltip manager."""
 
         self.tooltip_manager.set_tooltip(widget, text)
+
+    def _bind_details_mousewheel(self) -> None:
+        """Bind global mouse wheel events and filter to Detaljer-panelen."""
+
+        if self._details_mousewheel_bound:
+            return
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            self.root.bind_all(sequence, self._on_details_mousewheel, add="+")
+        self._details_mousewheel_bound = True
+        self._log_panel_event(
+            "details",
+            "Globalt mushjuls-scrollstöd aktiverat (canvas-yview-backing)",
+        )
+
+    def _widget_in_details(self, widget: tk.Misc | None) -> bool:
+        """Return ``True`` if ``widget`` belongs to the Detaljer-panelen."""
+
+        if widget is None or not hasattr(self, "details_body"):
+            return False
+        try:
+            current: tk.Misc | None = widget
+            while current is not None:
+                if current is self.details_body:
+                    return True
+                parent_name = current.winfo_parent()
+                if not parent_name:
+                    break
+                current = current.nametowidget(parent_name)
+        except tk.TclError:
+            return False
+        return False
+
+    def _normalize_mousewheel_delta(self, event: tk.Event) -> int:
+        """Normalize delta across platforms to signed scroll units."""
+
+        event_num = getattr(event, "num", None)
+        if event_num in (4, 5):  # X11 scroll emulation
+            return -1 if event_num == 4 else 1
+
+        delta = getattr(event, "delta", 0)
+        if delta == 0:
+            return 0
+        if sys.platform == "darwin":
+            return -int(delta)
+
+        step = int(delta / 120) if abs(delta) >= 120 else int(delta / abs(delta))
+        return -step
+
+    def _on_details_mousewheel(self, event: tk.Event) -> None:
+        """Scroll the active Detaljer-backing when wheel events occur inside it."""
+
+        pointer_widget = None
+        try:
+            pointer_widget = self.root.winfo_containing(
+                self.root.winfo_pointerx(), self.root.winfo_pointery()
+            )
+        except tk.TclError:
+            pointer_widget = None
+
+        target_widget = event.widget if self._widget_in_details(event.widget) else None
+        if target_widget is None and not self._widget_in_details(pointer_widget):
+            return
+
+        target = self._details_scroll_target
+        if not target or not hasattr(target, "yview_scroll"):
+            return
+        try:
+            if not target.winfo_exists():
+                self._details_scroll_target = None
+                return
+        except tk.TclError:
+            self._details_scroll_target = None
+            return
+
+        units = self._normalize_mousewheel_delta(event)
+        if units == 0:
+            return
+
+        try:
+            target.yview_scroll(units * self.DETAILS_SCROLL_UNITS, "units")
+        except tk.TclError:
+            self._details_scroll_target = None
+
+    def _set_details_scroll_target(self, widget: tk.Misc | None) -> None:
+        """Update which widget handles global wheel scroll in Detaljer-panelen."""
+
+        self._details_scroll_target = widget
+        if widget is not None:
+            self._log_panel_event("details", "Scroll-target uppdaterad")
+
+    def create_details_scrollable_frame(
+        self, parent: tk.Misc | None = None, *args, **kwargs
+    ) -> ScrollableFrame:
+        """Create a ``ScrollableFrame`` bound to Detaljer-panelens mushjul."""
+
+        scroll_view = ScrollableFrame(parent or self.details_body, *args, **kwargs)
+        self._set_details_scroll_target(scroll_view.canvas)
+        return scroll_view
 
     def _log_panel_event(self, panel_key: str, action: str) -> None:
         """Print a simple log line tied to a specific panel."""
@@ -645,6 +749,7 @@ class FeodalSimulator:
                 pass
             self.dynamic_map_view = None
         self.update_details_header(None)
+        self._set_details_scroll_target(None)
         for widget in self.details_body.winfo_children():
             widget.destroy()
         self.map_drag_start_node_id = None  # Reset drag state
@@ -1506,7 +1611,9 @@ class FeodalSimulator:
         header_name = "Ny karaktär" if is_new else (char_data or {}).get("name")
         self.update_details_header(header_name)
         # Use a scrollable container so longer forms do not push content off-screen
-        scroll_view = ScrollableFrame(self.details_body, padding="10 10 10 10")
+        scroll_view = self.create_details_scrollable_frame(
+            padding="10 10 10 10"
+        )
         scroll_view.pack(expand=True, pady=20, padx=20, fill="both")
         container = scroll_view.content
 
@@ -2110,7 +2217,7 @@ class FeodalSimulator:
         ).pack(side=tk.LEFT, anchor="s", padx=5)
 
         # --- Scrollable area for editor content ---
-        scroll_frame = ScrollableFrame(view_frame)
+        scroll_frame = self.create_details_scrollable_frame(view_frame)
         scroll_frame.pack(fill="both", expand=True)
         editor_content_frame = scroll_frame.content
 
@@ -6652,7 +6759,9 @@ class FeodalSimulator:
         self.update_details_header(f"Grannar för {custom_name}")
 
         # --- Main container frame ---
-        scroll_view = ScrollableFrame(self.details_body, padding="10 10 10 10")
+        scroll_view = self.create_details_scrollable_frame(
+            padding="10 10 10 10"
+        )
         scroll_view.pack(fill="both", expand=True)
         view_frame = scroll_view.content
 

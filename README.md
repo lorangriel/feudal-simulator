@@ -26,6 +26,13 @@ Det grafiska huvudfönstret använder tre namngivna paneler:
 - **Status** – presenterar statusmeddelanden i den övre högra rutan.
 - **Detaljer: <resursnamn>** – anger den valda noden eller resursen i den nedre högra rutan och uppdateras direkt när användaren byter val.
 
+### Mushjul i Detaljer-panelen
+- Mushjulsrörelser fångas globalt för hela Detaljer-panelens innehåll och normaliseras för `MouseWheel` (Windows/macOS) samt `Button-4`/`Button-5` (X11/Linux).
+- Scrollningen driver panelens vertikala vy (canvas-backing) och fortsätter fungera även efter att innehållet har byggts om.
+- Interna widgets med egen scroll (t.ex. `Text`) tar över hjulet; övriga ytor scrollar panelen.
+- Använd `FeodalSimulator.create_details_scrollable_frame(...)` när ett scrollbart innehåll skapas i panelen så kopplas mushjulsbindningen in automatiskt.
+- Tester kan köras headless med `pytest tests/test_details_scroll.py` och skippas automatiskt om ingen Tk-display finns.
+
 ## Dual Map Tool
 A lightweight mapper with two synchronised views lives in `src/dual_map_tool.py`.
 Start it with:
