@@ -31,6 +31,7 @@ from constants import (
     NOBLE_STANDARD_OPTIONS,
     STATUS_DEFAULT_LINE_COUNT,
 )
+from safe_combobox import apply_safe_combobox_patch
 from data_manager import load_worlds_from_file
 from node import Node
 from utils import (
@@ -64,6 +65,8 @@ from noble_staff import (
     get_standard_rank,
 )
 from ui_strings import PANEL_NAMES, format_details_title, panel_tooltip
+
+apply_safe_combobox_patch()
 
 
 # --------------------------------------------------
