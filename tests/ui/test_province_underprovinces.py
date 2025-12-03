@@ -2,6 +2,7 @@ import tkinter as tk
 
 import pytest
 
+from src.feodal_simulator import FeodalSimulator
 from src.ui import app as ui_app
 
 
@@ -43,13 +44,16 @@ def test_province_view_includes_underprovinces(root):
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
+    anchor = FeodalSimulator.PROVINCE_ANCHOR_IID
+
     app.tree.selection_set("2")
     app.tree.focus("2")
     app.on_tree_selection_change()
 
     app.structure_panel.show_personal_button.invoke()
 
-    assert app.tree.get_children("") == ("2",)
+    assert app.tree.get_children("") == (anchor,)
+    assert app.tree.get_children(anchor) == ("2",)
     assert app.tree.get_children("2") == ("3",)
     assert app.tree.get_children("3") == ("4",)
 
@@ -62,7 +66,8 @@ def test_province_view_includes_underprovinces(root):
     app.on_tree_selection_change()
     app.structure_panel.show_personal_button.invoke()
 
-    assert app.tree.get_children("") == ("2",)
+    assert app.tree.get_children("") == (anchor,)
+    assert app.tree.get_children(anchor) == ("2",)
     assert app.tree.get_children("2") == ()
 
     app.exit_province_view()
@@ -71,5 +76,6 @@ def test_province_view_includes_underprovinces(root):
     app.on_tree_selection_change()
     app.structure_panel.show_personal_button.invoke()
 
-    assert app.tree.get_children("") == ("3",)
+    assert app.tree.get_children("") == (anchor,)
+    assert app.tree.get_children(anchor) == ("3",)
     assert app.tree.get_children("3") == ("4",)

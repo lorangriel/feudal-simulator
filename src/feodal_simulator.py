@@ -100,6 +100,7 @@ class FeodalSimulator:
     )
 
     DETAILS_SCROLL_UNITS = 3
+    PROVINCE_ANCHOR_IID = "province_owner_anchor"
 
     def __init__(self, root):
         self.root = root
@@ -1596,8 +1597,39 @@ class FeodalSimulator:
 
     def _render_province_subtrees(self, subtrees: list[dict]) -> None:
         self.tree.delete(*self.tree.get_children())
+        anchor_iid = ""
+        owner_id = self.current_province_owner_id
+
+        if owner_id is not None:
+            owner_level = (
+                self.get_depth_of_node(owner_id) if self.world_data else 0
+            )
+            owner_data = (
+                self.world_data.get("nodes", {}).get(str(owner_id), {})
+                if self.world_data
+                else {}
+            )
+            anchor_label = (
+                f"Ägare: {self.get_display_name_for_node(owner_data, owner_level)} "
+                f"(nivå {owner_level})"
+            )
+            try:
+                self.tree.insert(
+                    "",
+                    "end",
+                    iid=self.PROVINCE_ANCHOR_IID,
+                    text=anchor_label,
+                    open=True,
+                )
+                anchor_iid = self.PROVINCE_ANCHOR_IID
+            except tk.TclError:
+                anchor_iid = ""
+
+        if not subtrees:
+            return
+
         for subtree in subtrees:
-            self._insert_province_subtree("", subtree)
+            self._insert_province_subtree(anchor_iid, subtree)
 
     def _insert_province_subtree(self, parent_iid: str, subtree: dict) -> None:
         node_id = subtree.get("id") if isinstance(subtree, dict) else None
