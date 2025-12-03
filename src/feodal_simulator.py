@@ -1203,14 +1203,19 @@ class FeodalSimulator:
         # Insert item into tree
         try:
             # Add tags for potential styling based on depth or type later
-            tags = (f"depth_{depth}",)
+            is_personal = (
+                str(node_data.get("owner_assigned_level", "none")) != "none"
+            )
+            tags = [f"depth_{depth}"]
+            if is_personal:
+                tags.append("personal_province")
             my_iid = self.tree.insert(
                 parent_iid,
                 "end",
                 iid=node_id_str,
-                text=display_name,
+                text=self.structure_panel.format_node_label(display_name, is_personal),
                 open=(depth < 1),
-                tags=tags,
+                tags=tuple(tags),
             )  # Open only root initially
         except tk.TclError as e:
             print(
@@ -1452,16 +1457,7 @@ class FeodalSimulator:
         if owner_id is None or owner_id not in (previous_owner, new_owner):
             return
 
-        self.tree.delete(*self.tree.get_children())
-        for node_data in self._find_province_nodes_for_owner(owner_id):
-            nid = node_data.get("node_id")
-            if nid is None:
-                continue
-            display_name = self.get_display_name_for_node(node_data, 3)
-            try:
-                self.tree.insert("", "end", iid=str(nid), text=display_name)
-            except tk.TclError:
-                continue
+        self._render_province_subtrees(self.get_province_subtree(owner_id))
 
         node_id_str = str(node_id)
         if self.tree.exists(node_id_str):
@@ -1477,32 +1473,75 @@ class FeodalSimulator:
             changed_node_id, old_owner_id, new_owner_id
         )
 
-    def _find_province_nodes_for_owner(self, owner_id: int):
-        """Return level-3 nodes owned by ``owner_id``."""
+    def get_province_subtree(self, owner_id: int) -> list[dict]:
+        """Return filtered province subtrees for ``owner_id``."""
 
         if not self.world_data:
             return []
 
-        matching = []
-        for node_id_str, node_data in self.world_data.get("nodes", {}).items():
+        nodes = self.world_data.get("nodes", {})
+        roots: list[Node] = []
+        for node_data in nodes.values():
             try:
-                depth = self.get_depth_of_node(int(node_id_str))
-            except (ValueError, TypeError):
+                node_id = int(node_data.get("node_id"))
+            except (TypeError, ValueError):
                 continue
 
-            if depth != 3:
-                continue
-
-            if node_data.get("owner_assigned_id") != owner_id:
-                continue
             if str(node_data.get("owner_assigned_level", "none")) == "none":
                 continue
+            if node_data.get("owner_assigned_id") != owner_id:
+                continue
 
-            matching.append(node_data)
-            # TODO: Koppla Modell B-ägare och arvskedjan här i nästa PR.
+            roots.append(Node.from_dict(node_data))
 
-        matching.sort(key=lambda n: self.get_display_name_for_node(n, 3))
-        return matching
+        def build_tree(node: Node) -> dict:
+            child_entries: list[dict] = []
+            for child in self.world_manager.get_children(node.node_id):
+                _level, inherited_owner = child.inherited_owner(self.world_manager)
+                if inherited_owner != owner_id:
+                    continue
+                child_entries.append(build_tree(child))
+
+            child_entries.sort(key=lambda entry: self.get_display_name(entry["node"].node_id))
+            return {"node": node, "children": child_entries}
+
+        roots.sort(key=lambda n: self.get_display_name(n.node_id))
+        return [build_tree(root) for root in roots]
+
+    def _render_province_subtrees(self, subtrees: list[dict]) -> None:
+        self.tree.delete(*self.tree.get_children())
+        for subtree in subtrees:
+            self._insert_province_subtree("", subtree)
+
+    def _insert_province_subtree(self, parent_iid: str, subtree: dict) -> None:
+        node: Node | None = subtree.get("node") if isinstance(subtree, dict) else None
+        if node is None:
+            return
+
+        node_id_str = str(node.node_id)
+        node_data = self.world_data.get("nodes", {}).get(node_id_str, {})
+        depth = self.get_depth_of_node(node.node_id)
+        display_name = self.get_display_name_for_node(node_data, depth)
+        is_personal = str(node_data.get("owner_assigned_level", "none")) != "none"
+
+        tags = [f"depth_{depth}"]
+        if is_personal:
+            tags.append("personal_province")
+
+        try:
+            self.tree.insert(
+                parent_iid,
+                "end",
+                iid=node_id_str,
+                text=self.structure_panel.format_node_label(display_name, is_personal),
+                open=(depth < 1),
+                tags=tuple(tags),
+            )
+        except tk.TclError:
+            return
+
+        for child in subtree.get("children", []):
+            self._insert_province_subtree(node_id_str, child)
 
     def show_personal_province_view(self):
         if self.structure_panel.mode != "admin":
@@ -1523,17 +1562,7 @@ class FeodalSimulator:
         self._admin_tree_state = self.store_tree_state()
         self.structure_panel.update_mode("province")
         self.current_province_owner_id = selected_owner_id
-        self.tree.delete(*self.tree.get_children())
-
-        for node_data in self._find_province_nodes_for_owner(selected_owner_id):
-            node_id = node_data.get("node_id")
-            if node_id is None:
-                continue
-            display_name = self.get_display_name_for_node(node_data, 3)
-            try:
-                self.tree.insert("", "end", iid=str(node_id), text=display_name)
-            except tk.TclError:
-                continue
+        self._render_province_subtrees(self.get_province_subtree(selected_owner_id))
 
     def exit_province_view(self):
         if self.structure_panel.mode != "province":
@@ -1578,7 +1607,20 @@ class FeodalSimulator:
                 depth = self.get_depth_of_node(node_id)
                 display_name = self.get_display_name_for_node(node_data, depth)
                 try:
-                    self.tree.item(node_id_str, text=display_name)
+                    is_personal = (
+                        str(node_data.get("owner_assigned_level", "none"))
+                        != "none"
+                    )
+                    self.tree.item(
+                        node_id_str,
+                        text=self.structure_panel.format_node_label(
+                            display_name, is_personal
+                        ),
+                        tags=tuple(
+                            [f"depth_{depth}"]
+                            + (["personal_province"] if is_personal else [])
+                        ),
+                    )
                 except tk.TclError as e:
                     print(f"Error refreshing tree item {node_id_str}: {e}")
 

@@ -514,6 +514,26 @@ class WorldManager(WorldInterface):
                 self._depth_cache[node_id] = -100
                 return -100
 
+    def get_children(self, node_id: int) -> List[Node]:
+        """Return ``Node`` instances for the direct children of ``node_id``."""
+
+        nodes_dict = self.world_data.get("nodes", {})
+        node_data = nodes_dict.get(str(node_id))
+        if not node_data:
+            return []
+
+        result: List[Node] = []
+        for child_id in node_data.get("children", []):
+            try:
+                cid = int(child_id)
+            except (TypeError, ValueError):
+                continue
+            child_data = nodes_dict.get(str(cid))
+            if not child_data:
+                continue
+            result.append(Node.from_dict(child_data))
+        return result
+
     def get_display_name_for_node(
         self, node_data: Dict[str, Any] | Any, depth: int
     ) -> str:
