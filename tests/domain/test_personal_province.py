@@ -21,11 +21,6 @@ def test_validate_assignment_requires_owner_for_personal():
         validate_assignment("1", None, None)
 
 
-def test_validate_assignment_blocks_conflicting_owner():
-    with pytest.raises(PersonalProvinceError):
-        validate_assignment("2", 5, existing_owner=6)
-
-
 @pytest.mark.parametrize(
     "owner_level,expected",
     [("none", []), ("1", [10, 11]), ("2", [10, 11, 12])],

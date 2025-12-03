@@ -76,7 +76,7 @@ from ui.strings import (
     panel_tooltip,
 )
 from ui.widgets.tooltips import TooltipManager
-from personal_province import build_personal_path
+from personal_province import PersonalProvinceError, build_personal_path, validate_assignment
 
 apply_combobox_policy()
 
@@ -260,8 +260,8 @@ class FeodalSimulator:
         self.details_panel.ownership_combobox.bind(
             "<<ComboboxSelected>>", self._on_ownership_selected
         )
-        self._ownership_option_map: dict[str, str] = {}
         self._ownership_target_id: int | None = None
+        self._ownership_last_selection: str | None = None
         self._suppress_ownership_callback = False
         self.current_province_owner_id: int | None = None
         self._details_scroll_target: tk.Misc | None = None
@@ -1265,9 +1265,41 @@ class FeodalSimulator:
         """Return a readable name for a node at the given depth."""
         return self.world_manager.get_display_name_for_node(node_data, depth)
 
+    def get_display_name(self, node_id: int) -> str:
+        """Return display name for ``node_id`` using world manager helpers."""
+
+        if not self.world_data:
+            return f"Nod {node_id}"
+
+        node_data = self.world_data.get("nodes", {}).get(str(node_id))
+        if not node_data:
+            return f"Nod {node_id}"
+
+        depth = self.world_manager.get_depth_of_node(node_id)
+        return self.world_manager.get_display_name_for_node(node_data, depth)
+
     def get_depth_of_node(self, node_id):
         """Calculates the depth of a node in the hierarchy (0 for root)."""
         return self.world_manager.get_depth_of_node(node_id)
+
+    def get_all_owners_by_level(self, level: int) -> list[dict]:
+        """Return all nodes at the specified depth."""
+
+        if not self.world_data:
+            return []
+
+        results: list[dict] = []
+        for node_id_str, node_data in self.world_data.get("nodes", {}).items():
+            try:
+                node_id = int(node_id_str)
+            except (TypeError, ValueError):
+                continue
+
+            if self.get_depth_of_node(node_id) == level:
+                results.append(node_data)
+
+        results.sort(key=lambda n: self.get_display_name_for_node(n, level))
+        return results
 
     def clear_depth_cache(self):
         """Clears the node depth cache, needed when hierarchy changes."""
@@ -1315,36 +1347,22 @@ class FeodalSimulator:
     ) -> None:
         if not node_id or depth != 3 or not self.world_data:
             self._ownership_target_id = None
-            self._ownership_option_map = {}
+            self._ownership_last_selection = None
             self.details_panel.hide_ownership_controls()
             return
 
         node_data = self.world_data.get("nodes", {}).get(str(node_id))
         if not node_data:
             self._ownership_target_id = None
-            self._ownership_option_map = {}
+            self._ownership_last_selection = None
             self.details_panel.hide_ownership_controls()
             return
 
-        options = [
-            ("Lokal ägo", "none"),
-            ("Kung (nivå 0)", "0"),
-            ("Furste (nivå 1)", "1"),
-            ("Hertig (nivå 2)", "2"),
-        ]
-        self._ownership_option_map = {label: level for label, level in options}
-        labels = [label for label, _ in options]
-        self.details_panel.ownership_combobox.config(values=labels)
-        self.details_panel.show_ownership_controls()
-
-        current_level = str(node_data.get("owner_assigned_level", "none") or "none")
-        selected_label = labels[0]
-        for label, level in options:
-            if level == current_level:
-                selected_label = label
-                break
-
         self._ownership_target_id = node_id
+        selected_label = self.details_panel.populate_ownership_combobox(
+            self, node_id, node_data
+        )
+        self._ownership_last_selection = selected_label
         self._set_ownership_selection(selected_label)
 
     def on_tree_selection_change(self, _event=None):
@@ -1387,21 +1405,42 @@ class FeodalSimulator:
             return
 
         selection_label = self.details_panel.ownership_var.get()
-        choice = self._ownership_option_map.get(selection_label)
+        choice = self.details_panel.get_ownership_choice(selection_label)
         if choice is None:
             return
 
-        candidate_level = choice
-        owner_id = None
-        if candidate_level != "none":
-            owner_id = self._first_node_at_depth(int(candidate_level))
+        candidate_level, candidate_owner_id = choice
 
-        lineage = self._ownership_lineage_for_node(node_id)
-        personal_path = build_personal_path(candidate_level, owner_id, lineage)
+        if (
+            candidate_level == str(node_data.get("owner_assigned_level", "none"))
+            and candidate_owner_id == node_data.get("owner_assigned_id")
+        ):
+            self._ownership_last_selection = selection_label
+            return
+
+        previous_owner = node_data.get("owner_assigned_id")
+
+        try:
+            validate_assignment(candidate_level, candidate_owner_id, previous_owner)
+            lineage = self._ownership_lineage_for_node(node_id)
+            personal_path = build_personal_path(
+                candidate_level, candidate_owner_id, lineage
+            )
+        except PersonalProvinceError:
+            messagebox.showerror(
+                "Ogiltig tilldelning",
+                "Ogiltig tilldelning – ändringen avbröts.",
+                parent=self.root,
+            )
+            if self._ownership_last_selection is not None:
+                self._set_ownership_selection(self._ownership_last_selection)
+            return
 
         node_data["owner_assigned_level"] = candidate_level
-        node_data["owner_assigned_id"] = owner_id
+        node_data["owner_assigned_id"] = candidate_owner_id
         node_data["personal_province_path"] = personal_path
+        self._ownership_last_selection = selection_label
+        self.on_ownership_changed(node_id, previous_owner, candidate_owner_id)
 
     def _refresh_province_tree_for_current_owner(
         self, node_id: int, previous_owner: int | None, new_owner: int | None
@@ -1428,6 +1467,15 @@ class FeodalSimulator:
         if self.tree.exists(node_id_str):
             self.tree.selection_set(node_id_str)
             self.tree.focus(node_id_str)
+
+    def on_ownership_changed(
+        self, changed_node_id: int, old_owner_id: int | None, new_owner_id: int | None
+    ) -> None:
+        """Public hook for when ägande ändras."""
+
+        self._refresh_province_tree_for_current_owner(
+            changed_node_id, old_owner_id, new_owner_id
+        )
 
     def _find_province_nodes_for_owner(self, owner_id: int):
         """Return level-3 nodes owned by ``owner_id``."""
