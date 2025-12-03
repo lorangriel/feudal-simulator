@@ -1473,40 +1473,126 @@ class FeodalSimulator:
             changed_node_id, old_owner_id, new_owner_id
         )
 
+    def _build_parent_map(self) -> dict[int, int | None]:
+        """Return a mapping of node IDs to their parent IDs."""
+
+        if not self.world_data:
+            return {}
+
+        nodes_dict = self.world_data.get("nodes", {})
+        parent_of: dict[int, int | None] = {}
+
+        root_ids: list[int] = []
+        for node_id_str, node_data in nodes_dict.items():
+            try:
+                node_id = int(node_id_str)
+            except (TypeError, ValueError):
+                continue
+
+            parent_id = node_data.get("parent_id")
+            depth = self.get_depth_of_node(node_id)
+            if parent_id is None or depth == 0:
+                root_ids.append(node_id)
+
+        if not root_ids:
+            for node_id_str, node_data in nodes_dict.items():
+                try:
+                    node_id = int(node_id_str)
+                except (TypeError, ValueError):
+                    continue
+
+                parent_id = node_data.get("parent_id")
+                if parent_id is None or str(parent_id) not in nodes_dict:
+                    root_ids.append(node_id)
+
+        for root_id in root_ids:
+            parent_of[root_id] = None
+
+        queue = deque(root_ids)
+        while queue:
+            current_id = queue.popleft()
+            for child in self.world_manager.get_children(current_id):
+                parent_of[child.node_id] = current_id
+                queue.append(child.node_id)
+
+        for node_id_str, node_data in nodes_dict.items():
+            try:
+                node_id = int(node_id_str)
+            except (TypeError, ValueError):
+                continue
+
+            if node_id in parent_of:
+                continue
+
+            parent_id = node_data.get("parent_id")
+            try:
+                parent_of[node_id] = int(parent_id) if parent_id is not None else None
+            except (TypeError, ValueError):
+                parent_of[node_id] = None
+
+        return parent_of
+
+    def _inherited_owner(self, node_id: int, parent_of: dict[int, int | None]) -> int | None:
+        """Return inherited owner for ``node_id`` using ``parent_of``."""
+
+        if not self.world_data:
+            return None
+
+        nodes = self.world_data.get("nodes", {})
+        visited: set[int] = set()
+        current_id: int | None = node_id
+
+        while current_id is not None and current_id not in visited:
+            visited.add(current_id)
+            node_data = nodes.get(str(current_id))
+            if not node_data:
+                break
+
+            owner_level = str(node_data.get("owner_assigned_level", "none"))
+            if owner_level != "none":
+                return node_data.get("owner_assigned_id")
+
+            current_id = parent_of.get(current_id)
+
+        return None
+
     def get_province_subtree(self, owner_id: int) -> list[dict]:
-        """Return filtered province subtrees for ``owner_id``."""
+        """Returnerar provinsträd för ``owner_id`` enligt arvsregeln."""
 
         if not self.world_data:
             return []
 
+        parent_of = self._build_parent_map()
         nodes = self.world_data.get("nodes", {})
-        roots: list[Node] = []
-        for node_data in nodes.values():
+
+        belonging: set[int] = set()
+        for node_id_str in nodes:
             try:
-                node_id = int(node_data.get("node_id"))
+                node_id = int(node_id_str)
             except (TypeError, ValueError):
                 continue
 
-            if str(node_data.get("owner_assigned_level", "none")) == "none":
-                continue
-            if node_data.get("owner_assigned_id") != owner_id:
-                continue
+            inherited_owner = self._inherited_owner(node_id, parent_of)
+            if inherited_owner == owner_id:
+                belonging.add(node_id)
 
-            roots.append(Node.from_dict(node_data))
+        if not belonging:
+            return []
 
-        def build_tree(node: Node) -> dict:
-            child_entries: list[dict] = []
-            for child in self.world_manager.get_children(node.node_id):
-                _level, inherited_owner = child.inherited_owner(self.world_manager)
-                if inherited_owner != owner_id:
+        def build_tree(node_id: int) -> dict:
+            children: list[dict] = []
+            for child in self.world_manager.get_children(node_id):
+                if child.node_id not in belonging:
                     continue
-                child_entries.append(build_tree(child))
+                children.append(build_tree(child.node_id))
 
-            child_entries.sort(key=lambda entry: self.get_display_name(entry["node"].node_id))
-            return {"node": node, "children": child_entries}
+            children.sort(key=lambda entry: self.get_display_name(entry["id"]))
+            return {"id": node_id, "children": children}
 
-        roots.sort(key=lambda n: self.get_display_name(n.node_id))
-        return [build_tree(root) for root in roots]
+        root_ids = [nid for nid in belonging if parent_of.get(nid) not in belonging]
+        root_ids.sort(key=self.get_display_name)
+
+        return [build_tree(root_id) for root_id in root_ids]
 
     def _render_province_subtrees(self, subtrees: list[dict]) -> None:
         self.tree.delete(*self.tree.get_children())
@@ -1514,13 +1600,13 @@ class FeodalSimulator:
             self._insert_province_subtree("", subtree)
 
     def _insert_province_subtree(self, parent_iid: str, subtree: dict) -> None:
-        node: Node | None = subtree.get("node") if isinstance(subtree, dict) else None
-        if node is None:
+        node_id = subtree.get("id") if isinstance(subtree, dict) else None
+        if node_id is None:
             return
 
-        node_id_str = str(node.node_id)
+        node_id_str = str(node_id)
         node_data = self.world_data.get("nodes", {}).get(node_id_str, {})
-        depth = self.get_depth_of_node(node.node_id)
+        depth = self.get_depth_of_node(node_id)
         display_name = self.get_display_name_for_node(node_data, depth)
         is_personal = str(node_data.get("owner_assigned_level", "none")) != "none"
 
