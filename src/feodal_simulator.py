@@ -1355,7 +1355,7 @@ class FeodalSimulator:
         if selection:
             try:
                 node_id = int(selection[0])
-                depth = self.get_depth_of_node(node_id)
+                depth = self.world_manager.get_depth_of_node(node_id)
             except (ValueError, TypeError):
                 node_id = None
 
@@ -1363,6 +1363,11 @@ class FeodalSimulator:
             self.structure_panel.show_personal_toggle(bool(depth is not None and depth <= 2))
 
         self._update_ownership_controls(node_id, depth)
+
+        if depth == 3:
+            self.details_panel.show_ownership_controls()
+        else:
+            self.details_panel.hide_ownership_controls()
 
         if self.structure_panel.mode != "admin":
             return
