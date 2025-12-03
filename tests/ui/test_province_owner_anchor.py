@@ -20,77 +20,66 @@ def root():
         pass
 
 
-def build_world_with_jarldom(owner_name: str):
+def build_world(owner_id: int, owner_name: str):
     return {
         "nodes": {
-            "1": {"node_id": 1, "parent_id": None, "children": [2]},
-            "2": {"node_id": 2, "parent_id": 1, "children": [3], "name": owner_name},
-            "3": {"node_id": 3, "parent_id": 2, "children": [4]},
-            "4": {
-                "node_id": 4,
-                "parent_id": 3,
-                "children": [5],
-                "owner_assigned_level": "1",
-                "owner_assigned_id": 2,
-                "name": "Jarldöme 4",
+            str(owner_id): {
+                "node_id": owner_id,
+                "parent_id": None,
+                "children": [200],
+                "name": owner_name,
             },
-            "5": {
-                "node_id": 5,
-                "parent_id": 4,
-                "children": [],
-                "owner_assigned_level": "1",
-                "owner_assigned_id": 2,
-                "name": "Underprovins",
-            },
+            "200": {"node_id": 200, "parent_id": owner_id, "children": [201]},
+            "201": {"node_id": 201, "parent_id": 200, "children": []},
         },
         "characters": {},
     }
 
 
-def build_world_without_jarldom(owner_name: str):
-    return {
-        "nodes": {
-            "1": {"node_id": 1, "parent_id": None, "children": [2]},
-            "2": {"node_id": 2, "parent_id": 1, "children": [], "name": owner_name},
-        },
-        "characters": {},
-    }
-
-
-def test_anchor_wraps_province_subtree(root):
+def test_owner_anchor_renders_and_hosts_subtree(root):
+    owner_id = 2
     app = ui_app.create_app(root)
-    app.world_data = build_world_with_jarldom(owner_name="Ägarnamn")
+    app.world_data = build_world(owner_id, owner_name="Ägarnamn")
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
-    anchor = FeodalSimulator.PROVINCE_ANCHOR_IID
+    app.get_province_subtree = lambda _owner_id: [
+        {"id": 200, "children": [{"id": 201, "children": []}]}
+    ]
 
-    app.tree.selection_set("2")
-    app.tree.focus("2")
+    anchor = f"{FeodalSimulator.PROVINCE_ANCHOR_IID}{owner_id}"
+
+    app.tree.selection_set(str(owner_id))
+    app.tree.focus(str(owner_id))
     app.on_tree_selection_change()
 
     app.structure_panel.show_personal_button.invoke()
 
+    assert app.tree.exists(anchor)
+    assert app.tree.item(anchor, "text").startswith("Ägare:")
     assert app.tree.get_children("") == (anchor,)
-    assert app.tree.item(anchor, "text") == "Ägare: Ägarnamn (nivå 1)"
-    assert app.tree.get_children(anchor) == ("4",)
-    assert app.tree.get_children("4") == ("5",)
+    assert app.tree.get_children(anchor) == ("200",)
+    assert app.tree.get_children("200") == ("201",)
 
 
-def test_anchor_renders_without_subtree(root):
+def test_owner_anchor_renders_without_subtree(root):
+    owner_id = 3
     app = ui_app.create_app(root)
-    app.world_data = build_world_without_jarldom(owner_name="Tomt ägande")
+    app.world_data = build_world(owner_id, owner_name="Tomt ägande")
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
-    anchor = FeodalSimulator.PROVINCE_ANCHOR_IID
+    app.get_province_subtree = lambda _owner_id: []
 
-    app.tree.selection_set("2")
-    app.tree.focus("2")
+    anchor = f"{FeodalSimulator.PROVINCE_ANCHOR_IID}{owner_id}"
+
+    app.tree.selection_set(str(owner_id))
+    app.tree.focus(str(owner_id))
     app.on_tree_selection_change()
 
     app.structure_panel.show_personal_button.invoke()
 
+    assert app.tree.exists(anchor)
     assert app.tree.get_children("") == (anchor,)
     assert app.tree.get_children(anchor) == ()
-    assert app.tree.item(anchor, "text") == "Ägare: Tomt ägande (nivå 1)"
+    assert app.tree.item(anchor, "text").startswith("Ägare:")

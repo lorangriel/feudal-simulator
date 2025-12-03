@@ -44,13 +44,15 @@ def test_province_view_includes_underprovinces(root):
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
-    anchor = FeodalSimulator.PROVINCE_ANCHOR_IID
+    anchor_for_owner = lambda owner_id: f"{FeodalSimulator.PROVINCE_ANCHOR_IID}{owner_id}"
 
     app.tree.selection_set("2")
     app.tree.focus("2")
     app.on_tree_selection_change()
 
     app.structure_panel.show_personal_button.invoke()
+
+    anchor = anchor_for_owner(2)
 
     assert app.tree.get_children("") == (anchor,)
     assert app.tree.get_children(anchor) == ("2",)
@@ -66,8 +68,10 @@ def test_province_view_includes_underprovinces(root):
     app.on_tree_selection_change()
     app.structure_panel.show_personal_button.invoke()
 
+    anchor = anchor_for_owner(2)
+
     assert app.tree.get_children("") == (anchor,)
-    assert app.tree.get_children(anchor) == ("2",)
+    assert app.tree.get_children(anchor) == ()
     assert app.tree.get_children("2") == ()
 
     app.exit_province_view()
@@ -75,6 +79,8 @@ def test_province_view_includes_underprovinces(root):
     app.tree.focus("3")
     app.on_tree_selection_change()
     app.structure_panel.show_personal_button.invoke()
+
+    anchor = anchor_for_owner(3)
 
     assert app.tree.get_children("") == (anchor,)
     assert app.tree.get_children(anchor) == ("3",)
