@@ -69,7 +69,12 @@ from ui.events import UIEventBus
 from ui.panels.details_panel import DetailsPanel
 from ui.panels.status_panel import StatusPanel
 from ui.panels.structure_panel import StructurePanel
-from ui.strings import PANEL_NAMES, format_details_title, panel_tooltip
+from ui.strings import (
+    PANEL_NAMES,
+    STRUCTURE_ACTIONS,
+    format_details_title,
+    panel_tooltip,
+)
 from ui.widgets.tooltips import TooltipManager
 
 apply_combobox_policy()
@@ -229,6 +234,10 @@ class FeodalSimulator:
         )
         self.tree = self.structure_panel.tree
         self._log_panel_event("structure", "Panel initierad")
+        self.structure_panel.set_show_personal_command(self.show_personal_province_view)
+        self.structure_panel.set_back_command(self.exit_province_view)
+        self.tree.bind("<<TreeviewSelect>>", self.on_tree_selection_change)
+        self._admin_tree_state = None
 
         # Add left frame to PanedWindow
         self.paned_window.add(self.structure_panel.frame)  # Add weight
@@ -1096,12 +1105,15 @@ class FeodalSimulator:
         self.hide_map_mode_buttons()
 
     # --- Treeview Population and Interaction ---
-    def populate_tree(self):
+    def populate_tree(self, restore_state=None):
         """Clears and refills the treeview based on the current world_data."""
         if not self.tree.winfo_exists():
             return  # Check if tree exists
 
-        open_state, selection = self.store_tree_state()  # Store state before clearing
+        if restore_state is None:
+            open_state, selection = self.store_tree_state()  # Store state before clearing
+        else:
+            open_state, selection = restore_state
         self.tree.delete(*self.tree.get_children())  # Clear existing items
 
         if not self.world_data or not self.world_data.get("nodes"):
@@ -1251,6 +1263,89 @@ class FeodalSimulator:
     def clear_depth_cache(self):
         """Clears the node depth cache, needed when hierarchy changes."""
         self.world_manager.clear_depth_cache()
+
+    def on_tree_selection_change(self, _event=None):
+        if self.structure_panel.mode != "admin":
+            return
+
+        selection = self.tree.selection()
+        if not selection:
+            self.structure_panel.show_personal_toggle(False)
+            return
+
+        try:
+            node_id = int(selection[0])
+        except (ValueError, TypeError):
+            self.structure_panel.show_personal_toggle(False)
+            return
+
+        depth = self.get_depth_of_node(node_id)
+        self.structure_panel.show_personal_toggle(depth <= 2)
+
+    def _find_province_nodes_for_owner(self, owner_id: int):
+        """Return level-3 nodes owned by ``owner_id``."""
+
+        if not self.world_data:
+            return []
+
+        matching = []
+        for node_id_str, node_data in self.world_data.get("nodes", {}).items():
+            try:
+                depth = self.get_depth_of_node(int(node_id_str))
+            except (ValueError, TypeError):
+                continue
+
+            if depth != 3:
+                continue
+
+            if node_data.get("owner_assigned_id") != owner_id:
+                continue
+
+            matching.append(node_data)
+            # TODO: Koppla Modell B-ägare och arvskedjan här i nästa PR.
+
+        matching.sort(key=lambda n: self.get_display_name_for_node(n, 3))
+        return matching
+
+    def show_personal_province_view(self):
+        if self.structure_panel.mode != "admin":
+            return
+
+        if not self.world_data:
+            return
+
+        selection = self.tree.selection()
+        if not selection:
+            return
+
+        try:
+            selected_owner_id = int(selection[0])
+        except (ValueError, TypeError):
+            return
+
+        self._admin_tree_state = self.store_tree_state()
+        self.structure_panel.update_mode("province")
+        self.tree.delete(*self.tree.get_children())
+
+        for node_data in self._find_province_nodes_for_owner(selected_owner_id):
+            node_id = node_data.get("node_id")
+            if node_id is None:
+                continue
+            display_name = self.get_display_name_for_node(node_data, 3)
+            try:
+                self.tree.insert("", "end", iid=str(node_id), text=display_name)
+            except tk.TclError:
+                continue
+
+    def exit_province_view(self):
+        if self.structure_panel.mode != "province":
+            return
+
+        restore_state = self._admin_tree_state or (set(), ())
+        self.structure_panel.update_mode("admin")
+        self.populate_tree(restore_state=restore_state)
+        self._admin_tree_state = None
+        self.on_tree_selection_change()
 
     def on_tree_double_click(self, event):
         """Handles double-clicking on an item in the treeview."""
