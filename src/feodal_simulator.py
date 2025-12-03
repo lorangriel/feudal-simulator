@@ -100,7 +100,7 @@ class FeodalSimulator:
     )
 
     DETAILS_SCROLL_UNITS = 3
-    PROVINCE_ANCHOR_IID = "province_owner_anchor"
+    PROVINCE_ANCHOR_IID = "owner_anchor::"
 
     def __init__(self, root):
         self.root = root
@@ -1458,7 +1458,7 @@ class FeodalSimulator:
         if owner_id is None or owner_id not in (previous_owner, new_owner):
             return
 
-        self._render_province_subtrees(self.get_province_subtree(owner_id))
+        self._render_province_subtrees(owner_id)
 
         node_id_str = str(node_id)
         if self.tree.exists(node_id_str):
@@ -1595,10 +1595,14 @@ class FeodalSimulator:
 
         return [build_tree(root_id) for root_id in root_ids]
 
-    def _render_province_subtrees(self, subtrees: list[dict]) -> None:
+    def _province_anchor_iid(self, owner_id: int | None) -> str:
+        if owner_id is None:
+            return ""
+        return f"{self.PROVINCE_ANCHOR_IID}{owner_id}"
+
+    def _render_province_subtrees(self, owner_id: int | None) -> None:
         self.tree.delete(*self.tree.get_children())
         anchor_iid = ""
-        owner_id = self.current_province_owner_id
 
         if owner_id is not None:
             owner_level = (
@@ -1614,21 +1618,21 @@ class FeodalSimulator:
                 f"(nivå {owner_level})"
             )
             try:
+                anchor_iid = self._province_anchor_iid(owner_id)
                 self.tree.insert(
                     "",
                     "end",
-                    iid=self.PROVINCE_ANCHOR_IID,
+                    iid=anchor_iid,
                     text=anchor_label,
                     open=True,
                 )
-                anchor_iid = self.PROVINCE_ANCHOR_IID
             except tk.TclError:
                 anchor_iid = ""
 
-        if not subtrees:
+        if owner_id is None:
             return
 
-        for subtree in subtrees:
+        for subtree in self.get_province_subtree(owner_id):
             self._insert_province_subtree(anchor_iid, subtree)
 
     def _insert_province_subtree(self, parent_iid: str, subtree: dict) -> None:
@@ -1680,7 +1684,7 @@ class FeodalSimulator:
         self._admin_tree_state = self.store_tree_state()
         self.structure_panel.update_mode("province")
         self.current_province_owner_id = selected_owner_id
-        self._render_province_subtrees(self.get_province_subtree(selected_owner_id))
+        self._render_province_subtrees(selected_owner_id)
 
     def exit_province_view(self):
         if self.structure_panel.mode != "province":

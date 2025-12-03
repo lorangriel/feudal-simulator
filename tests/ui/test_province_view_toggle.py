@@ -50,7 +50,7 @@ def test_province_view_toggles_and_filters(root):
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
-    anchor = FeodalSimulator.PROVINCE_ANCHOR_IID
+    anchor = f"{FeodalSimulator.PROVINCE_ANCHOR_IID}2"
 
     app.tree.selection_set("2")
     app.tree.focus("2")
