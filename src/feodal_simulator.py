@@ -261,7 +261,6 @@ class FeodalSimulator:
             "<<ComboboxSelected>>", self._on_ownership_selected
         )
         self._ownership_option_map: dict[str, str] = {}
-        self._ownership_previous_selection: str = ""
         self._ownership_target_id: int | None = None
         self._suppress_ownership_callback = False
         self.current_province_owner_id: int | None = None
@@ -1316,12 +1315,14 @@ class FeodalSimulator:
     ) -> None:
         if not node_id or depth != 3 or not self.world_data:
             self._ownership_target_id = None
+            self._ownership_option_map = {}
             self.details_panel.hide_ownership_controls()
             return
 
         node_data = self.world_data.get("nodes", {}).get(str(node_id))
         if not node_data:
             self._ownership_target_id = None
+            self._ownership_option_map = {}
             self.details_panel.hide_ownership_controls()
             return
 
@@ -1344,7 +1345,6 @@ class FeodalSimulator:
                 break
 
         self._ownership_target_id = node_id
-        self._ownership_previous_selection = selected_label
         self._set_ownership_selection(selected_label)
 
     def on_tree_selection_change(self, _event=None):
@@ -1384,7 +1384,6 @@ class FeodalSimulator:
         selection_label = self.details_panel.ownership_var.get()
         choice = self._ownership_option_map.get(selection_label)
         if choice is None:
-            self._set_ownership_selection(self._ownership_previous_selection)
             return
 
         candidate_level = choice
@@ -1398,7 +1397,6 @@ class FeodalSimulator:
         node_data["owner_assigned_level"] = candidate_level
         node_data["owner_assigned_id"] = owner_id
         node_data["personal_province_path"] = personal_path
-        self._ownership_previous_selection = selection_label
 
     def _refresh_province_tree_for_current_owner(
         self, node_id: int, previous_owner: int | None, new_owner: int | None

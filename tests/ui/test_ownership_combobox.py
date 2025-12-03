@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter as tk
 from tkinter import messagebox
 
 import pytest
@@ -99,7 +100,7 @@ def test_province_view_refreshes_on_removal(root):
     app.tree.focus("4")
     app.on_tree_selection_change()
 
-    app.details_panel.ownership_combobox.set("Lokal ägo (default)")
+    app.details_panel.ownership_combobox.set("Lokal ägo")
     app.details_panel.ownership_combobox.event_generate("<<ComboboxSelected>>")
 
     assert app.world_data["nodes"]["4"]["owner_assigned_level"] == "none"
