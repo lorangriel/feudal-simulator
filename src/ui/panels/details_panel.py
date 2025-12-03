@@ -23,7 +23,7 @@ class DetailsPanel:
 
         self.ownership_frame = ttk.Frame(parent, padding=(10, 2))
         self.ownership_label = ttk.Label(
-            self.ownership_frame, text="Ägande", font=("Arial", 10, "bold")
+            self.ownership_frame, text="Ägande:", font=("Arial", 10, "bold")
         )
         self.ownership_label.pack(side=tk.LEFT, padx=(0, 6))
 

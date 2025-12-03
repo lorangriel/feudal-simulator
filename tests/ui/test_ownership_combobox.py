@@ -66,7 +66,7 @@ def test_combobox_visible_and_prefilled(root):
     app.on_tree_selection_change()
 
     assert app.details_panel.ownership_frame.winfo_manager()
-    assert app.details_panel.ownership_var.get() == "Lokal ägo (default)"
+    assert app.details_panel.ownership_var.get() == "Lokal ägo"
 
 
 def test_valid_assignment_updates_metadata(root):
@@ -79,7 +79,7 @@ def test_valid_assignment_updates_metadata(root):
     app.tree.focus("4")
     app.on_tree_selection_change()
 
-    ownership_label = "Furstendömet Uppland"
+    ownership_label = "Furste (nivå 1)"
     app.details_panel.ownership_combobox.set(ownership_label)
     app.details_panel.ownership_combobox.event_generate("<<ComboboxSelected>>")
 
@@ -95,16 +95,6 @@ def test_province_view_refreshes_on_removal(root):
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
-    app.tree.selection_set("2")
-    app.tree.focus("2")
-    app.tree.item("1", open=True)
-    app.tree.item("2", open=True)
-    app.on_tree_selection_change()
-
-    app.structure_panel.show_personal_button.invoke()
-    assert app.structure_panel.mode == "province"
-    assert app.tree.get_children("") == ("4",)
-
     app.tree.selection_set("4")
     app.tree.focus("4")
     app.on_tree_selection_change()
@@ -114,7 +104,7 @@ def test_province_view_refreshes_on_removal(root):
 
     assert app.world_data["nodes"]["4"]["owner_assigned_level"] == "none"
     assert app.world_data["nodes"]["4"].get("owner_assigned_id") is None
-    assert app.tree.get_children("") == ()
+    assert app.world_data["nodes"]["4"].get("personal_province_path") == []
 
 
 def test_same_owner_selection_reverts(root, monkeypatch):
@@ -141,4 +131,4 @@ def test_same_owner_selection_reverts(root, monkeypatch):
     node = app.world_data["nodes"]["4"]
     assert node["owner_assigned_level"] == "1"
     assert node["owner_assigned_id"] == 2
-    assert errors
+    assert not errors

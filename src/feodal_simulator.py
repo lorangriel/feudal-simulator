@@ -76,11 +76,7 @@ from ui.strings import (
     panel_tooltip,
 )
 from ui.widgets.tooltips import TooltipManager
-from personal_province import (
-    PersonalProvinceError,
-    build_personal_path,
-    validate_assignment,
-)
+from personal_province import build_personal_path
 
 apply_combobox_policy()
 
@@ -264,7 +260,7 @@ class FeodalSimulator:
         self.details_panel.ownership_combobox.bind(
             "<<ComboboxSelected>>", self._on_ownership_selected
         )
-        self._ownership_option_map: dict[str, tuple[str, int | None]] = {}
+        self._ownership_option_map: dict[str, str] = {}
         self._ownership_previous_selection: str = ""
         self._ownership_target_id: int | None = None
         self._suppress_ownership_callback = False
@@ -1278,35 +1274,20 @@ class FeodalSimulator:
         """Clears the node depth cache, needed when hierarchy changes."""
         self.world_manager.clear_depth_cache()
 
-    def _format_owner_label(self, node_data: dict, depth: int) -> str:
-        base_name = self.get_display_name_for_node(node_data, depth)
-        if " (ID:" in base_name:
-            base_name = base_name.split(" (ID:", 1)[0]
-        prefixes = {0: "Kungariket", 1: "Furstendömet", 2: "Hertigdömet"}
-        prefix = prefixes.get(depth, "Ägare")
-        return f"{prefix} {base_name}".strip()
-
-    def _build_owner_options(self) -> list[tuple[str, str, int]]:
-        options: list[tuple[str, str, int]] = []
-        if not self.world_data:
-            return options
-        for nid_str, node_data in self.world_data.get("nodes", {}).items():
+    def _first_node_at_depth(self, depth: int) -> int | None:
+        nodes = self.world_data.get("nodes", {}) if self.world_data else {}
+        for nid_str in sorted(nodes.keys(), key=lambda value: int(value)):
             try:
                 nid = int(nid_str)
             except (TypeError, ValueError):
                 continue
-            depth = self.get_depth_of_node(nid)
-            if depth not in (0, 1, 2):
-                continue
-            label = self._format_owner_label(node_data, depth)
-            options.append((label, str(depth), nid))
-        options.sort(key=lambda entry: (entry[1], entry[0].casefold()))
-        return options
+            if self.get_depth_of_node(nid) == depth:
+                return nid
+        return None
 
     def _ownership_lineage_for_node(self, node_id: int) -> list[int]:
         lineage: list[int] = []
         nodes = self.world_data.get("nodes", {}) if self.world_data else {}
-        seen: set[int] = set()
         current = node_id
         while True:
             node = nodes.get(str(current))
@@ -1319,12 +1300,8 @@ class FeodalSimulator:
                 parent_id = parent_raw
             if parent_id is None:
                 break
-            if parent_id in seen:
-                raise PersonalProvinceError("Cykel upptäckt i provinsvägen")
-            seen.add(parent_id)
-            lineage.append(parent_id)
+            lineage.insert(0, parent_id)
             current = parent_id
-        lineage.reverse()
         return lineage
 
     def _set_ownership_selection(self, label: str) -> None:
@@ -1348,20 +1325,21 @@ class FeodalSimulator:
             self.details_panel.hide_ownership_controls()
             return
 
-        options = [("Lokal ägo (default)", "none", None)]
-        options.extend(self._build_owner_options())
-        self._ownership_option_map = {
-            label: (level, owner_id) for label, level, owner_id in options
-        }
-        labels = [label for label, _, _ in options]
+        options = [
+            ("Lokal ägo", "none"),
+            ("Kung (nivå 0)", "0"),
+            ("Furste (nivå 1)", "1"),
+            ("Hertig (nivå 2)", "2"),
+        ]
+        self._ownership_option_map = {label: level for label, level in options}
+        labels = [label for label, _ in options]
         self.details_panel.ownership_combobox.config(values=labels)
         self.details_panel.show_ownership_controls()
 
         current_level = str(node_data.get("owner_assigned_level", "none") or "none")
-        current_owner = node_data.get("owner_assigned_id")
         selected_label = labels[0]
-        for label, level, owner_id in options:
-            if level == current_level and (level == "none" or owner_id == current_owner):
+        for label, level in options:
+            if level == current_level:
                 selected_label = label
                 break
 
@@ -1409,48 +1387,18 @@ class FeodalSimulator:
             self._set_ownership_selection(self._ownership_previous_selection)
             return
 
-        candidate_level, owner_id = choice
-        current_level = str(node_data.get("owner_assigned_level", "none") or "none")
-        current_owner = node_data.get("owner_assigned_id")
+        candidate_level = choice
+        owner_id = None
+        if candidate_level != "none":
+            owner_id = self._first_node_at_depth(int(candidate_level))
 
-        if candidate_level == current_level and (
-            candidate_level == "none" or owner_id == current_owner
-        ):
-            messagebox.showerror(
-                "Ogiltigt val",
-                "Ogiltigt val – den här ägaren är redan satt.",
-                parent=self.root,
-            )
-            self._set_ownership_selection(self._ownership_previous_selection)
-            return
-
-        try:
-            validate_assignment(candidate_level, owner_id, None)
-            lineage = self._ownership_lineage_for_node(node_id)
-            personal_path = build_personal_path(candidate_level, owner_id, lineage)
-        except PersonalProvinceError as exc:
-            base_error = str(exc)
-            if "Cykel" in base_error:
-                error_msg = "Ogiltig tilldelning – detta skulle skapa en cykel i provinsvägen."
-            else:
-                error_msg = f"Ogiltig tilldelning – {base_error}"
-            messagebox.showerror("Ogiltig tilldelning", error_msg, parent=self.root)
-            self._set_ownership_selection(self._ownership_previous_selection)
-            return
-        except Exception:
-            messagebox.showerror(
-                "Fel", "Fel vid uppdatering av ägande – inga ändringar sparades.", parent=self.root
-            )
-            self._set_ownership_selection(self._ownership_previous_selection)
-            return
+        lineage = self._ownership_lineage_for_node(node_id)
+        personal_path = build_personal_path(candidate_level, owner_id, lineage)
 
         node_data["owner_assigned_level"] = candidate_level
         node_data["owner_assigned_id"] = owner_id
         node_data["personal_province_path"] = personal_path
-        self.save_current_world()
-        self.refresh_tree_item(node_id)
         self._ownership_previous_selection = selection_label
-        self._refresh_province_tree_for_current_owner(node_id, current_owner, owner_id)
 
     def _refresh_province_tree_for_current_owner(
         self, node_id: int, previous_owner: int | None, new_owner: int | None
