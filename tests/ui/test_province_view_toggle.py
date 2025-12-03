@@ -2,6 +2,7 @@ import tkinter as tk
 
 import pytest
 
+from src.feodal_simulator import FeodalSimulator
 from src.ui import app as ui_app
 from src.ui.strings import PANEL_NAMES, STRUCTURE_ACTIONS
 
@@ -49,6 +50,8 @@ def test_province_view_toggles_and_filters(root):
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
 
+    anchor = FeodalSimulator.PROVINCE_ANCHOR_IID
+
     app.tree.selection_set("2")
     app.tree.focus("2")
     app.tree.item("1", open=True)
@@ -61,7 +64,8 @@ def test_province_view_toggles_and_filters(root):
     assert app.tree.heading("#0").get("text") == STRUCTURE_ACTIONS["province_view"]
 
     visible_nodes = app.tree.get_children("")
-    assert visible_nodes == ("4",)
+    assert visible_nodes == (anchor,)
+    assert app.tree.get_children(anchor) == ("4",)
 
     app.structure_panel.back_button.invoke()
     assert app.tree.heading("#0").get("text") == PANEL_NAMES["structure"]
