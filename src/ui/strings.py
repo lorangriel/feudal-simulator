@@ -7,6 +7,14 @@ PANEL_NAMES = {
     "details": "Detaljer",
 }
 
+STRUCTURE_ACTIONS = {
+    "show_personal": "Visa personlig provins",
+    "province_view": "Provinsvy",
+    "back": "Tillbaka",
+}
+
+TOOLTIPS = {"show_personal": "Personlig provins"}
+
 DETAILS_PLACEHOLDER = "Ingen vald enhet"
 
 
