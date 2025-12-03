@@ -1600,6 +1600,27 @@ class FeodalSimulator:
             return ""
         return f"{self.PROVINCE_ANCHOR_IID}{owner_id}"
 
+    def _insert_owner_anchor(
+        self, owner_id: int, owner_name: str, owner_level: int
+    ) -> str:
+        iid = self._province_anchor_iid(owner_id)
+        if not iid:
+            return ""
+
+        if self.tree.exists(iid):
+            try:
+                self.tree.delete(iid)
+            except tk.TclError:
+                pass
+
+        anchor_label = f"Ägare: {owner_name} (nivå {owner_level})"
+
+        try:
+            self.tree.insert("", "end", iid=iid, text=anchor_label, open=True)
+            return iid
+        except tk.TclError:
+            return ""
+
     def _render_province_subtrees(self, owner_id: int | None) -> None:
         self.tree.delete(*self.tree.get_children())
         anchor_iid = ""
@@ -1613,21 +1634,11 @@ class FeodalSimulator:
                 if self.world_data
                 else {}
             )
-            anchor_label = (
-                f"Ägare: {self.get_display_name_for_node(owner_data, owner_level)} "
-                f"(nivå {owner_level})"
+            anchor_iid = self._insert_owner_anchor(
+                owner_id,
+                self.get_display_name_for_node(owner_data, owner_level),
+                owner_level,
             )
-            try:
-                anchor_iid = self._province_anchor_iid(owner_id)
-                self.tree.insert(
-                    "",
-                    "end",
-                    iid=anchor_iid,
-                    text=anchor_label,
-                    open=True,
-                )
-            except tk.TclError:
-                anchor_iid = ""
 
         if owner_id is None:
             return
