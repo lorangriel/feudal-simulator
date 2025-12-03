@@ -1622,6 +1622,7 @@ class FeodalSimulator:
             return ""
 
     def _render_province_subtrees(self, owner_id: int | None) -> None:
+        """Render province mode with the owner anchor as the single tree root."""
         self.tree.delete(*self.tree.get_children())
 
         if owner_id is None or not self.world_data:
@@ -1630,11 +1631,15 @@ class FeodalSimulator:
         owner_level = self.get_depth_of_node(owner_id)
         owner_data = self.world_data.get("nodes", {}).get(str(owner_id), {})
         owner_name = self.get_display_name_for_node(owner_data, owner_level)
+
         anchor_iid = self._insert_owner_anchor(owner_id, owner_name, owner_level)
         if not anchor_iid:
             return
 
         province_subtrees = self.get_province_subtree(owner_id)
+        if not isinstance(province_subtrees, list):
+            province_subtrees = []
+
         for subtree in province_subtrees:
             self._insert_province_subtree(anchor_iid, subtree)
 
