@@ -1623,27 +1623,19 @@ class FeodalSimulator:
 
     def _render_province_subtrees(self, owner_id: int | None) -> None:
         self.tree.delete(*self.tree.get_children())
-        anchor_iid = ""
 
-        if owner_id is not None:
-            owner_level = (
-                self.get_depth_of_node(owner_id) if self.world_data else 0
-            )
-            owner_data = (
-                self.world_data.get("nodes", {}).get(str(owner_id), {})
-                if self.world_data
-                else {}
-            )
-            anchor_iid = self._insert_owner_anchor(
-                owner_id,
-                self.get_display_name_for_node(owner_data, owner_level),
-                owner_level,
-            )
-
-        if owner_id is None:
+        if owner_id is None or not self.world_data:
             return
 
-        for subtree in self.get_province_subtree(owner_id):
+        owner_level = self.get_depth_of_node(owner_id)
+        owner_data = self.world_data.get("nodes", {}).get(str(owner_id), {})
+        owner_name = self.get_display_name_for_node(owner_data, owner_level)
+        anchor_iid = self._insert_owner_anchor(owner_id, owner_name, owner_level)
+        if not anchor_iid:
+            return
+
+        province_subtrees = self.get_province_subtree(owner_id)
+        for subtree in province_subtrees:
             self._insert_province_subtree(anchor_iid, subtree)
 
     def _insert_province_subtree(self, parent_iid: str, subtree: dict) -> None:
