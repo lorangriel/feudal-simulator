@@ -600,3 +600,29 @@ class Node:
             + self.thralls
             + self.burghers
         )
+
+    def inherited_owner(self, world) -> tuple[str, int | None]:
+        """Return the effective ownership for this node within ``world``.
+
+        The search walks up the parent chain until a node with an explicitly
+        assigned owner is found. If none exists, ("none", None) is returned.
+        """
+
+        if self.owner_assigned_level != "none":
+            return self.owner_assigned_level, self.owner_assigned_id
+
+        nodes = getattr(world, "world_data", {}).get("nodes", {}) if world else {}
+
+        parent_id = self.parent_id
+        while parent_id is not None:
+            parent_data = nodes.get(str(parent_id))
+            if not parent_data:
+                break
+
+            parent_node = Node.from_dict(parent_data)
+            if parent_node.owner_assigned_level != "none":
+                return parent_node.owner_assigned_level, parent_node.owner_assigned_id
+
+            parent_id = parent_node.parent_id
+
+        return "none", None

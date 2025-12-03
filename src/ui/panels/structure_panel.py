@@ -12,6 +12,8 @@ class StructurePanel:
 
     def __init__(self, parent: tk.Misc, tooltip_manager, on_double_click):
         self.mode = "admin"
+        self.tooltip_manager = tooltip_manager
+        self.default_tree_tooltip = panel_tooltip("structure")
         self.frame = ttk.Frame(
             parent, width=350, relief=tk.SUNKEN, borderwidth=1, padding=5
         )
@@ -70,10 +72,13 @@ class StructurePanel:
         self.tree.heading("#0", text=PANEL_NAMES["structure"])
         self.tree.column("#0", width=300, minwidth=200, stretch=tk.YES)
         self.tree.bind("<Double-1>", on_double_click)
-        tooltip_manager.set_tooltip(self.tree, panel_tooltip("structure"))
+        self.tree.bind("<Motion>", self._on_tree_motion)
+        self.tree.bind("<Leave>", self._on_tree_leave)
+        tooltip_manager.set_tooltip(self.tree, self.default_tree_tooltip)
 
         self._show_personal_command = None
         self._back_command = None
+        self.personal_icon = "◆"
 
     def _on_show_personal(self):
         if self._show_personal_command:
@@ -89,6 +94,11 @@ class StructurePanel:
     def set_back_command(self, callback):
         self._back_command = callback
 
+    def format_node_label(self, base_text: str, is_personal: bool) -> str:
+        if is_personal:
+            return f"{self.personal_icon} {base_text}"
+        return base_text
+
     def update_mode(self, mode: str) -> None:
         self.mode = mode
         if mode == "province":
@@ -98,6 +108,7 @@ class StructurePanel:
         else:
             self.tree.heading("#0", text=PANEL_NAMES["structure"])
             self.back_button.pack_forget()
+        self._reset_tree_tooltip()
 
     def show_personal_toggle(self, should_show: bool) -> None:
         if should_show and self.mode == "admin":
@@ -105,3 +116,30 @@ class StructurePanel:
                 self.show_personal_button.pack(side=tk.LEFT, padx=(0, 4))
         else:
             self.show_personal_button.pack_forget()
+
+    def _on_tree_motion(self, event):
+        if self.mode != "admin":
+            self._reset_tree_tooltip()
+            return
+
+        item_id = self.tree.identify_row(event.y)
+        is_personal = bool(
+            item_id and "personal_province" in self.tree.item(item_id, "tags")
+        )
+
+        if is_personal:
+            if self.tooltip_manager._tooltips.get(self.tree) != "Personlig provins":
+                self.tooltip_manager._tooltips[self.tree] = "Personlig provins"
+                self.tooltip_manager._hide()
+                self.tooltip_manager._maybe_show(self.tree)
+        else:
+            self._reset_tree_tooltip()
+
+    def _on_tree_leave(self, _event):
+        self._reset_tree_tooltip()
+        self.tooltip_manager._hide()
+
+    def _reset_tree_tooltip(self) -> None:
+        current = self.tooltip_manager._tooltips.get(self.tree)
+        if current != self.default_tree_tooltip:
+            self.tooltip_manager._tooltips[self.tree] = self.default_tree_tooltip
