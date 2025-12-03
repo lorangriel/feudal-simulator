@@ -41,9 +41,6 @@ def validate_assignment(
     if normalised_level == "none":
         return
 
-    if existing_owner is not None and owner_id != existing_owner:
-        raise PersonalProvinceError("Jarldömet har redan en annan ägare")
-
     if owner_id is not None and owner_id < 0:
         raise PersonalProvinceError("Ogiltigt ägar-id")
 

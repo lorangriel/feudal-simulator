@@ -1,5 +1,4 @@
 import tkinter as tk
-import tkinter as tk
 from tkinter import messagebox
 
 import pytest
@@ -67,11 +66,40 @@ def test_combobox_visible_and_prefilled(root):
     app.on_tree_selection_change()
 
     assert app.details_panel.ownership_frame.winfo_manager()
-    assert app.details_panel.ownership_var.get() == "Lokal ägo"
+    assert app.details_panel.ownership_var.get() == "Lokal ägo (default)"
 
 
-def test_valid_assignment_updates_metadata(root):
+def test_valid_assignment_updates_metadata_and_province_view(root):
     app = ui_app.create_app(root)
+    app.world_data = build_world()
+    app.world_manager.set_world_data(app.world_data)
+    app.populate_tree()
+
+    app.structure_panel.update_mode("province")
+    app.current_province_owner_id = 2
+
+    app.tree.selection_set("4")
+    app.tree.focus("4")
+    app.on_tree_selection_change()
+
+    owner_label = f"Furstendömet {app.get_display_name(2)}"
+    app.details_panel.ownership_combobox.set(owner_label)
+    app.details_panel.ownership_combobox.event_generate("<<ComboboxSelected>>")
+
+    node = app.world_data["nodes"]["4"]
+    assert node["owner_assigned_level"] == "1"
+    assert node["owner_assigned_id"] == 2
+    assert node["personal_province_path"]
+    assert "4" in app.tree.get_children()
+
+
+def test_invalid_assignment_shows_error_and_reverts(root, monkeypatch):
+    errors: list[tuple] = []
+    app = ui_app.create_app(root)
+
+    def _capture_error(*args, **kwargs):
+        errors.append(args)
+
     app.world_data = build_world()
     app.world_manager.set_world_data(app.world_data)
     app.populate_tree()
@@ -80,56 +108,17 @@ def test_valid_assignment_updates_metadata(root):
     app.tree.focus("4")
     app.on_tree_selection_change()
 
-    ownership_label = "Furste (nivå 1)"
-    app.details_panel.ownership_combobox.set(ownership_label)
-    app.details_panel.ownership_combobox.event_generate("<<ComboboxSelected>>")
-
-    node = app.world_data["nodes"]["4"]
-    assert node["owner_assigned_level"] == "1"
-    assert node["owner_assigned_id"] == 2
-    assert node["personal_province_path"] == [1, 2]
-
-
-def test_province_view_refreshes_on_removal(root):
-    app = ui_app.create_app(root)
-    app.world_data = build_world(owner_level="1", owner_id=2)
-    app.world_manager.set_world_data(app.world_data)
-    app.populate_tree()
-
-    app.tree.selection_set("4")
-    app.tree.focus("4")
-    app.on_tree_selection_change()
-
-    app.details_panel.ownership_combobox.set("Lokal ägo")
-    app.details_panel.ownership_combobox.event_generate("<<ComboboxSelected>>")
-
-    assert app.world_data["nodes"]["4"]["owner_assigned_level"] == "none"
-    assert app.world_data["nodes"]["4"].get("owner_assigned_id") is None
-    assert app.world_data["nodes"]["4"].get("personal_province_path") == []
-
-
-def test_same_owner_selection_reverts(root, monkeypatch):
-    errors: list[tuple] = []
-    app = ui_app.create_app(root)
-
-    def _capture_error(*args, **kwargs):
-        errors.append(args)
-
-    app.world_data = build_world(owner_level="1", owner_id=2)
-    app.world_manager.set_world_data(app.world_data)
-    app.populate_tree()
-    app.tree.selection_set("4")
-    app.tree.focus("4")
-    app.on_tree_selection_change()
-
-    current_label = app.details_panel.ownership_var.get()
-    app.tooltip_manager.hide_tooltip(app.details_panel.ownership_combobox)
-    app.tooltip_manager.hide_tooltip(app.details_panel.ownership_frame)
+    initial_label = app.details_panel.ownership_var.get()
+    owner_label = f"Furstendömet {app.get_display_name(2)}"
+    monkeypatch.setattr(app, "_ownership_lineage_for_node", lambda _node_id: [1, 1])
     monkeypatch.setattr(messagebox, "showerror", _capture_error)
-    app.details_panel.ownership_combobox.set(current_label)
+
+    app.details_panel.ownership_combobox.set(owner_label)
     app.details_panel.ownership_combobox.event_generate("<<ComboboxSelected>>")
 
     node = app.world_data["nodes"]["4"]
-    assert node["owner_assigned_level"] == "1"
-    assert node["owner_assigned_id"] == 2
-    assert not errors
+    assert node["owner_assigned_level"] == "none"
+    assert node.get("owner_assigned_id") is None
+    assert node.get("personal_province_path") == []
+    assert app.details_panel.ownership_var.get() == initial_label
+    assert errors
