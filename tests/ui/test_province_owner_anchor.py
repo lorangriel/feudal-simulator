@@ -52,8 +52,10 @@ def test_owner_anchor_renders_and_hosts_subtree(root):
     app.tree.selection_set(str(owner_id))
     app.tree.focus(str(owner_id))
     app.on_tree_selection_change()
+    app.show_node_view(app.world_data["nodes"][str(owner_id)])
 
-    app.structure_panel.show_personal_button.invoke()
+    assert app.personal_province_button is not None
+    app.personal_province_button.invoke()
 
     assert app.tree.exists(anchor)
     assert app.tree.item(anchor, "text").startswith("Ägare:")
@@ -76,8 +78,12 @@ def test_owner_anchor_renders_without_subtree(root):
     app.tree.selection_set(str(owner_id))
     app.tree.focus(str(owner_id))
     app.on_tree_selection_change()
+    app.show_node_view(app.world_data["nodes"][str(owner_id)])
 
-    app.structure_panel.show_personal_button.invoke()
+    assert app.personal_province_button is not None
+    assert app.personal_province_button.instate(["disabled"])
+
+    app.show_personal_province_view()
 
     assert app.tree.exists(anchor)
     assert app.tree.get_children("") == (anchor,)

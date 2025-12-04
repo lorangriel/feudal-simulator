@@ -236,7 +236,6 @@ class FeodalSimulator:
         )
         self.tree = self.structure_panel.tree
         self._log_panel_event("structure", "Panel initierad")
-        self.structure_panel.set_show_personal_command(self.show_personal_province_view)
         self.structure_panel.set_back_command(self.exit_province_view)
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_selection_change)
         self._admin_tree_state = None
@@ -265,6 +264,7 @@ class FeodalSimulator:
         self._ownership_last_selection: str | None = None
         self._suppress_ownership_callback = False
         self.current_province_owner_id: int | None = None
+        self.personal_province_button = None
         self._details_scroll_target: tk.Misc | None = None
         self._details_mousewheel_bound = False
         self._bind_details_mousewheel()
@@ -1382,9 +1382,6 @@ class FeodalSimulator:
                 depth = self.world_manager.get_depth_of_node(node_id)
             except (ValueError, TypeError):
                 node_id = None
-
-        if self.structure_panel.mode == "admin":
-            self.structure_panel.show_personal_toggle(bool(depth is not None and depth <= 2))
 
         self._update_ownership_controls(node_id, depth)
 
@@ -2515,6 +2512,7 @@ class FeodalSimulator:
         """Displays the appropriate editor for the given node in the right frame."""
         self.commit_pending_changes()
         self._clear_right_frame()
+        self.personal_province_button = None
 
         if not isinstance(node_data, dict):
             self.add_status_message(f"Fel: Ogiltig noddata mottagen: {node_data}")
@@ -2921,6 +2919,7 @@ class FeodalSimulator:
         ttk.Button(button_frame, text="Skapa Nod", command=create_subnode_action).pack(
             side=tk.LEFT, padx=5
         )
+        self._render_personal_province_button(button_frame, node_id, depth)
 
         # --- Delete and Back Buttons Frame ---
         delete_back_frame = ttk.Frame(editor_frame)
@@ -2953,6 +2952,36 @@ class FeodalSimulator:
         ttk.Button(
             delete_back_frame, text="< Stäng Vy", command=self.show_no_world_view
         ).pack(side=tk.LEFT, padx=10)
+
+    def _render_personal_province_button(
+        self, parent_frame: ttk.Frame, owner_id: int, depth: int
+    ) -> None:
+        self.personal_province_button = None
+        if depth is None or depth > 2:
+            return
+
+        button = ttk.Button(
+            parent_frame,
+            text="personlig provins",
+            command=lambda oid=owner_id: self._open_personal_province_view(oid),
+        )
+        button.pack(side=tk.LEFT, padx=(0, 5))
+
+        has_personal_provinces = bool(self.get_province_subtree(owner_id))
+        if has_personal_provinces:
+            button.state(["!disabled"])
+        else:
+            button.state(["disabled"])
+        self.personal_province_button = button
+
+    def _open_personal_province_view(self, owner_id: int) -> None:
+        owner_id_str = str(owner_id)
+        try:
+            self.tree.selection_set(owner_id_str)
+            self.tree.focus(owner_id_str)
+        except tk.TclError:
+            pass
+        self.show_personal_province_view()
 
     def _show_jarldome_editor(self, parent_frame, node_data):
         """Editor for Jarldoms (Depth 3)."""

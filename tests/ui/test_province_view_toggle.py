@@ -57,10 +57,12 @@ def test_province_view_toggles_and_filters(root):
     app.tree.item("1", open=True)
     app.tree.item("2", open=True)
     app.on_tree_selection_change()
+    app.show_node_view(app.world_data["nodes"]["2"])
 
-    assert app.structure_panel.show_personal_button.winfo_manager()
+    assert app.personal_province_button is not None
+    assert app.personal_province_button.instate(["!disabled"])
 
-    app.structure_panel.show_personal_button.invoke()
+    app.personal_province_button.invoke()
     assert app.tree.heading("#0").get("text") == STRUCTURE_ACTIONS["province_view"]
 
     visible_nodes = app.tree.get_children("")
@@ -73,4 +75,5 @@ def test_province_view_toggles_and_filters(root):
     assert app.tree.exists("2")
     assert app.tree.selection() == ("2",)
     assert app.tree.item("2", "open")
-    assert app.structure_panel.show_personal_button.winfo_manager()
+    app.show_node_view(app.world_data["nodes"]["2"])
+    assert app.personal_province_button is not None
