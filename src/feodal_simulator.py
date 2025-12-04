@@ -239,6 +239,7 @@ class FeodalSimulator:
         self.structure_panel.set_back_command(self.exit_province_view)
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_selection_change)
         self._admin_tree_state = None
+        self.view_mode = "admin"
 
         # Add left frame to PanedWindow
         self.paned_window.add(self.structure_panel.frame)  # Add weight
@@ -1178,12 +1179,25 @@ class FeodalSimulator:
         for root_node in root_nodes_data:
             self._add_tree_node_recursive("", root_node)
 
-        # Restore previous open/selection state
-        self.restore_tree_state(open_state, selection)
+    def _refresh_structure_view(self, restore_state=None) -> None:
+        """Refresh the structure tree respecting the current view mode."""
 
-        # Ensure the main view is cleared after populating if no selection restored
-        if not self.tree.selection():
-            self.show_no_world_view()
+        if (
+            getattr(self, "view_mode", "admin") == "province"
+            and getattr(self, "current_province_owner_id", None) is not None
+        ):
+            self._render_province_subtrees(self.current_province_owner_id)
+            if restore_state is not None:
+                open_items, selection = restore_state
+                self.restore_tree_state(open_items, selection)
+            return
+        try:
+            self.populate_tree(restore_state=restore_state)
+        except TypeError:
+            self.populate_tree()
+            if restore_state is not None:
+                open_items, selection = restore_state
+                self.restore_tree_state(open_items, selection)
 
     def _add_tree_node_recursive(self, parent_iid, node_data):
         """Helper function to recursively add nodes to the treeview."""
@@ -1448,7 +1462,7 @@ class FeodalSimulator:
     def _refresh_province_tree_for_current_owner(
         self, node_id: int, previous_owner: int | None, new_owner: int | None
     ) -> None:
-        if self.structure_panel.mode != "province":
+        if getattr(self, "view_mode", "admin") != "province":
             return
 
         owner_id = self.current_province_owner_id
@@ -1688,6 +1702,7 @@ class FeodalSimulator:
 
         self._admin_tree_state = self.store_tree_state()
         self.structure_panel.update_mode("province")
+        self.view_mode = "province"
         self.current_province_owner_id = selected_owner_id
         self._render_province_subtrees(selected_owner_id)
 
@@ -1697,6 +1712,7 @@ class FeodalSimulator:
 
         restore_state = self._admin_tree_state or (set(), ())
         self.structure_panel.update_mode("admin")
+        self.view_mode = "admin"
         self.populate_tree(restore_state=restore_state)
         self._admin_tree_state = None
         self.current_province_owner_id = None
@@ -2644,10 +2660,7 @@ class FeodalSimulator:
                 )
 
                 # Refresh the entire tree efficiently
-                self.populate_tree()  # This clears and refills
-                self.restore_tree_state(
-                    open_items, selection
-                )  # Restore open/selection state
+                self._refresh_structure_view((open_items, selection))
 
                 self.show_no_world_view()  # Clear the right panel
 
@@ -4767,8 +4780,7 @@ class FeodalSimulator:
                 self.world_manager.clear_depth_cache()
                 self.world_manager.update_population_totals()
                 self.save_current_world()
-                self.populate_tree()
-                self.restore_tree_state(open_items, selection)
+                self._refresh_structure_view((open_items, selection))
             elif val == "Nej" and existing_id is not None:
                 child = self.world_data.get("nodes", {}).get(str(existing_id))
                 has_data = (
@@ -4791,8 +4803,7 @@ class FeodalSimulator:
                 self.world_manager.clear_depth_cache()
                 self.world_manager.update_population_totals()
                 self.save_current_world()
-                self.populate_tree()
-                self.restore_tree_state(open_items, selection)
+                self._refresh_structure_view((open_items, selection))
 
         res_var.trace_add("write", refresh_area_visibility)
         refresh_area_visibility()
@@ -7354,8 +7365,7 @@ class FeodalSimulator:
         self.world_manager.update_population_totals()
 
         self.save_current_world()
-        self.populate_tree()  # Refresh the tree
-        self.restore_tree_state(open_items, selection)
+        self._refresh_structure_view((open_items, selection))
         self.show_node_view(node_data)  # Re-show the editor
 
     def delete_node_and_descendants(self, node_id):
