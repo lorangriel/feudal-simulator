@@ -49,8 +49,9 @@ def test_province_view_includes_underprovinces(root):
     app.tree.selection_set("2")
     app.tree.focus("2")
     app.on_tree_selection_change()
-
-    app.structure_panel.show_personal_button.invoke()
+    app.show_node_view(app.world_data["nodes"]["2"])
+    assert app.personal_province_button is not None
+    app.personal_province_button.invoke()
 
     anchor = anchor_for_owner(2)
 
@@ -66,7 +67,9 @@ def test_province_view_includes_underprovinces(root):
     app.tree.selection_set("2")
     app.tree.focus("2")
     app.on_tree_selection_change()
-    app.structure_panel.show_personal_button.invoke()
+    app.show_node_view(app.world_data["nodes"]["2"])
+    assert app.personal_province_button is not None
+    app.personal_province_button.invoke()
 
     anchor = anchor_for_owner(2)
 
@@ -78,7 +81,9 @@ def test_province_view_includes_underprovinces(root):
     app.tree.selection_set("3")
     app.tree.focus("3")
     app.on_tree_selection_change()
-    app.structure_panel.show_personal_button.invoke()
+    app.show_node_view(app.world_data["nodes"]["3"])
+    assert app.personal_province_button is not None
+    app.personal_province_button.invoke()
 
     anchor = anchor_for_owner(3)
 

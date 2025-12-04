@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import tkinter as tk
+import warnings
 from tkinter import ttk
 
-from ui.strings import PANEL_NAMES, STRUCTURE_ACTIONS, TOOLTIPS, panel_tooltip
+from ui.strings import PANEL_NAMES, STRUCTURE_ACTIONS, panel_tooltip
 
 
 class StructurePanel:
@@ -31,22 +32,13 @@ class StructurePanel:
 
         self.button_frame = ttk.Frame(self.frame)
         self.button_frame.pack(fill="x", pady=(0, 2))
-        self.show_personal_button = ttk.Button(
-            self.button_frame,
-            text=STRUCTURE_ACTIONS["show_personal"],
-            command=self._on_show_personal,
-        )
+        self.show_personal_button = None  # Deprecated, button moved to details panel
         self.back_button = ttk.Button(
             self.button_frame,
             text=STRUCTURE_ACTIONS["back"],
             command=self._on_back,
         )
-        self.show_personal_button.pack(side=tk.LEFT, padx=(0, 4))
         self.back_button.pack(side=tk.LEFT)
-        tooltip_manager.set_tooltip(
-            self.show_personal_button, TOOLTIPS.get("show_personal")
-        )
-        self.show_personal_button.pack_forget()
         self.back_button.pack_forget()
 
         content = ttk.Frame(self.frame)
@@ -76,20 +68,19 @@ class StructurePanel:
         self.tree.bind("<Leave>", self._on_tree_leave)
         tooltip_manager.set_tooltip(self.tree, self.default_tree_tooltip)
 
-        self._show_personal_command = None
         self._back_command = None
         self.personal_icon = "◆"
-
-    def _on_show_personal(self):
-        if self._show_personal_command:
-            self._show_personal_command()
 
     def _on_back(self):
         if self._back_command:
             self._back_command()
 
-    def set_show_personal_command(self, callback):
-        self._show_personal_command = callback
+    def set_show_personal_command(self, _callback):
+        warnings.warn(
+            "set_show_personal_command is deprecated; personal province button now lives in the details panel.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def set_back_command(self, callback):
         self._back_command = callback
@@ -104,18 +95,17 @@ class StructurePanel:
         if mode == "province":
             self.tree.heading("#0", text=STRUCTURE_ACTIONS["province_view"])
             self.back_button.pack(side=tk.LEFT)
-            self.show_personal_button.pack_forget()
         else:
             self.tree.heading("#0", text=PANEL_NAMES["structure"])
             self.back_button.pack_forget()
         self._reset_tree_tooltip()
 
     def show_personal_toggle(self, should_show: bool) -> None:
-        if should_show and self.mode == "admin":
-            if not self.show_personal_button.winfo_manager():
-                self.show_personal_button.pack(side=tk.LEFT, padx=(0, 4))
-        else:
-            self.show_personal_button.pack_forget()
+        warnings.warn(
+            "show_personal_toggle is deprecated; personal province button now lives in the details panel.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def _on_tree_motion(self, event):
         if self.mode != "admin":
