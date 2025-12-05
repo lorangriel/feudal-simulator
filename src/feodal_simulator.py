@@ -76,7 +76,6 @@ from ui.strings import (
     panel_tooltip,
 )
 from ui.widgets.tooltips import TooltipManager
-from personal_province import PersonalProvinceError, build_personal_path, validate_assignment
 
 apply_combobox_policy()
 
@@ -1437,27 +1436,40 @@ class FeodalSimulator:
 
         previous_owner = node_data.get("owner_assigned_id")
 
-        try:
-            validate_assignment(candidate_level, candidate_owner_id, previous_owner)
-            lineage = self._ownership_lineage_for_node(node_id)
-            personal_path = build_personal_path(
-                candidate_level, candidate_owner_id, lineage
-            )
-        except PersonalProvinceError:
+        result = self.world_manager.assign_personal_owner(
+            node_id, (candidate_level, candidate_owner_id)
+        )
+
+        if not result.success:
             messagebox.showerror(
                 "Ogiltig tilldelning",
-                "Ogiltig tilldelning – ändringen avbröts.",
+                result.message or "Ogiltig tilldelning – ändringen avbröts.",
                 parent=self.root,
             )
             if self._ownership_last_selection is not None:
                 self._set_ownership_selection(self._ownership_last_selection)
             return
 
-        node_data["owner_assigned_level"] = candidate_level
-        node_data["owner_assigned_id"] = candidate_owner_id
-        node_data["personal_province_path"] = personal_path
-        self._ownership_last_selection = selection_label
-        self.on_ownership_changed(node_id, previous_owner, candidate_owner_id)
+        refreshed_node = self.world_data.get("nodes", {}).get(str(node_id), node_data)
+        refreshed_label = self.details_panel.populate_ownership_combobox(
+            self, node_id, refreshed_node
+        )
+        self._ownership_last_selection = refreshed_label
+        self._set_ownership_selection(refreshed_label)
+
+        if not result.changed:
+            return
+
+        owner_name = "Lokal ägo"
+        if result.owner_id is not None:
+            try:
+                owner_name = self.get_display_name(result.owner_id)
+            except Exception:
+                owner_name = str(result.owner_id)
+
+        self.status_service.add_message(f"Ägare uppdaterad: {owner_name}")
+        self.on_ownership_changed(node_id, previous_owner, result.owner_id)
+        self.on_tree_selection_change()
 
     def _refresh_province_tree_for_current_owner(
         self, node_id: int, previous_owner: int | None, new_owner: int | None

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import copy
 import math
-from typing import Any, Dict, List
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 from utils import generate_swedish_village_name
 from constants import (
@@ -16,7 +17,22 @@ from constants import (
     CRAFTSMAN_LICENSE_FEES,
 )
 from node import Node
+from personal_province import (
+    PersonalProvinceError,
+    build_personal_path,
+    validate_assignment,
+)
 from world_interface import WorldInterface
+
+
+@dataclass
+class AssignResult:
+    success: bool
+    message: str = ""
+    owner_level: str | None = None
+    owner_id: int | None = None
+    personal_path: list[int] | None = None
+    changed: bool = False
 
 
 class WorldManager(WorldInterface):
@@ -25,12 +41,162 @@ class WorldManager(WorldInterface):
     def __init__(self, world_data: Dict[str, Any] | None = None) -> None:
         super().__init__(world_data)
         self._depth_cache: Dict[int, int] = {}
+        self._snapshots: list[dict[str, Any]] = []
+        self._tax_cache_stale = False
 
     # -------------------------------------------
     # Utility methods
     # -------------------------------------------
     def clear_depth_cache(self) -> None:
         self._depth_cache = {}
+
+    def create_snapshot(self, reason: str = "", context: Dict[str, Any] | None = None) -> None:
+        """Store a lightweight copy of the world for undo/inspection."""
+
+        snapshot = {
+            "reason": reason,
+            "context": context or {},
+            "state": copy.deepcopy(self.world_data),
+        }
+        self._snapshots.append(snapshot)
+
+    def _lineage_for_node(self, node_id: int) -> List[int]:
+        nodes = self.world_data.get("nodes", {})
+        lineage: List[int] = []
+        current = node_id
+        while True:
+            node = nodes.get(str(current))
+            if not node:
+                break
+            parent_raw = node.get("parent_id")
+            if isinstance(parent_raw, str) and parent_raw.isdigit():
+                parent_id = int(parent_raw)
+            else:
+                parent_id = parent_raw
+            if parent_id is None:
+                break
+            lineage.insert(0, parent_id)
+            current = parent_id
+        return lineage
+
+    def _is_descendant(self, ancestor_id: int, candidate_id: int) -> bool:
+        nodes = self.world_data.get("nodes", {})
+        stack = [ancestor_id]
+        visited: set[int] = set()
+        while stack:
+            current = stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            if current == candidate_id and current != ancestor_id:
+                return True
+            node = nodes.get(str(current))
+            if not node:
+                continue
+            for child in node.get("children", []):
+                try:
+                    stack.append(int(child))
+                except (TypeError, ValueError):
+                    continue
+        return False
+
+    def _recalculate_personal_economy(self, node_id: int) -> None:
+        """Mark caches dirty and recompute simple income placeholders."""
+
+        self._tax_cache_stale = True
+        try:
+            self.calculate_license_income(node_id)
+        except Exception:
+            pass
+
+    def assign_personal_owner(
+        self, province_id: int | str, owner_anchor_id: Tuple[str, int | None] | str | None
+    ) -> AssignResult:
+        """Validate and assign a personal owner for ``province_id``.
+
+        ``owner_anchor_id`` is expected to be a tuple of (level, owner_id) but
+        falls back to sensible defaults for backwards compatibility.
+        """
+
+        try:
+            province_int = int(province_id)
+        except (TypeError, ValueError):
+            return AssignResult(False, "Ogiltigt provins-id")
+
+        nodes = self.world_data.get("nodes", {})
+        node_data = nodes.get(str(province_int))
+        if not node_data:
+            return AssignResult(False, "Provinsen kunde inte hittas")
+
+        owner_level: str
+        owner_id: Optional[int]
+        if isinstance(owner_anchor_id, tuple) and len(owner_anchor_id) == 2:
+            owner_level, owner_id = owner_anchor_id
+        elif owner_anchor_id in (None, "none"):
+            owner_level, owner_id = "none", None
+        else:
+            owner_level = "0"
+            try:
+                owner_id = int(owner_anchor_id) if owner_anchor_id is not None else None
+            except (TypeError, ValueError):
+                owner_id = None
+
+        owner_level = str(owner_level or "none")
+        current_level = str(node_data.get("owner_assigned_level", "none") or "none")
+        current_owner = node_data.get("owner_assigned_id")
+
+        if owner_level == current_level and owner_id == current_owner:
+            return AssignResult(
+                True,
+                "Ingen ändring",
+                owner_level=current_level,
+                owner_id=current_owner,
+                personal_path=list(node_data.get("personal_province_path", [])),
+                changed=False,
+            )
+
+        try:
+            validate_assignment(owner_level, owner_id, current_owner)
+        except PersonalProvinceError as exc:
+            return AssignResult(False, str(exc))
+
+        if owner_level != "none":
+            if owner_id is None or str(owner_id) not in nodes:
+                return AssignResult(False, "Ägaren finns inte i världen")
+            owner_depth = self.get_depth_of_node(owner_id)
+            try:
+                expected_depth = int(owner_level)
+            except ValueError:
+                expected_depth = -1
+            if owner_depth != expected_depth:
+                return AssignResult(False, "Ogiltig ankarnivå för vald ägare")
+            if owner_id == province_int or self._is_descendant(province_int, owner_id):
+                return AssignResult(False, "Cykel i ägarhierarkin")
+
+        lineage = self._lineage_for_node(province_int)
+        try:
+            personal_path = build_personal_path(owner_level, owner_id, lineage)
+        except PersonalProvinceError as exc:
+            return AssignResult(False, str(exc))
+
+        node_data["owner_assigned_level"] = owner_level
+        node_data["owner_assigned_id"] = owner_id
+        node_data["personal_province_path"] = personal_path
+
+        self._recalculate_personal_economy(province_int)
+        self.create_snapshot(
+            reason="owner-change",
+            context={"province_id": province_int, "owner_id": owner_id},
+        )
+
+        return AssignResult(
+            True,
+            "Ägare uppdaterad",
+            owner_level=owner_level,
+            owner_id=owner_id,
+            personal_path=personal_path,
+            changed=True,
+        )
 
     @staticmethod
     def calculate_population_from_fields(data: Dict[str, Any]) -> int:
