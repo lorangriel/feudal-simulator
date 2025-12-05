@@ -5,6 +5,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from events import PROVINCE_OWNER_CHANGED
 from utils import generate_swedish_village_name
 from constants import (
     MAX_NEIGHBORS,
@@ -38,17 +39,23 @@ class AssignResult:
 class WorldManager(WorldInterface):
     """Implementation of ``WorldInterface`` with basic world logic."""
 
-    def __init__(self, world_data: Dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, world_data: Dict[str, Any] | None = None, event_bus=None
+    ) -> None:
         super().__init__(world_data)
         self._depth_cache: Dict[int, int] = {}
         self._snapshots: list[dict[str, Any]] = []
         self._tax_cache_stale = False
+        self._event_bus = event_bus
 
     # -------------------------------------------
     # Utility methods
     # -------------------------------------------
     def clear_depth_cache(self) -> None:
         self._depth_cache = {}
+
+    def set_event_bus(self, event_bus) -> None:
+        self._event_bus = event_bus
 
     def create_snapshot(self, reason: str = "", context: Dict[str, Any] | None = None) -> None:
         """Store a lightweight copy of the world for undo/inspection."""
@@ -108,6 +115,18 @@ class WorldManager(WorldInterface):
             self.calculate_license_income(node_id)
         except Exception:
             pass
+
+    def _emit_owner_change_event(self, province_id: int, owner_id: int | None) -> None:
+        if not self._event_bus:
+            return
+
+        emit_fn = getattr(self._event_bus, "emit", None)
+        if callable(emit_fn):
+            emit_fn(
+                PROVINCE_OWNER_CHANGED,
+                province_id=province_id,
+                new_owner_id=owner_id,
+            )
 
     def assign_personal_owner(
         self, province_id: int | str, owner_anchor_id: Tuple[str, int | None] | str | None
@@ -188,6 +207,7 @@ class WorldManager(WorldInterface):
             reason="owner-change",
             context={"province_id": province_int, "owner_id": owner_id},
         )
+        self._emit_owner_change_event(province_int, owner_id)
 
         return AssignResult(
             True,
