@@ -31,6 +31,7 @@ from constants import (
     NOBLE_STANDARD_OPTIONS,
     STATUS_DEFAULT_LINE_COUNT,
 )
+from events import PROVINCE_OWNER_CHANGED
 from data_manager import load_worlds_from_file
 from node import Node
 from utils import (
@@ -75,6 +76,7 @@ from ui.strings import (
     format_details_title,
     panel_tooltip,
 )
+from ui.views.structure_view import StructureView
 from ui.widgets.tooltips import TooltipManager
 
 apply_combobox_policy()
@@ -228,6 +230,11 @@ class FeodalSimulator:
         self.paned_window.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.event_bus = UIEventBus()
+        self.structure_view = StructureView(self)
+        self.world_manager.set_event_bus(self.event_bus)
+        self.event_bus.on(
+            PROVINCE_OWNER_CHANGED, self._on_province_owner_changed
+        )
 
         # Left Frame (for Treeview)
         self.structure_panel = StructurePanel(
@@ -1434,8 +1441,6 @@ class FeodalSimulator:
             self._ownership_last_selection = selection_label
             return
 
-        previous_owner = node_data.get("owner_assigned_id")
-
         result = self.world_manager.assign_personal_owner(
             node_id, (candidate_level, candidate_owner_id)
         )
@@ -1468,7 +1473,29 @@ class FeodalSimulator:
                 owner_name = str(result.owner_id)
 
         self.status_service.add_message(f"Ägare uppdaterad: {owner_name}")
-        self.on_ownership_changed(node_id, previous_owner, result.owner_id)
+
+    def _on_province_owner_changed(
+        self, province_id: int | str, new_owner_id: int | None = None
+    ) -> None:
+        if not self.world_data:
+            return
+
+        state_snapshot = self.structure_view.capture_selection_and_expansion()
+        self.structure_view.refresh_after_owner_change(province_id)
+        self.structure_view.restore_selection_and_expansion(
+            state_snapshot,
+            focus_id=province_id,
+            expand_to_owner_anchor=True,
+        )
+
+        try:
+            display_name = self.get_display_name(int(province_id))
+        except Exception:
+            display_name = str(province_id)
+
+        self.status_service.add_message(
+            f"Struktur uppdaterad för provins: {display_name}"
+        )
         self.on_tree_selection_change()
 
     def _refresh_province_tree_for_current_owner(
