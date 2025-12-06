@@ -78,6 +78,7 @@ from ui.strings import (
 )
 from ui.views.manage_characters_view import show_manage_characters_view as render_manage_characters_view
 from ui.views.manage_worlds_view import show_manage_worlds_view as render_manage_worlds_view
+from ui.views.node_details_view import NodeDetailsView
 from ui.views.structure_view import StructureView
 from ui.widgets.tooltips import TooltipManager
 
@@ -266,17 +267,14 @@ class FeodalSimulator:
         self.details_panel = DetailsPanel(self.right_frame, self.tooltip_manager)
         self.details_header = self.details_panel.header
         self.details_body = self.details_panel.body
-        self.details_panel.ownership_combobox.bind(
-            "<<ComboboxSelected>>", self._on_ownership_selected
+        self.node_details_view = NodeDetailsView(
+            self, self.details_panel, self.status_service, self.event_bus
         )
-        self._ownership_target_id: int | None = None
-        self._ownership_last_selection: str | None = None
-        self._suppress_ownership_callback = False
+        self.details_panel.ownership_combobox.bind(
+            "<<ComboboxSelected>>", self.node_details_view.on_ownership_selected
+        )
         self.current_province_owner_id: int | None = None
         self.personal_province_button = None
-        self._details_scroll_target: tk.Misc | None = None
-        self._details_mousewheel_bound = False
-        self._bind_details_mousewheel()
         self._log_panel_event("details", "Panel initierad")
 
         # --- Status Bar ---
@@ -412,108 +410,38 @@ class FeodalSimulator:
         self._update_time_label(self.time_engine.current_position)
 
     def _bind_details_mousewheel(self) -> None:
-        """Bind global mouse wheel events and filter to Detaljer-panelen."""
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        if self._details_mousewheel_bound:
-            return
-        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
-            self.root.bind_all(sequence, self._on_details_mousewheel, add="+")
-        self._details_mousewheel_bound = True
-        self._log_panel_event(
-            "details",
-            "Globalt mushjuls-scrollstöd aktiverat (canvas-yview-backing)",
-        )
+        self.node_details_view._bind_details_mousewheel()
 
     def _widget_in_details(self, widget: tk.Misc | str | None) -> bool:
-        """Return ``True`` if ``widget`` belongs to the Detaljer-panelen."""
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        if widget is None or not hasattr(self, "details_body"):
-            return False
-
-        try:
-            current: tk.Misc | None
-            if isinstance(widget, str):
-                current = self.root.nametowidget(widget)
-            else:
-                current = widget
-
-            while current is not None:
-                if current is self.details_body:
-                    return True
-                parent_name = current.winfo_parent()
-                if not parent_name:
-                    break
-                current = current.nametowidget(parent_name)
-        except (tk.TclError, AttributeError, KeyError):
-            return False
-        return False
+        return self.node_details_view._widget_in_details(widget)
 
     def _normalize_mousewheel_delta(self, event: tk.Event) -> int:
-        """Normalize delta across platforms to signed scroll units."""
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        event_num = getattr(event, "num", None)
-        if event_num in (4, 5):  # X11 scroll emulation
-            return -1 if event_num == 4 else 1
-
-        delta = getattr(event, "delta", 0)
-        if delta == 0:
-            return 0
-        if sys.platform == "darwin":
-            return -int(delta)
-
-        step = int(delta / 120) if abs(delta) >= 120 else int(delta / abs(delta))
-        return -step
+        return self.node_details_view._normalize_mousewheel_delta(event)
 
     def _on_details_mousewheel(self, event: tk.Event) -> None:
-        """Scroll the active Detaljer-backing when wheel events occur inside it."""
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        pointer_widget = None
-        try:
-            pointer_widget = self.root.winfo_containing(
-                self.root.winfo_pointerx(), self.root.winfo_pointery()
-            )
-        except (tk.TclError, KeyError):
-            pointer_widget = None
-
-        target_widget = event.widget if self._widget_in_details(event.widget) else None
-        if target_widget is None and not self._widget_in_details(pointer_widget):
-            return
-
-        target = self._details_scroll_target
-        if not target or not hasattr(target, "yview_scroll"):
-            return
-        try:
-            if not target.winfo_exists():
-                self._details_scroll_target = None
-                return
-        except tk.TclError:
-            self._details_scroll_target = None
-            return
-
-        units = self._normalize_mousewheel_delta(event)
-        if units == 0:
-            return
-
-        try:
-            target.yview_scroll(units * self.DETAILS_SCROLL_UNITS, "units")
-        except tk.TclError:
-            self._details_scroll_target = None
+        self.node_details_view._on_details_mousewheel(event)
 
     def _set_details_scroll_target(self, widget: tk.Misc | None) -> None:
-        """Update which widget handles global wheel scroll in Detaljer-panelen."""
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        self._details_scroll_target = widget
-        if widget is not None:
-            self._log_panel_event("details", "Scroll-target uppdaterad")
+        self.node_details_view._set_details_scroll_target(widget)
 
     def create_details_scrollable_frame(
         self, parent: tk.Misc | None = None, *args, **kwargs
     ) -> ScrollableFrame:
-        """Create a ``ScrollableFrame`` bound to Detaljer-panelens mushjul."""
+        """Create a ``ScrollableFrame`` via ``NodeDetailsView``."""
 
-        scroll_view = ScrollableFrame(parent or self.details_body, *args, **kwargs)
-        self._set_details_scroll_target(scroll_view.canvas)
-        return scroll_view
+        return self.node_details_view.create_details_scrollable_frame(
+            parent, *args, **kwargs
+        )
 
     def _log_panel_event(self, panel_key: str, action: str) -> None:
         """Print a simple log line tied to a specific panel."""
@@ -522,16 +450,9 @@ class FeodalSimulator:
         print(f"{panel_name}: {action}")
 
     def update_details_header(self, resource_name: str | None) -> None:
-        """Update the Detaljer-rubrik med det aktuella objektet."""
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        if not hasattr(self, "details_header"):
-            return
-        try:
-            self.details_panel.update_title(resource_name)
-            title = format_details_title(resource_name)
-        except tk.TclError:
-            return
-        self._log_panel_event("details", f"Uppdaterad till '{title}'")
+        self.node_details_view.update_details_header(resource_name)
 
     def _append_status_text(self, msg: str) -> None:
         try:
@@ -638,30 +559,9 @@ class FeodalSimulator:
                 self.pending_save_callback = None
 
     def _clear_right_frame(self):
-        """Destroys all widgets in the right frame."""
-        if not hasattr(self, "details_body"):
-            return
-        # Important: Unbind map drag events if map exists
-        if self.static_map_canvas:
-            self.static_map_canvas.unbind("<Motion>")  # For hover effects if added
-            self.static_map_canvas = None  # Clear reference
+        """Deprecated wrapper – delegated to ``NodeDetailsView``."""
 
-        # If a dynamic map view is active, make sure to clear references
-        if self.dynamic_map_view:
-            try:
-                self.dynamic_map_view.hide_tooltip()
-            except Exception:
-                pass
-            self.dynamic_map_view = None
-        self.update_details_header(None)
-        self.details_panel.hide_ownership_controls()
-        self._set_details_scroll_target(None)
-        for widget in self.details_body.winfo_children():
-            widget.destroy()
-        self.map_drag_start_node_id = None  # Reset drag state
-        self.map_drag_line_id = None
-        self.hex_drag_node_id = None
-        self.hex_drag_start = None
+        self.node_details_view.clear()
 
     def show_no_world_view(self):
         """Displays a placeholder when no world is loaded or no node is selected."""
@@ -1231,34 +1131,12 @@ class FeodalSimulator:
         return lineage
 
     def _set_ownership_selection(self, label: str) -> None:
-        self._suppress_ownership_callback = True
-        try:
-            self.details_panel.ownership_var.set(label)
-        finally:
-            self._suppress_ownership_callback = False
+        self.node_details_view._set_ownership_selection(label)
 
     def _update_ownership_controls(
         self, node_id: int | None, depth: int | None
     ) -> None:
-        if not node_id or depth != 3 or not self.world_data:
-            self._ownership_target_id = None
-            self._ownership_last_selection = None
-            self.details_panel.hide_ownership_controls()
-            return
-
-        node_data = self.world_data.get("nodes", {}).get(str(node_id))
-        if not node_data:
-            self._ownership_target_id = None
-            self._ownership_last_selection = None
-            self.details_panel.hide_ownership_controls()
-            return
-
-        self._ownership_target_id = node_id
-        selected_label = self.details_panel.populate_ownership_combobox(
-            self, node_id, node_data
-        )
-        self._ownership_last_selection = selected_label
-        self._set_ownership_selection(selected_label)
+        self.node_details_view.update_ownership_controls(node_id, depth)
 
     def on_tree_selection_change(self, _event=None):
         selection = self.tree.selection()
@@ -1285,63 +1163,7 @@ class FeodalSimulator:
             return
 
     def _on_ownership_selected(self, _event=None):
-        if self._suppress_ownership_callback:
-            return
-
-        node_id = self._ownership_target_id
-        if node_id is None or not self.world_data:
-            return
-
-        node_data = self.world_data.get("nodes", {}).get(str(node_id))
-        if not node_data:
-            return
-
-        selection_label = self.details_panel.ownership_var.get()
-        choice = self.details_panel.get_ownership_choice(selection_label)
-        if choice is None:
-            return
-
-        candidate_level, candidate_owner_id = choice
-
-        if (
-            candidate_level == str(node_data.get("owner_assigned_level", "none"))
-            and candidate_owner_id == node_data.get("owner_assigned_id")
-        ):
-            self._ownership_last_selection = selection_label
-            return
-
-        result = self.world_manager.assign_personal_owner(
-            node_id, (candidate_level, candidate_owner_id)
-        )
-
-        if not result.success:
-            messagebox.showerror(
-                "Ogiltig tilldelning",
-                result.message or "Ogiltig tilldelning – ändringen avbröts.",
-                parent=self.root,
-            )
-            if self._ownership_last_selection is not None:
-                self._set_ownership_selection(self._ownership_last_selection)
-            return
-
-        refreshed_node = self.world_data.get("nodes", {}).get(str(node_id), node_data)
-        refreshed_label = self.details_panel.populate_ownership_combobox(
-            self, node_id, refreshed_node
-        )
-        self._ownership_last_selection = refreshed_label
-        self._set_ownership_selection(refreshed_label)
-
-        if not result.changed:
-            return
-
-        owner_name = "Lokal ägo"
-        if result.owner_id is not None:
-            try:
-                owner_name = self.get_display_name(result.owner_id)
-            except Exception:
-                owner_name = str(result.owner_id)
-
-        self.status_service.add_message(f"Ägare uppdaterad: {owner_name}")
+        self.node_details_view.on_ownership_selected(_event)
 
     def _on_province_owner_changed(
         self, province_id: int | str, new_owner_id: int | None = None
@@ -2261,68 +2083,9 @@ class FeodalSimulator:
     # Node Viewing and Editing
     # --------------------------------------------------
     def show_node_view(self, node_data):
-        """Displays the appropriate editor for the given node in the right frame."""
-        self.commit_pending_changes()
-        self._clear_right_frame()
-        self.personal_province_button = None
+        """Displays the appropriate editor for the given node via ``NodeDetailsView``."""
 
-        if not isinstance(node_data, dict):
-            self.add_status_message(f"Fel: Ogiltig noddata mottagen: {node_data}")
-            self.show_no_world_view()
-            return
-
-        node_id = node_data.get("node_id")
-        if node_id is None:
-            self.add_status_message("Fel: Kan inte visa nodvy, noden saknar ID.")
-            self.show_no_world_view()
-            return
-
-        # Recalculate depth just in case cache is stale (though updates should clear it)
-        # self.clear_depth_cache() # Uncomment if depth issues suspected
-        depth = self.get_depth_of_node(node_id)
-        display_name = self.get_display_name_for_node(node_data, depth)
-        self._update_ownership_controls(node_id, depth)
-
-        # --- Main container frame with padding ---
-        view_frame = ttk.Frame(self.details_body, padding="10 10 10 10")
-        view_frame.pack(fill="both", expand=True)
-        view_frame.grid_rowconfigure(1, weight=1)
-        view_frame.grid_columnconfigure(0, weight=1)
-
-        # --- Title Frame ---
-        title_frame = ttk.Frame(view_frame)
-        title_frame.pack(fill="x", pady=(8, 20))
-        self.update_details_header(display_name)
-        title_label = ttk.Label(
-            title_frame, text=f"{display_name}", font=("Arial", 18, "bold"), padding=(0, 4)
-        )
-        title_label.pack(side=tk.LEFT)
-        ttk.Label(
-            title_frame, text=f" (ID: {node_id}, Djup: {depth})", font=("Arial", 10)
-        ).pack(side=tk.LEFT, anchor="s", padx=5)
-
-        # --- Scrollable area for editor content ---
-        scroll_frame = self.create_details_scrollable_frame(view_frame)
-        scroll_frame.pack(fill="both", expand=True)
-        editor_content_frame = scroll_frame.content
-
-        # --- Call specific editor based on depth ---
-        if depth < 0:  # Error case (orphan/cycle)
-            ttk.Label(
-                editor_content_frame,
-                text="Fel: Kan inte bestämma nodens position i hierarkin.",
-                foreground="red",
-            ).pack(pady=10)
-        elif depth < 3:
-            self._show_upper_level_node_editor(editor_content_frame, node_data, depth)
-        elif depth == 3:
-            self._show_jarldome_editor(editor_content_frame, node_data)
-        else:  # depth >= 4
-            self._show_resource_editor(editor_content_frame, node_data, depth)
-
-        # Common Back button (place it outside the specific editors if preferred)
-        # back_button = ttk.Button(view_frame, text="< Stäng Vy", command=self.show_no_world_view)
-        # back_button.pack(side=tk.BOTTOM, pady=(10, 0)) # Example placement
+        self.node_details_view.show_node_view(node_data)
 
     def _create_delete_button(self, parent_frame, node_data, is_modified=None):
         """Creates the delete button common to all node editors.
