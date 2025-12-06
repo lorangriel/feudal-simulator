@@ -354,6 +354,7 @@ class FeodalSimulator:
             font=("Arial", 10, "bold"),
         )
         self.time_label.pack(side=tk.LEFT, padx=(0, 8))
+        self._time_jump_buttons: dict[int, ttk.Button] = {}
         buttons = [
             ("−10y", -40),
             ("−1y", -4),
@@ -363,10 +364,11 @@ class FeodalSimulator:
             ("+10y", 40),
         ]
         for label, delta in buttons:
-            ttk.Button(frame, text=label, command=lambda d=delta: self.step_time(d)).pack(
-                side=tk.LEFT, padx=2, pady=5
-            )
+            btn = ttk.Button(frame, text=label, command=lambda d=delta: self.step_time(d))
+            btn.pack(side=tk.LEFT, padx=2, pady=5)
+            self._time_jump_buttons[delta] = btn
         self._update_time_label(self.time_engine.current_position)
+        self._update_time_controls_state()
 
     def _format_time_position(self, pos: TimePosition) -> str:
         season_name = SEASON_LABELS.get(pos.season, pos.season)
@@ -376,17 +378,36 @@ class FeodalSimulator:
         if hasattr(self, "time_label_var"):
             self.time_label_var.set(self._format_time_position(pos))
 
+    def _update_time_controls_state(self) -> None:
+        if not hasattr(self, "_time_jump_buttons"):
+            return
+        allow_decade = self.time_engine.allows_decade_jumps()
+        state = tk.NORMAL if allow_decade else tk.DISABLED
+        for delta in (-40, 40):
+            btn = self._time_jump_buttons.get(delta)
+            if btn:
+                btn.state(["!disabled"] if state == tk.NORMAL else ["disabled"])
+
     def step_time(self, delta: int) -> None:
         target = self.time_engine.step_seasons(delta)
         self._sync_world_from_engine()
         self._update_time_label(target)
         self.add_status_message(f"Tid uppdaterad: {self._format_time_position(target)}")
+        self._update_time_controls_state()
 
     def _sync_world_from_engine(self) -> None:
         """Align the UI world reference with the timeline world state."""
 
         self.world_data = self.time_engine.world_state
         self.world_manager.set_world_data(self.world_data)
+
+    def mark_world_changed(self, reason: str | None = None) -> None:
+        """Register a historical change and update control states."""
+
+        self.time_engine.record_change(reason=reason)
+        self._sync_world_from_engine()
+        self._update_time_controls_state()
+        self._update_time_label(self.time_engine.current_position)
 
     def _bind_details_mousewheel(self) -> None:
         """Bind global mouse wheel events and filter to Detaljer-panelen."""
@@ -1118,6 +1139,7 @@ class FeodalSimulator:
         self._auto_select_single_root()
         self.add_status_message(f"Värld '{wname}' laddad.")
         self._update_time_label(self.time_engine.current_position)
+        self._update_time_controls_state()
         # Reset map buttons
         self.hide_map_mode_buttons()
 

@@ -91,3 +91,68 @@ def test_ui_buttons_drive_time(tmp_path):
     assert sim.time_engine.current_position.year == 1
     assert sim.time_engine.current_position.season == "spring"
     root.destroy()
+
+
+def test_change_in_past_truncates_future_and_replays(tmp_path):
+    def _production_processor(engine: TimeEngine, pos: TimePosition, rng):
+        rate = engine.world_state.get("rate", 1)
+        engine.world_state["stock"] = engine.world_state.get("stock", 0) + rate
+
+    engine = TimeEngine(
+        timeline_id="rewrite",
+        rng_seed=2,
+        world_state={"rate": 1},
+        base_path=tmp_path,
+        season_processors=[
+            lambda eng, pos, rng: eng._run_weather(eng, pos, rng),
+            _production_processor,
+        ],
+    )
+    end_pos = TimePosition.from_season(2, "spring")
+    engine.step_to(end_pos)
+    original_stock = engine.world_state.get("stock", 0)
+    original_weather = list(engine.world_state.get("weather_history", []))
+    change_pos = TimePosition.from_season(0, "winter")
+    change_index = change_pos.year * len(SEASONS) + change_pos.season_index
+    expected_future_weather = original_weather[change_index:]
+
+    engine.step_to(change_pos)
+    engine.world_state["rate"] = 2
+    engine.record_change(reason="production boost")
+
+    engine.step_to(end_pos)
+    assert engine.world_state.get("stock", 0) > original_stock
+    assert engine.world_state.get("weather_history", [])[change_index:] == expected_future_weather
+    assert engine.future_dirty is False
+
+
+def test_record_change_records_reason(tmp_path):
+    engine = TimeEngine(timeline_id="meta", base_path=tmp_path, world_state={"val": 1})
+    engine.world_state["val"] = 2
+    engine.record_change(reason="manual adjustment")
+    latest = engine.snapshots[-1]
+    assert latest.get("meta", {}).get("reason") == "manual adjustment"
+    assert TimePosition.from_season(latest["year"], latest["season"]) == engine.current_position
+
+
+def test_ui_disables_decade_jumps_when_future_dirty(tmp_path):
+    try:
+        root = tk.Tk()
+        root.withdraw()
+    except tk.TclError:
+        pytest.skip("Tk not available")
+    sim = FeodalSimulator(root)
+    sim.time_engine.reset_timeline(world_state={}, timeline_id="ui-dirty", rng_seed=1)
+    sim.step_time(8)
+    sim.step_time(-4)
+    sim.mark_world_changed("past change")
+
+    plus_button = sim._time_jump_buttons[40]
+    minus_button = sim._time_jump_buttons[-40]
+    assert "disabled" in plus_button.state()
+    assert "disabled" in minus_button.state()
+
+    sim.step_time(4)
+    assert "disabled" not in plus_button.state()
+    assert "disabled" not in minus_button.state()
+    root.destroy()
