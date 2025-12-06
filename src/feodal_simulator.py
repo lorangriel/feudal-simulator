@@ -507,12 +507,6 @@ class FeodalSimulator:
 
         return self.status_panel.calculate_heights()
 
-    def _calculate_status_desired_height(self) -> int:
-        """Compatibility wrapper returning the default status height."""
-
-        desired_height, _ = self._calculate_status_heights()
-        return desired_height
-
     def _ensure_root_height_for_status(
         self, desired_status_height: int, min_main_height: int
     ) -> None:
@@ -1100,36 +1094,6 @@ class FeodalSimulator:
         """Clears the node depth cache, needed when hierarchy changes."""
         self.world_manager.clear_depth_cache()
 
-    def _first_node_at_depth(self, depth: int) -> int | None:
-        nodes = self.world_data.get("nodes", {}) if self.world_data else {}
-        for nid_str in sorted(nodes.keys(), key=lambda value: int(value)):
-            try:
-                nid = int(nid_str)
-            except (TypeError, ValueError):
-                continue
-            if self.get_depth_of_node(nid) == depth:
-                return nid
-        return None
-
-    def _ownership_lineage_for_node(self, node_id: int) -> list[int]:
-        lineage: list[int] = []
-        nodes = self.world_data.get("nodes", {}) if self.world_data else {}
-        current = node_id
-        while True:
-            node = nodes.get(str(current))
-            if not node:
-                break
-            parent_raw = node.get("parent_id")
-            if isinstance(parent_raw, str) and parent_raw.isdigit():
-                parent_id = int(parent_raw)
-            else:
-                parent_id = parent_raw
-            if parent_id is None:
-                break
-            lineage.insert(0, parent_id)
-            current = parent_id
-        return lineage
-
     def _set_ownership_selection(self, label: str) -> None:
         self.node_details_view._set_ownership_selection(label)
 
@@ -1161,9 +1125,6 @@ class FeodalSimulator:
             return
         if not selection or node_id is None:
             return
-
-    def _on_ownership_selected(self, _event=None):
-        self.node_details_view.on_ownership_selected(_event)
 
     def _on_province_owner_changed(
         self, province_id: int | str, new_owner_id: int | None = None
@@ -1205,15 +1166,6 @@ class FeodalSimulator:
         if self.tree.exists(node_id_str):
             self.tree.selection_set(node_id_str)
             self.tree.focus(node_id_str)
-
-    def on_ownership_changed(
-        self, changed_node_id: int, old_owner_id: int | None, new_owner_id: int | None
-    ) -> None:
-        """Public hook for when ägande ändras."""
-
-        self._refresh_province_tree_for_current_owner(
-            changed_node_id, old_owner_id, new_owner_id
-        )
 
     def _build_parent_map(self) -> dict[int, int | None]:
         """Return a mapping of node IDs to their parent IDs."""
@@ -7491,23 +7443,6 @@ class FeodalSimulator:
                     self.world_manager.update_neighbors_for_node(nid, list(neighbors))
 
         return True
-
-    def recalculate_map_neighbors(self) -> None:
-        """Clear all Jarldom neighbor links and relink adjacent hexes."""
-        if not (self.world_data and self.map_logic):
-            return
-        empty = [
-            {"id": None, "border": NEIGHBOR_NONE_STR} for _ in range(MAX_NEIGHBORS)
-        ]
-        for nid_str, node in self.world_data.get("nodes", {}).items():
-            try:
-                nid = int(nid_str)
-            except ValueError:
-                continue
-            if self.get_depth_of_node(nid) == 3:
-                self.world_manager.update_neighbors_for_node(nid, list(empty))
-
-        self.auto_link_adjacent_hexes()
 
     def clear_all_neighbor_links(self) -> None:
         """Remove all neighbor links between Jarldoms after confirmation."""
