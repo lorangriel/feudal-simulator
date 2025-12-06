@@ -233,22 +233,21 @@ class FeodalSimulator:
         self.paned_window.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.event_bus = UIEventBus()
-        self.structure_view = StructureView(self)
         self.world_manager.set_event_bus(self.event_bus)
-        self.event_bus.on(
-            PROVINCE_OWNER_CHANGED, self._on_province_owner_changed
-        )
 
         # Left Frame (for Treeview)
         self.structure_panel = StructurePanel(
-            self.paned_window, self.tooltip_manager, self.on_tree_double_click
+            self.paned_window, self.tooltip_manager, lambda _event: None
         )
         self.tree = self.structure_panel.tree
+        self.structure_view = StructureView(self, self.structure_panel, self.tree)
+        self.structure_view.bind_double_click(self._handle_tree_double_click)
         self._log_panel_event("structure", "Panel initierad")
-        self.structure_panel.set_back_command(self.exit_province_view)
+        self.structure_panel.set_back_command(lambda: self.structure_view.set_mode("admin"))
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_selection_change)
-        self._admin_tree_state = None
-        self.view_mode = "admin"
+        self.event_bus.on(
+            PROVINCE_OWNER_CHANGED, self._on_province_owner_changed
+        )
 
         # Add left frame to PanedWindow
         self.paned_window.add(self.structure_panel.frame)  # Add weight
@@ -273,7 +272,6 @@ class FeodalSimulator:
         self.details_panel.ownership_combobox.bind(
             "<<ComboboxSelected>>", self.node_details_view.on_ownership_selected
         )
-        self.current_province_owner_id: int | None = None
         self.personal_province_button = None
         self._log_panel_event("details", "Panel initierad")
 
@@ -575,65 +573,6 @@ class FeodalSimulator:
         # Pack label to center it
         lbl.pack(expand=True, fill="both")
 
-    # --- Treeview State Handling ---
-    def store_tree_state(self):
-        """Stores the open/closed state and selection of tree items."""
-        if not self.tree.winfo_exists():
-            return set(), ()  # Handle widget destroyed case
-        open_items = set()
-
-        def gather_open(item_id):
-            try:
-                if self.tree.item(item_id, "open"):
-                    open_items.add(item_id)
-                for child_id in self.tree.get_children(item_id):
-                    gather_open(child_id)
-            except tk.TclError:
-                pass  # Item might not exist anymore
-
-        for top_item_id in self.tree.get_children():
-            gather_open(top_item_id)
-
-        selection = self.tree.selection()
-        return open_items, selection
-
-    def restore_tree_state(self, open_items, selection):
-        """Restores the open/closed state and selection of tree items."""
-        if not self.tree.winfo_exists():
-            return  # Handle widget destroyed case
-
-        def apply_state(item_id):
-            try:
-                if self.tree.exists(item_id):  # Check if item still exists
-                    if item_id in open_items:
-                        self.tree.item(item_id, open=True)
-                    else:
-                        self.tree.item(
-                            item_id, open=False
-                        )  # Ensure closed if not in set
-                    for child_id in self.tree.get_children(item_id):
-                        apply_state(child_id)
-            except tk.TclError:
-                pass  # Item might have been deleted during refresh
-
-        for top_item_id in self.tree.get_children():
-            apply_state(top_item_id)
-
-        if selection:
-            try:
-                # Filter selection to only include existing items
-                valid_selection = tuple(s for s in selection if self.tree.exists(s))
-                if valid_selection:
-                    self.tree.selection_set(valid_selection)  # Set selection
-                    self.tree.focus(
-                        valid_selection[0]
-                    )  # Focus on the first selected item
-                    self.tree.see(valid_selection[0])  # Ensure it's visible
-            except tk.TclError:
-                print(
-                    "Warning: Could not fully restore tree selection (items might have changed)."
-                )
-
     # --- Data Management Menus ---
     def show_data_menu_view(self):
         """Displays the main data management menu."""
@@ -875,7 +814,8 @@ class FeodalSimulator:
         self.load_static_positions()
 
         self.root.title(f"Förläningssimulator - {wname}")
-        self.populate_tree()
+        if getattr(self, "structure_view", None):
+            self.structure_view.rebuild_full_tree()
         self.show_no_world_view()  # Clear right panel initially
         self._auto_select_single_root()
         self.add_status_message(f"Värld '{wname}' laddad.")
@@ -883,159 +823,6 @@ class FeodalSimulator:
         self._update_time_controls_state()
         # Reset map buttons
         self.hide_map_mode_buttons()
-
-    # --- Treeview Population and Interaction ---
-    def populate_tree(self, restore_state=None):
-        """Clears and refills the treeview based on the current world_data."""
-        if not self.tree.winfo_exists():
-            return  # Check if tree exists
-
-        if restore_state is None:
-            open_state, selection = self.store_tree_state()  # Store state before clearing
-        else:
-            open_state, selection = restore_state
-        self.tree.delete(*self.tree.get_children())  # Clear existing items
-
-        if not self.world_data or not self.world_data.get("nodes"):
-            # self.add_status_message("Kan inte fylla trädet: Ingen världsdata eller inga noder.")
-            return
-
-        # Find the root node(s) (parent_id is None)
-        root_nodes_data = []
-        node_dict = self.world_data.get("nodes", {})
-        all_node_ids_in_dict = {int(k) for k in node_dict.keys() if k.isdigit()}
-
-        for node_id_int in all_node_ids_in_dict:
-            node_data = node_dict.get(str(node_id_int))
-            if node_data and node_data.get("parent_id") is None:
-                # Ensure node_id is present in the data itself and matches key
-                if node_data.get("node_id") != node_id_int:
-                    node_data["node_id"] = node_id_int
-                root_nodes_data.append(node_data)
-
-        if not root_nodes_data:
-            # Try finding nodes with parent_id pointing outside the known set (potential orphans as roots)
-            for node_id_int in all_node_ids_in_dict:
-                node_data = node_dict.get(str(node_id_int))
-                parent_id = node_data.get("parent_id")
-                if (
-                    node_data
-                    and parent_id is not None
-                    and parent_id not in all_node_ids_in_dict
-                ):
-                    print(
-                        f"Warning: Node {node_id_int} has parent {parent_id} not in dataset. Treating as root."
-                    )
-                    node_data["parent_id"] = None  # Fix orphan state
-                    if node_data.get("node_id") != node_id_int:
-                        node_data["node_id"] = node_id_int
-                    root_nodes_data.append(node_data)
-
-        if not root_nodes_data:
-            self.add_status_message(
-                "Fel: Ingen rotnod (med parent_id=null eller ogiltigt parent_id) hittades."
-            )
-            return
-        elif len(root_nodes_data) > 1:
-            self.add_status_message(
-                f"Varning: Flera ({len(root_nodes_data)}) rotnoder hittades. Visar alla."
-            )
-
-        # Sort roots by ID for consistency.
-        root_nodes_data.sort(key=lambda n: n.get("node_id", 0))
-
-        # Recursively add nodes starting from the root(s)
-        for root_node in root_nodes_data:
-            self._add_tree_node_recursive("", root_node)
-
-    def _refresh_structure_view(self, restore_state=None) -> None:
-        """Refresh the structure tree respecting the current view mode."""
-
-        if (
-            getattr(self, "view_mode", "admin") == "province"
-            and getattr(self, "current_province_owner_id", None) is not None
-        ):
-            self._render_province_subtrees(self.current_province_owner_id)
-            if restore_state is not None:
-                open_items, selection = restore_state
-                self.restore_tree_state(open_items, selection)
-            return
-        try:
-            self.populate_tree(restore_state=restore_state)
-        except TypeError:
-            self.populate_tree()
-            if restore_state is not None:
-                open_items, selection = restore_state
-                self.restore_tree_state(open_items, selection)
-
-    def _add_tree_node_recursive(self, parent_iid, node_data):
-        """Helper function to recursively add nodes to the treeview."""
-        node_id = node_data.get("node_id")
-        if node_id is None:
-            print(f"Warning: Skipping node data without node_id: {node_data}")
-            return  # Skip nodes without ID
-
-        node_id_str = str(node_id)
-        # Prevent adding duplicates if tree logic somehow allows it
-        if self.tree.exists(node_id_str):
-            # print(f"Debug: Node {node_id_str} already exists in tree, skipping add.")
-            return
-
-        depth = self.get_depth_of_node(node_id)
-        display_name = self.get_display_name_for_node(node_data, depth)
-
-        # Insert item into tree
-        try:
-            # Add tags for potential styling based on depth or type later
-            is_personal = (
-                str(node_data.get("owner_assigned_level", "none")) != "none"
-            )
-            tags = [f"depth_{depth}"]
-            if is_personal:
-                tags.append("personal_province")
-            my_iid = self.tree.insert(
-                parent_iid,
-                "end",
-                iid=node_id_str,
-                text=self.structure_panel.format_node_label(display_name, is_personal),
-                open=(depth < 1),
-                tags=tuple(tags),
-            )  # Open only root initially
-        except tk.TclError as e:
-            print(
-                f"Warning: Failed to insert node {node_id_str} ('{display_name}') into tree. Error: {e}"
-            )
-            return  # Skip this node and its children if insert fails
-
-        # Add children recursively
-        children_ids = node_data.get("children", [])
-        if children_ids:
-            # Optional: Sort children, e.g., by name or ID
-            child_nodes = []
-            valid_children_ids = []
-            for cid in children_ids:
-                child_data = self.world_data.get("nodes", {}).get(str(cid))
-                if child_data:
-                    # Ensure node_id consistency
-                    if child_data.get("node_id") != cid:
-                        child_data["node_id"] = cid
-                    child_nodes.append(child_data)
-                    valid_children_ids.append(cid)
-                else:
-                    print(
-                        f"Warning: Child ID {cid} listed in parent {node_id} not found in nodes data."
-                    )
-
-            # Correct children list in parent if discrepancies found
-            if node_data.get("children") != valid_children_ids:
-                print(f"Correcting children list for node {node_id}")
-                node_data["children"] = valid_children_ids
-
-            # Sort children by their display name for consistent order
-            child_nodes.sort(key=lambda n: self.get_display_name_for_node(n, depth + 1))
-
-            for child_data in child_nodes:
-                self._add_tree_node_recursive(my_iid, child_data)
 
     def _auto_select_single_root(self):
         """If there is only one root node, select and open it."""
@@ -1132,7 +919,10 @@ class FeodalSimulator:
         if not self.world_data:
             return
 
-        state_snapshot = self.structure_view.capture_selection_and_expansion()
+        structure_view = getattr(self, "structure_view", None)
+        state_snapshot = (
+            structure_view.capture_selection_and_expansion() if structure_view else None
+        )
         self.structure_view.refresh_after_owner_change(province_id)
         self.structure_view.restore_selection_and_expansion(
             state_snapshot,
@@ -1149,23 +939,6 @@ class FeodalSimulator:
             f"Struktur uppdaterad för provins: {display_name}"
         )
         self.on_tree_selection_change()
-
-    def _refresh_province_tree_for_current_owner(
-        self, node_id: int, previous_owner: int | None, new_owner: int | None
-    ) -> None:
-        if getattr(self, "view_mode", "admin") != "province":
-            return
-
-        owner_id = self.current_province_owner_id
-        if owner_id is None or owner_id not in (previous_owner, new_owner):
-            return
-
-        self._render_province_subtrees(owner_id)
-
-        node_id_str = str(node_id)
-        if self.tree.exists(node_id_str):
-            self.tree.selection_set(node_id_str)
-            self.tree.focus(node_id_str)
 
     def _build_parent_map(self) -> dict[int, int | None]:
         """Return a mapping of node IDs to their parent IDs."""
@@ -1288,84 +1061,6 @@ class FeodalSimulator:
 
         return [build_tree(root_id) for root_id in root_ids]
 
-    def _province_anchor_iid(self, owner_id: int | None) -> str:
-        if owner_id is None:
-            return ""
-        return f"{self.PROVINCE_ANCHOR_IID}{owner_id}"
-
-    def _insert_owner_anchor(
-        self, owner_id: int, owner_name: str, owner_level: int
-    ) -> str:
-        iid = self._province_anchor_iid(owner_id)
-        if not iid:
-            return ""
-
-        if self.tree.exists(iid):
-            try:
-                self.tree.delete(iid)
-            except tk.TclError:
-                pass
-
-        anchor_label = f"Ägare: {owner_name} (nivå {owner_level})"
-
-        try:
-            self.tree.insert("", "end", iid=iid, text=anchor_label, open=True)
-            return iid
-        except tk.TclError:
-            return ""
-
-    def _render_province_subtrees(self, owner_id: int | None) -> None:
-        """Render province mode with the owner anchor as the single tree root."""
-        self.tree.delete(*self.tree.get_children())
-
-        if owner_id is None or not self.world_data:
-            return
-
-        owner_level = self.get_depth_of_node(owner_id)
-        owner_data = self.world_data.get("nodes", {}).get(str(owner_id), {})
-        owner_name = self.get_display_name_for_node(owner_data, owner_level)
-
-        anchor_iid = self._insert_owner_anchor(owner_id, owner_name, owner_level)
-        if not anchor_iid:
-            return
-
-        province_subtrees = self.get_province_subtree(owner_id)
-        if not isinstance(province_subtrees, list):
-            province_subtrees = []
-
-        for subtree in province_subtrees:
-            self._insert_province_subtree(anchor_iid, subtree)
-
-    def _insert_province_subtree(self, parent_iid: str, subtree: dict) -> None:
-        node_id = subtree.get("id") if isinstance(subtree, dict) else None
-        if node_id is None:
-            return
-
-        node_id_str = str(node_id)
-        node_data = self.world_data.get("nodes", {}).get(node_id_str, {})
-        depth = self.get_depth_of_node(node_id)
-        display_name = self.get_display_name_for_node(node_data, depth)
-        is_personal = str(node_data.get("owner_assigned_level", "none")) != "none"
-
-        tags = [f"depth_{depth}"]
-        if is_personal:
-            tags.append("personal_province")
-
-        try:
-            self.tree.insert(
-                parent_iid,
-                "end",
-                iid=node_id_str,
-                text=self.structure_panel.format_node_label(display_name, is_personal),
-                open=(depth < 1),
-                tags=tuple(tags),
-            )
-        except tk.TclError:
-            return
-
-        for child in subtree.get("children", []):
-            self._insert_province_subtree(node_id_str, child)
-
     def show_personal_province_view(self):
         if self.structure_panel.mode != "admin":
             return
@@ -1382,72 +1077,21 @@ class FeodalSimulator:
         except (ValueError, TypeError):
             return
 
-        self._admin_tree_state = self.store_tree_state()
-        self.structure_panel.update_mode("province")
-        self.view_mode = "province"
-        self.current_province_owner_id = selected_owner_id
-        self._render_province_subtrees(selected_owner_id)
+        self.structure_view.set_mode("province", selected_owner_id)
 
     def exit_province_view(self):
         if self.structure_panel.mode != "province":
             return
 
-        restore_state = self._admin_tree_state or (set(), ())
-        self.structure_panel.update_mode("admin")
-        self.view_mode = "admin"
-        self.populate_tree(restore_state=restore_state)
-        self._admin_tree_state = None
-        self.current_province_owner_id = None
-        self.on_tree_selection_change()
+        self.structure_view.set_mode("admin")
 
-    def on_tree_double_click(self, event):
-        """Handles double-clicking on an item in the treeview."""
-        item_id_str = self.tree.focus()  # Get the IID of the focused item
-        if not item_id_str or not self.world_data:
+    def _handle_tree_double_click(self, node_id: int) -> None:
+        if not self.world_data:
             return
 
-        # Check if item exists before trying to access data
-        if not self.tree.exists(item_id_str):
-            self.add_status_message(f"Fel: Trädnod ID {item_id_str} finns inte längre.")
-            return
-
-        node_data = self.world_data.get("nodes", {}).get(item_id_str)
+        node_data = self.world_data.get("nodes", {}).get(str(node_id))
         if node_data:
             self.show_node_view(node_data)
-        else:
-            self.add_status_message(
-                f"Fel: Kunde inte hitta data för nod ID {item_id_str}"
-            )
-
-    def refresh_tree_item(self, node_id):
-        """Updates the text of a specific item in the tree."""
-        if not self.tree.winfo_exists():
-            return  # Check if tree exists
-
-        node_id_str = str(node_id)
-        if self.tree.exists(node_id_str):
-            node_data = self.world_data.get("nodes", {}).get(node_id_str)
-            if node_data:
-                # Recalculate depth as it might affect display name
-                depth = self.get_depth_of_node(node_id)
-                display_name = self.get_display_name_for_node(node_data, depth)
-                try:
-                    is_personal = (
-                        str(node_data.get("owner_assigned_level", "none"))
-                        != "none"
-                    )
-                    self.tree.item(
-                        node_id_str,
-                        text=self.structure_panel.format_node_label(
-                            display_name, is_personal
-                        ),
-                        tags=tuple(
-                            [f"depth_{depth}"]
-                            + (["personal_province"] if is_personal else [])
-                        ),
-                    )
-                except tk.TclError as e:
-                    print(f"Error refreshing tree item {node_id_str}: {e}")
 
     # --- Character Management ---
     def show_manage_characters_view(self):
@@ -1922,7 +1566,7 @@ class FeodalSimulator:
                     jnode = self.world_data.get("nodes", {}).get(str(ruler_of))
                     if jnode is not None:
                         jnode["ruler_id"] = new_id_str
-                        self.refresh_tree_item(ruler_of)
+                        self.structure_view.refresh_tree_item(ruler_of)
 
                 # If created from a node view, assign the new ruler immediately
                 if parent_node_data:
@@ -1931,7 +1575,7 @@ class FeodalSimulator:
                     self.add_status_message(
                         f"Tilldelade '{name}' som härskare till nod {parent_node_id}."
                     )
-                    self.refresh_tree_item(parent_node_id)
+                    self.structure_view.refresh_tree_item(parent_node_id)
                     # Go back to the node view after assigning
                     self.save_current_world()
                     self.show_node_view(parent_node_data)
@@ -1972,7 +1616,7 @@ class FeodalSimulator:
                             for nid_str, ndata in self.world_data["nodes"].items():
                                 if str(ndata.get("ruler_id")) == char_id_str:
                                     try:
-                                        self.refresh_tree_item(int(nid_str))
+                                        self.structure_view.refresh_tree_item(int(nid_str))
                                     except ValueError:
                                         pass
 
@@ -1980,12 +1624,12 @@ class FeodalSimulator:
                         old_node = self.world_data.get("nodes", {}).get(str(old_ruler))
                         if old_node and str(old_node.get("ruler_id")) == char_id_str:
                             old_node["ruler_id"] = None
-                            self.refresh_tree_item(old_ruler)
+                            self.structure_view.refresh_tree_item(old_ruler)
                     if ruler_of is not None:
                         new_node = self.world_data.get("nodes", {}).get(str(ruler_of))
                         if new_node:
                             new_node["ruler_id"] = char_id_str
-                            self.refresh_tree_item(ruler_of)
+                            self.structure_view.refresh_tree_item(ruler_of)
 
                     initial_state["name"] = name
                     initial_state["gender"] = gender_val
@@ -2086,7 +1730,7 @@ class FeodalSimulator:
                 parent_id = node_data.get("parent_id")
 
                 # Store tree state before modifying structure
-                open_items, selection = self.store_tree_state()
+                state_snapshot = self.structure_view.capture_selection_and_expansion()
 
                 # Remove from parent's children list (handle string/int IDs)
                 if parent_id is not None:
@@ -2111,7 +1755,8 @@ class FeodalSimulator:
                 )
 
                 # Refresh the entire tree efficiently
-                self._refresh_structure_view((open_items, selection))
+                self.structure_view.rebuild_full_tree()
+                self.structure_view.restore_selection_and_expansion(state_snapshot)
 
                 self.show_no_world_view()  # Clear the right panel
 
@@ -2143,7 +1788,7 @@ class FeodalSimulator:
             self.world_manager.update_population_totals()
         self.save_current_world()
         if refresh_tree:
-            self.refresh_tree_item(node_data.get("node_id"))
+            self.structure_view.refresh_tree_item(node_data.get("node_id"))
 
         if key in {"work_needed", "fishing_boats"}:
             jarldom_id = self._find_jarldom_id(node_data.get("node_id"))
@@ -2707,7 +2352,7 @@ class FeodalSimulator:
                         ruler_var.set(disp)
                         break
                 self.save_current_world()
-                self.refresh_tree_item(node_id)
+                self.structure_view.refresh_tree_item(node_id)
             elif sel is None:
                 node_data["ruler_id"] = None
             else:
@@ -2715,7 +2360,7 @@ class FeodalSimulator:
             refresh_ruler_style()
             update_owner_nodes_list()
             self.save_current_world()
-            self.refresh_tree_item(node_id)
+            self.structure_view.refresh_tree_item(node_id)
             refresh_ruler_edit_state()
 
         ruler_var.trace_add("write", on_ruler_change)
@@ -4212,7 +3857,7 @@ class FeodalSimulator:
                     existing_id = cid
                     break
             if val == "Ja" and existing_id is None:
-                open_items, selection = self.store_tree_state()
+                state_snapshot = self.structure_view.capture_selection_and_expansion()
                 new_id = self.world_data.get("next_node_id", 1)
                 while str(new_id) in self.world_data.get("nodes", {}):
                     new_id += 1
@@ -4231,7 +3876,8 @@ class FeodalSimulator:
                 self.world_manager.clear_depth_cache()
                 self.world_manager.update_population_totals()
                 self.save_current_world()
-                self._refresh_structure_view((open_items, selection))
+                self.structure_view.rebuild_full_tree()
+                self.structure_view.restore_selection_and_expansion(state_snapshot)
             elif val == "Nej" and existing_id is not None:
                 child = self.world_data.get("nodes", {}).get(str(existing_id))
                 has_data = (
@@ -4247,14 +3893,15 @@ class FeodalSimulator:
                     ):
                         herd_var.set("Ja")
                         return
-                open_items, selection = self.store_tree_state()
+                state_snapshot = self.structure_view.capture_selection_and_expansion()
                 self.delete_node_and_descendants(existing_id)
                 if existing_id in node_data.get("children", []):
                     node_data["children"].remove(existing_id)
                 self.world_manager.clear_depth_cache()
                 self.world_manager.update_population_totals()
                 self.save_current_world()
-                self._refresh_structure_view((open_items, selection))
+                self.structure_view.rebuild_full_tree()
+                self.structure_view.restore_selection_and_expansion(state_snapshot)
 
         res_var.trace_add("write", refresh_area_visibility)
         refresh_area_visibility()
@@ -6785,7 +6432,7 @@ class FeodalSimulator:
                 self.world_manager.update_neighbors_for_node(node_id, new_neighbors)
                 self.save_current_world()
                 self.add_status_message(f"Jarldom {node_id}: Grannar uppdaterade.")
-                self.refresh_tree_item(node_id)
+                self.structure_view.refresh_tree_item(node_id)
                 if self.static_map_canvas and self.static_map_canvas.winfo_exists():
                     self.draw_static_border_lines()
             else:
@@ -6809,14 +6456,19 @@ class FeodalSimulator:
         Hierarchy: Kungarike(d0) -> Furstendöme(d1) -> Hertigdöme(d2) -> Jarldöme(d3) -> Resurs(d4+)
         Jarldömen (d3) have res_type="Resurs" and a random name in custom_name.
         """
-        open_items, selection = self.store_tree_state()
+        structure_view = getattr(self, "structure_view", None)
+        state_snapshot = (
+            structure_view.capture_selection_and_expansion() if structure_view else None
+        )
 
         self.world_manager.update_subfiefs_for_node(node_data)
         self.world_manager.clear_depth_cache()
         self.world_manager.update_population_totals()
 
         self.save_current_world()
-        self._refresh_structure_view((open_items, selection))
+        if structure_view:
+            structure_view.rebuild_full_tree()
+            structure_view.restore_selection_and_expansion(state_snapshot)
         self.show_node_view(node_data)  # Re-show the editor
 
     def delete_node_and_descendants(self, node_id):
