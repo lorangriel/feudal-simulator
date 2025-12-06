@@ -134,6 +134,8 @@ class TimeEngine:
         self.schema_version = SCHEMA_VERSION
         self.season_processors = season_processors or [self._run_weather]
         self._events: list[dict[str, Any]] = []
+        self._dirty_from: TimePosition | None = None
+        self._catch_up_target: TimePosition | None = None
         stored = self.store.load()
         if stored:
             self._load_from_dict(stored)
@@ -158,7 +160,7 @@ class TimeEngine:
         payload = json.dumps(state, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def _save_snapshot(self, pos: TimePosition) -> None:
+    def _save_snapshot(self, pos: TimePosition, meta: dict[str, Any] | None = None) -> None:
         snapshot_state = copy.deepcopy(self.world_state)
         compressed = self._compress_state(snapshot_state)
         entry = {
@@ -170,6 +172,8 @@ class TimeEngine:
             "checksum": self._state_checksum(snapshot_state),
             "events": list(self._events),
         }
+        if meta:
+            entry["meta"] = meta
         self.snapshots.append(entry)
         self._persist()
 
@@ -228,6 +232,8 @@ class TimeEngine:
         self.current_position = TimePosition(0, 0)
         self.snapshots = []
         self._events = []
+        self._dirty_from = None
+        self._catch_up_target = None
         self._save_snapshot(self.current_position)
 
     def events_for_position(self, pos: TimePosition) -> list[dict[str, Any]]:
@@ -269,6 +275,9 @@ class TimeEngine:
             processor(self, next_pos, rng)
         self.current_position = next_pos
         self._save_snapshot(self.current_position)
+        if self._catch_up_target and self.current_position >= self._catch_up_target:
+            self._dirty_from = None
+            self._catch_up_target = None
 
     def _run_weather(self, engine: "TimeEngine", pos: TimePosition, rng: random.Random) -> None:
         total, weather_type = roll_weather(pos.season, rng=rng)
@@ -293,5 +302,52 @@ class TimeEngine:
         if self.current_position < target:
             while self.current_position < target:
                 self._advance_one_season()
+
+    # ------------------------------------------------------------------
+    # History management
+    # ------------------------------------------------------------------
+    def _truncate_future(self, pivot: TimePosition) -> None:
+        """Remove snapshots at or after ``pivot`` to force recalculation."""
+
+        kept: list[dict[str, Any]] = []
+        for snap in self.snapshots:
+            if self._pos_from_snapshot(snap) < pivot:
+                kept.append(snap)
+        self.snapshots = kept
+
+    def record_change(self, reason: str | None = None) -> None:
+        """Create a snapshot for a domain change at the current position.
+
+        If the change happens in the past relative to the furthest generated
+        snapshot the future gets marked as dirty and will be regenerated as the
+        timeline advances.
+        """
+
+        if self.snapshots:
+            previous_max = self._pos_from_snapshot(self.snapshots[-1])
+        else:
+            previous_max = self.current_position
+        if self.current_position < previous_max:
+            earliest_dirty = self._dirty_from or self.current_position
+            self._dirty_from = min(earliest_dirty, self.current_position)
+            self._catch_up_target = previous_max
+        self._truncate_future(self.current_position)
+        meta = {"reason": reason} if reason is not None else None
+        self._save_snapshot(self.current_position, meta=meta)
+
+    @property
+    def future_dirty(self) -> bool:
+        return self._catch_up_target is not None
+
+    @property
+    def catch_up_target(self) -> TimePosition | None:
+        return self._catch_up_target
+
+    def allows_decade_jumps(self) -> bool:
+        """Return True if 10-year jumps are currently allowed."""
+
+        if self._catch_up_target is None:
+            return True
+        return self.current_position >= self._catch_up_target
 
 
