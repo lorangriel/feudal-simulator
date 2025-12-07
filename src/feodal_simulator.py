@@ -8,7 +8,7 @@ from tkinter import ttk, simpledialog, messagebox
 import random
 import math
 from collections import deque
-from typing import Callable
+from typing import Callable, Dict
 
 from constants import (
     BORDER_TYPES,
@@ -49,7 +49,7 @@ from population_utils import calculate_population_from_fields
 from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 from status_service import StatusService
 from world_manager_ui import WorldManagerUI
-from time.time_engine import SEASON_LABELS, TimeEngine, TimePosition
+from time.time_engine import TimeEngine, YearEntry, YearPosition
 from time.weather_lock import WeatherLock
 from noble_staff import (
     ROLE_DESCRIPTIONS,
@@ -355,52 +355,137 @@ class FeodalSimulator:
             font=("Arial", 10, "bold"),
         )
         self.time_label.pack(side=tk.LEFT, padx=(0, 8))
-        self._time_jump_buttons: dict[int, ttk.Button] = {}
-        buttons = [
-            ("−10y", -40),
-            ("−1y", -4),
-            ("−Årstid", -1),
-            ("+Årstid", 1),
-            ("+1y", 4),
-            ("+10y", 40),
+
+        self.year_var = tk.StringVar()
+        self.year_dropdown = ttk.Combobox(
+            frame, textvariable=self.year_var, state="readonly", width=16
+        )
+        self.year_dropdown.bind("<<ComboboxSelected>>", self._on_year_selected)
+        self.year_dropdown.pack(side=tk.LEFT, padx=4, pady=5)
+
+        self._year_entry_map: dict[str, YearEntry] = {}
+
+        controls = [
+            ("−1 år", self._goto_previous_year),
+            ("+1 år", self._goto_next_year),
+            ("Planering", self._enter_planning_mode),
+            ("Genomförande", self._execute_current_year),
         ]
-        for label, delta in buttons:
-            btn = ttk.Button(frame, text=label, command=lambda d=delta: self.step_time(d))
+        self._time_control_buttons: list[ttk.Button] = []
+        for label, command in controls:
+            btn = ttk.Button(frame, text=label, command=command)
             btn.pack(side=tk.LEFT, padx=2, pady=5)
-            self._time_jump_buttons[delta] = btn
+            self._time_control_buttons.append(btn)
+
         self._update_time_label(self.time_engine.current_position)
+        self._refresh_year_dropdown()
         self._update_time_controls_state()
 
-    def _format_time_position(self, pos: TimePosition) -> str:
-        season_name = SEASON_LABELS.get(pos.season, pos.season)
-        return f"År {pos.year}, {season_name}"
+    def _format_time_position(self, pos: YearPosition) -> str:
+        status = self.time_engine.status(pos.year)
+        if status == TimeEngine.STATUS_LOCKED:
+            suffix = "(Låst)"
+        elif status == TimeEngine.STATUS_PLANNING:
+            suffix = "(Planering)"
+        else:
+            suffix = "(Ej beräknat)"
+        return f"År {pos.year} {suffix}"
 
-    def _update_time_label(self, pos: TimePosition) -> None:
+    def _update_time_label(self, pos: YearPosition) -> None:
         if hasattr(self, "time_label_var"):
             self.time_label_var.set(self._format_time_position(pos))
 
-    def _update_time_controls_state(self) -> None:
-        if not hasattr(self, "_time_jump_buttons"):
-            return
-        allow_decade = self.time_engine.can_jump_decade()
-        state = tk.NORMAL if allow_decade else tk.DISABLED
-        for delta in (-40, 40):
-            btn = self._time_jump_buttons.get(delta)
-            if btn:
-                btn.state(["!disabled"] if state == tk.NORMAL else ["disabled"])
+    def _refresh_year_dropdown(self) -> None:
+        entries = self.time_engine.get_year_entries()
+        self._year_entry_map = {}
+        labels: list[str] = []
+        for entry in entries:
+            label = self._format_year_entry(entry)
+            labels.append(label)
+            self._year_entry_map[label] = entry
+        self.year_dropdown["values"] = labels
+        current_label = self._format_year_entry(
+            YearEntry(
+                year=self.time_engine.current_year,
+                status=self.time_engine.status(self.time_engine.current_year),
+                selectable=True,
+            )
+        )
+        try:
+            self.year_var.set(current_label)
+        except tk.TclError:
+            self.year_var.set(str(self.time_engine.current_year))
 
-    def step_time(self, delta: int) -> None:
-        if not self.world_data:
+    def _format_year_entry(self, entry: YearEntry) -> str:
+        base = f"År {entry.year}"
+        if entry.status == TimeEngine.STATUS_LOCKED:
+            return f"{base} [Låst]"
+        if entry.status == TimeEngine.STATUS_PLANNING:
+            return f"{base} [Planering]"
+        return f"{base} [Ej beräknat]"
+
+    def _update_time_controls_state(self) -> None:
+        is_locked = self.time_engine.is_computed(self.time_engine.current_year)
+        for btn in getattr(self, "_time_control_buttons", []):
+            if btn["text"] == "Planering":
+                btn.state(["!disabled"])
+            elif btn["text"] == "Genomförande":
+                state = tk.DISABLED if is_locked or not self.world_data else tk.NORMAL
+                btn.state(["!disabled"] if state == tk.NORMAL else ["disabled"])
+            else:
+                btn.state(["!disabled"])
+
+    def _goto_previous_year(self) -> None:
+        self.time_engine.prev_year()
+        self._sync_world_from_engine()
+        self._on_year_changed()
+
+    def _goto_next_year(self) -> None:
+        self.time_engine.next_year()
+        self._sync_world_from_engine()
+        self._on_year_changed()
+
+    def _on_year_selected(self, _event=None) -> None:
+        entry = self._year_entry_map.get(self.year_var.get())
+        if entry is None:
             return
-        step_dir = 1 if delta >= 0 else -1
-        for _ in range(abs(delta)):
-            snapshot = self.time_engine.step(step_dir)
-            self.world_data = snapshot
-            self.world_manager.set_world_data(self.world_data)
-            recorded_weather = self._apply_year_start_weather()
-            if not recorded_weather:
-                self.time_engine.record_change(self.world_data)
-        self._reload_snapshot_into_ui()
+        if entry.status == TimeEngine.STATUS_UNCREATED and not entry.selectable:
+            self._refresh_year_dropdown()
+            return
+        self.time_engine.goto(entry.year)
+        self._sync_world_from_engine()
+        self._on_year_changed()
+
+    def _on_year_changed(self) -> None:
+        self._update_time_label(self.time_engine.current_position)
+        self._refresh_year_dropdown()
+        self._update_time_controls_state()
+        self._apply_year_start_weather()
+        self._reload_snapshot_into_ui(reload_tree=False)
+
+    def _enter_planning_mode(self) -> None:
+        if self.time_engine.is_computed(self.time_engine.current_year):
+            self._show_blocking_warning("Året är låst och kan inte planeras om.")
+            return
+        if self.world_data is not None:
+            self.time_engine.record_change(self.world_data)
+        self._on_year_changed()
+
+    def _execute_current_year(self) -> None:
+        if self.time_engine.is_computed(self.time_engine.current_year):
+            self._show_blocking_warning("Året är redan låst.")
+            return
+        if self.world_data is None:
+            return
+        self.time_engine.record_change(self.world_data, reason="planering sparad")
+
+        def _hook(state: Dict[str, Any]) -> Dict[str, Any]:
+            return state
+
+        self.time_engine.execute_current_year(executor=_hook)
+        self.world_data = self.time_engine.get_current_snapshot()
+        self.world_manager.set_world_data(self.world_data)
+        self._on_year_changed()
 
     def _sync_world_from_engine(self) -> None:
         """Align the UI world reference with the timeline world state."""
@@ -411,16 +496,14 @@ class FeodalSimulator:
     def _apply_year_start_weather(self) -> bool:
         if self.world_data is None:
             return False
-        if self.time_engine.current[1] != 0:
-            return False
-        current_year = self.time_engine.current[0]
+        current_year = self.time_engine.current_year
         self.world_data["weather"] = self.weather_lock.get_or_generate(current_year)
         self.time_engine.record_change(self.world_data)
         return True
 
-    def _reload_snapshot_into_ui(self) -> None:
+    def _reload_snapshot_into_ui(self, reload_tree: bool = True) -> None:
         self._sync_world_from_engine()
-        if getattr(self, "structure_view", None):
+        if reload_tree and getattr(self, "structure_view", None):
             self.structure_view.rebuild_full_tree()
         if getattr(self, "node_details_view", None):
             self.node_details_view.load_node(None)
@@ -431,6 +514,9 @@ class FeodalSimulator:
     def mark_world_changed(self, reason: str | None = None) -> None:
         """Register a historical change and update control states."""
 
+        if self.time_engine.is_computed(self.time_engine.current_year):
+            self._show_blocking_warning("Det aktuella året är låst.")
+            return
         self.time_engine.record_change(self.world_data, reason=reason)
         self._sync_world_from_engine()
         self._update_time_controls_state()

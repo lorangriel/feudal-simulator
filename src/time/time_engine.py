@@ -1,147 +1,149 @@
+from __future__ import annotations
+
 import copy
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple
-
-SEASON_COUNT = 4
-SEASON_LABELS = {0: "vår", 1: "sommar", 2: "höst", 3: "vinter"}
+from typing import Any, Callable, Dict, Iterable, List
 
 
 @dataclass(frozen=True)
-class TimePosition:
+class YearPosition:
     year: int
-    season_index: int
 
-    @property
-    def season(self) -> int:
-        return self.season_index
+
+@dataclass(frozen=True)
+class YearEntry:
+    year: int
+    status: str
+    selectable: bool
 
 
 class TimeEngine:
-    def __init__(self):
-        # (year, season) → deepcopied world snapshot
-        self.history: Dict[Tuple[int, int], Dict[str, Any]] = {}
-        self.current: Tuple[int, int] = (0, 0)  # adjust if needed
-        self.max_past: Tuple[int, int] = (0, 0)
-        self.max_future: Tuple[int, int] = (0, 0)
+    """Year-based timeline manager with per-year snapshots."""
+
+    STATUS_LOCKED = "locked"
+    STATUS_PLANNING = "planning"
+    STATUS_UNCREATED = "uncreated"
+
+    def __init__(self, start_year: int = 1):
+        self.history: Dict[int, Dict[str, Any]] = {}
+        self.planning_state: Dict[int, Dict[str, Any]] = {}
+        self.current_year: int = start_year
         self.world_state: Dict[str, Any] | None = None
-        self.future_invalidated = False
+        self._last_recorded_year: int | None = None
 
+    # ------------------------------------------------------------------
+    # Core API
+    # ------------------------------------------------------------------
     @property
-    def current_position(self) -> TimePosition:
-        year, season = self.current
-        return TimePosition(year, season)
+    def current_position(self) -> YearPosition:
+        return YearPosition(self.current_year)
 
-    def record_change(self, world_data, reason=None):
-        """
-        Deepcopy snapshot into history at current time.
-        Trim any future timeline beyond current.
-        """
+    def list_years(self) -> List[int]:
+        all_years: Iterable[int] = (
+            list(self.history.keys())
+            + list(self.planning_state.keys())
+            + [self.current_year, 1]
+        )
+        max_year = max(all_years)
+        return list(range(1, max_year + 1))
 
+    def status(self, year: int) -> str:
+        if year in self.history:
+            return self.STATUS_LOCKED
+        if year == self.current_year:
+            return self.STATUS_PLANNING
+        return self.STATUS_UNCREATED
+
+    def is_computed(self, year: int) -> bool:
+        return year in self.history
+
+    def goto(self, year: int) -> Dict[str, Any] | None:
+        if year < 1:
+            year = 1
+        self._ensure_planning_state(year)
+        self.current_year = year
+        if year in self.history:
+            self.world_state = copy.deepcopy(self.history[year])
+        else:
+            state = self.planning_state.get(year)
+            self.world_state = copy.deepcopy(state) if state is not None else None
+        return self.world_state
+
+    def prev_year(self) -> YearPosition:
+        target = max(1, self.current_year - 1)
+        self.goto(target)
+        return self.current_position
+
+    def next_year(self) -> YearPosition:
+        self.goto(self.current_year + 1)
+        return self.current_position
+
+    def record_change(self, world_data: Dict[str, Any], reason: str | None = None):
+        """Record planning changes for the current year."""
+
+        if world_data is None:
+            return
         snapshot = copy.deepcopy(world_data)
-        self.history[self.current] = snapshot
+        self.planning_state[self.current_year] = snapshot
         self.world_state = snapshot
-
-        removed_future = False
-        for key in list(self.history.keys()):
-            if self._is_future(key, self.current):
-                del self.history[key]
-                removed_future = True
-
-        self._update_bounds()
-        if removed_future:
-            self.future_invalidated = True
-        elif self._timeline_is_continuous():
-            self.future_invalidated = False
+        self._last_recorded_year = self.current_year
+        if reason:
+            meta = snapshot.setdefault("meta", {})
+            meta.setdefault("changes", []).append(reason)
         return snapshot
-
-    def goto(self, year: int, season: int):
-        """
-        Move current pointer. If snapshot missing → error.
-        Return deepcopy of snapshot.
-        """
-
-        key = (year, season)
-        if key not in self.history:
-            raise ValueError(f"Missing snapshot for {key}")
-        self.current = key
-        snapshot = copy.deepcopy(self.history[key])
-        self.world_state = snapshot
-        return snapshot
-
-    def step(self, direction: int):
-        """
-        +1 or -1 season. Wrap year correctly.
-        Return deepcopy of new snapshot.
-        """
-
-        year, season = self.current
-        season += direction
-        while season < 0:
-            year -= 1
-            season += SEASON_COUNT
-        if season >= SEASON_COUNT:
-            year += season // SEASON_COUNT
-            season = season % SEASON_COUNT
-        next_key = (year, season)
-        if next_key not in self.history:
-            current_snapshot = self.history.get(self.current)
-            if current_snapshot is None:
-                raise ValueError("No snapshots recorded to step from")
-            self.history[next_key] = copy.deepcopy(current_snapshot)
-            self._update_bounds()
-        return self.goto(year, season)
 
     def get_current_snapshot(self):
-        """Return deepcopy of world at current pointer."""
-
-        if self.current not in self.history:
+        if self.world_state is None:
             raise ValueError("No snapshot at current position")
-        return copy.deepcopy(self.history[self.current])
+        return copy.deepcopy(self.world_state)
 
-    def can_jump_decade(self):
-        """
-        Return True if timeline is continuous (no gaps)
-        and no invalidated future exists.
-        """
+    def execute_current_year(
+        self, executor: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None
+    ) -> YearPosition:
+        if self.world_state is None:
+            return self.current_position
+        working_state = copy.deepcopy(self.world_state)
+        if executor:
+            working_state = executor(working_state)
+        snapshot = copy.deepcopy(working_state)
+        self.history[self.current_year] = snapshot
+        self.planning_state[self.current_year] = copy.deepcopy(snapshot)
+        self.current_year += 1
+        self._ensure_planning_state(self.current_year, base_state=snapshot)
+        self.world_state = copy.deepcopy(self.planning_state[self.current_year])
+        return self.current_position
 
-        return self._timeline_is_continuous() and not self.future_invalidated
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def get_year_entries(self) -> List[YearEntry]:
+        entries: List[YearEntry] = []
+        for year in self.list_years():
+            status = self.status(year)
+            selectable = year == 1 or status != self.STATUS_UNCREATED
+            entries.append(YearEntry(year, status, selectable))
+        return entries
 
-    # Compatibility helpers -------------------------------------------------
-    def allows_decade_jumps(self):
-        return self.can_jump_decade()
-
-    def step_seasons(self, delta: int):
-        step_dir = 1 if delta >= 0 else -1
-        for _ in range(abs(delta)):
-            self.step(step_dir)
-        year, season = self.current
-        return TimePosition(year, season)
-
-    def reset_timeline(self, world_state: Dict[str, Any] | None = None, **_):
+    def reset_timeline(
+        self, world_state: Dict[str, Any] | None = None, start_year: int = 1, **_
+    ) -> None:
         self.history = {}
-        self.current = (0, 0)
-        self.future_invalidated = False
-        if world_state is not None:
-            self.record_change(world_state)
+        self.planning_state = {}
+        self.current_year = max(1, start_year)
+        self.world_state = copy.deepcopy(world_state) if world_state is not None else None
+        if self.world_state is not None:
+            self.planning_state[self.current_year] = copy.deepcopy(self.world_state)
+        self._last_recorded_year = None
 
-    # Internal helpers ------------------------------------------------------
-    def _update_bounds(self):
-        if not self.history:
-            self.max_past = (0, 0)
-            self.max_future = (0, 0)
+    def _ensure_planning_state(
+        self, year: int, base_state: Dict[str, Any] | None = None
+    ) -> None:
+        if year in self.planning_state:
             return
-        keys = sorted(self.history.keys())
-        self.max_past = keys[0]
-        self.max_future = keys[-1]
+        template = (
+            copy.deepcopy(base_state)
+            if base_state is not None
+            else copy.deepcopy(self.world_state)
+        )
+        self.planning_state[year] = template or {}
 
-    def _is_future(self, key: Tuple[int, int], current: Tuple[int, int]):
-        return key[0] > current[0] or (key[0] == current[0] and key[1] > current[1])
-
-    def _timeline_is_continuous(self):
-        if not self.history:
-            return False
-        keys = sorted(self.history.keys())
-        start_index = keys[0][0] * SEASON_COUNT + keys[0][1]
-        end_index = keys[-1][0] * SEASON_COUNT + keys[-1][1]
-        expected = end_index - start_index + 1
-        return expected == len(keys)

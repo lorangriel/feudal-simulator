@@ -1,38 +1,14 @@
 from time.time_engine import TimeEngine
 
 
-def test_branching_removes_future_and_rebuilds():
-    engine = TimeEngine()
-    world = {"value": 0}
-    engine.record_change(world)
+def test_goto_creates_planning_state_and_respects_floor():
+    engine = TimeEngine(start_year=1)
+    engine.record_change({"v": 1})
 
-    for _ in range(10):
-        engine.step(1)
-        engine.record_change(world)
+    engine.goto(3)
+    assert engine.current_year == 3
+    assert engine.status(3) == TimeEngine.STATUS_PLANNING
+    assert 3 in engine.planning_state
 
-    engine.goto(0, 0)
-    world["value"] = 1
-    engine.record_change(world)
-
-    assert all(key <= engine.current for key in engine.history)
-    assert engine.max_future == engine.current
-    assert engine.can_jump_decade() is False
-
-    for _ in range(10):
-        snapshot = engine.step(1)
-        snapshot["value"] = engine.current[0] * 10 + engine.current[1]
-        engine.record_change(snapshot)
-
-    assert engine.max_future[0] >= 2
-    assert engine.can_jump_decade() is True
-    assert engine.history[engine.current]["value"] == engine.current[0] * 10 + engine.current[1]
-
-
-def test_reset_timeline_restarts_history():
-    engine = TimeEngine()
-    engine.record_change({"value": 1})
-    engine.step(1)
-    engine.record_change({"value": 2})
-    engine.reset_timeline(world_state={"value": 0})
-    assert engine.current == (0, 0)
-    assert engine.history[(0, 0)]["value"] == 0
+    engine.goto(0)
+    assert engine.current_year == 1
