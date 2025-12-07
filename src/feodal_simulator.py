@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Main application class for the feudal simulator."""
+import sitecustomize  # noqa: F401
 import sys
 import tkinter as tk
 import tkinter.font as tkfont
@@ -48,7 +49,8 @@ from population_utils import calculate_population_from_fields
 from weather import roll_weather, get_weather_options, NORMAL_WEATHER
 from status_service import StatusService
 from world_manager_ui import WorldManagerUI
-from time_engine import SEASON_LABELS, TimeEngine, TimePosition
+from time.time_engine import SEASON_LABELS, TimeEngine, TimePosition
+from time.weather_lock import WeatherLock
 from noble_staff import (
     ROLE_DESCRIPTIONS,
     STAFF_ROLE_ORDER,
@@ -121,6 +123,7 @@ class FeodalSimulator:
         self.world_ui = WorldManagerUI()
         self.tooltip_manager = TooltipManager(self.root)
         self.time_engine = TimeEngine()
+        self.weather_lock = WeatherLock()
 
         # --- Styling ---
         self.style = ttk.Style()
@@ -379,7 +382,7 @@ class FeodalSimulator:
     def _update_time_controls_state(self) -> None:
         if not hasattr(self, "_time_jump_buttons"):
             return
-        allow_decade = self.time_engine.allows_decade_jumps()
+        allow_decade = self.time_engine.can_jump_decade()
         state = tk.NORMAL if allow_decade else tk.DISABLED
         for delta in (-40, 40):
             btn = self._time_jump_buttons.get(delta)
@@ -387,22 +390,48 @@ class FeodalSimulator:
                 btn.state(["!disabled"] if state == tk.NORMAL else ["disabled"])
 
     def step_time(self, delta: int) -> None:
-        target = self.time_engine.step_seasons(delta)
-        self._sync_world_from_engine()
-        self._update_time_label(target)
-        self.add_status_message(f"Tid uppdaterad: {self._format_time_position(target)}")
-        self._update_time_controls_state()
+        if not self.world_data:
+            return
+        step_dir = 1 if delta >= 0 else -1
+        for _ in range(abs(delta)):
+            snapshot = self.time_engine.step(step_dir)
+            self.world_data = snapshot
+            self.world_manager.set_world_data(self.world_data)
+            recorded_weather = self._apply_year_start_weather()
+            if not recorded_weather:
+                self.time_engine.record_change(self.world_data)
+        self._reload_snapshot_into_ui()
 
     def _sync_world_from_engine(self) -> None:
         """Align the UI world reference with the timeline world state."""
 
-        self.world_data = self.time_engine.world_state
+        self.world_data = self.time_engine.get_current_snapshot()
         self.world_manager.set_world_data(self.world_data)
+
+    def _apply_year_start_weather(self) -> bool:
+        if self.world_data is None:
+            return False
+        if self.time_engine.current[1] != 0:
+            return False
+        current_year = self.time_engine.current[0]
+        self.world_data["weather"] = self.weather_lock.get_or_generate(current_year)
+        self.time_engine.record_change(self.world_data)
+        return True
+
+    def _reload_snapshot_into_ui(self) -> None:
+        self._sync_world_from_engine()
+        if getattr(self, "structure_view", None):
+            self.structure_view.rebuild_full_tree()
+        if getattr(self, "node_details_view", None):
+            self.node_details_view.load_node(None)
+        self.add_status_message("Ny tidpunkt laddad.")
+        self._update_time_label(self.time_engine.current_position)
+        self._update_time_controls_state()
 
     def mark_world_changed(self, reason: str | None = None) -> None:
         """Register a historical change and update control states."""
 
-        self.time_engine.record_change(reason=reason)
+        self.time_engine.record_change(self.world_data, reason=reason)
         self._sync_world_from_engine()
         self._update_time_controls_state()
         self._update_time_label(self.time_engine.current_position)
@@ -541,6 +570,8 @@ class FeodalSimulator:
             self.all_worlds,
             self.refresh_dynamic_map,
         )
+        if getattr(self, "time_engine", None) and self.world_data is not None:
+            self.time_engine.record_change(self.world_data)
 
     def commit_pending_changes(self):
         """If an editor save callback is pending, call it before switching views."""
@@ -782,9 +813,6 @@ class FeodalSimulator:
             )
             return
 
-        if not hasattr(self, "time_engine"):
-            self.time_engine = TimeEngine()
-
         self.active_world_name = wname
         # Make a deep copy to avoid modifying the master dict inadvertently before saving
         import copy
@@ -802,13 +830,11 @@ class FeodalSimulator:
 
         # Ensure population totals are consistent upon load
         self.world_manager.update_population_totals()
-
-        self.time_engine.reset_timeline(
-            world_state=self.world_data,
-            timeline_id=self.active_world_name or "main",
-        )
-        self.world_data = self.time_engine.world_state
-        self.world_manager.set_world_data(self.world_data)
+        self.time_engine = TimeEngine()
+        self.weather_lock = WeatherLock()
+        self.time_engine.record_change(self.world_data)
+        self._apply_year_start_weather()
+        self._sync_world_from_engine()
 
         # Load any saved static map positions
         self.load_static_positions()
