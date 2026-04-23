@@ -1,4 +1,5 @@
 import random
+import json
 
 from time.time_engine import TimeEngine
 from time.weather_lock import WeatherLock
@@ -25,3 +26,13 @@ def test_weather_is_locked_per_year():
     returned_weather = weather_lock.get_or_generate(5)
     assert returned_weather == year_five_weather
     assert engine.get_current_snapshot()["weather"] == year_five_weather
+
+
+def test_weather_payload_is_json_serializable():
+    weather_lock = WeatherLock()
+    payload = weather_lock.get_or_generate(3)
+    json_blob = json.dumps(payload, ensure_ascii=False)
+
+    assert isinstance(payload, dict)
+    assert "spring" in payload
+    assert isinstance(json_blob, str)

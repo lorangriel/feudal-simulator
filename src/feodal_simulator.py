@@ -8,7 +8,7 @@ from tkinter import ttk, simpledialog, messagebox
 import random
 import math
 from collections import deque
-from typing import Callable, Dict
+from typing import Any, Callable, Dict
 
 from constants import (
     BORDER_TYPES,

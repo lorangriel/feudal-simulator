@@ -265,6 +265,18 @@ class NodeDetailsView:
                 )
 
     # --- Rendering entrypoints ---
+    def _deprecated_load_node(self, node_data) -> None:
+        print("WARNING: NodeDetailsView.load_node() är deprecated; använd show_node_view().")
+        if node_data is None:
+            self.clear()
+            return
+        self.show_node_view(node_data)
+
+    def load_node(self, node_data) -> None:
+        """Bakåtkompatibel wrapper för äldre anrop."""
+
+        self._deprecated_load_node(node_data)
+
     def show_node_view(self, node_data):
         self.app.commit_pending_changes()
         self.clear()
