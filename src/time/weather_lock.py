@@ -1,13 +1,15 @@
 import random
-from typing import Dict, Tuple
+from typing import Dict
 
 from weather import roll_weather
+
+SEASONS = ("spring", "summer", "autumn", "winter")
 
 
 class WeatherLock:
     def __init__(self):
-        # year → 4-season weather tuple
-        self.weather: Dict[int, Tuple] = {}
+        # year → season-to-weather-name mapping
+        self.weather: Dict[int, Dict[str, str]] = {}
 
     def get_or_generate(self, year: int):
         """
@@ -17,6 +19,9 @@ class WeatherLock:
 
         if year in self.weather:
             return self.weather[year]
-        generated = tuple(roll_weather(random.Random(year)) for _ in range(4))
+        rng = random.Random(year)
+        generated = {
+            season: roll_weather(season, rng=rng)[1].name for season in SEASONS
+        }
         self.weather[year] = generated
         return generated
