@@ -244,7 +244,7 @@ class FeodalSimulator:
         )
         self.tree = self.structure_panel.tree
         self.structure_view = StructureView(self, self.structure_panel, self.tree)
-        self.structure_view.bind_double_click(self._handle_tree_double_click)
+        self.structure_view.bind_left_click(self._handle_tree_left_click)
         self._log_panel_event("structure", "Panel initierad")
         self.structure_panel.set_back_command(lambda: self.structure_view.set_mode("admin"))
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_selection_change)
@@ -1197,13 +1197,19 @@ class FeodalSimulator:
 
         self.structure_view.set_mode("admin")
 
-    def _handle_tree_double_click(self, node_id: int) -> None:
+    def _handle_tree_left_click(self, node_id: int) -> None:
         if not self.world_data:
             return
 
         node_data = self.world_data.get("nodes", {}).get(str(node_id))
         if node_data:
             self.show_node_view(node_data)
+
+    def _deprecated_handle_tree_double_click(self, node_id: int) -> None:
+        self.add_status_message(
+            "WARNING: _handle_tree_double_click är deprecated; använd _handle_tree_left_click."
+        )
+        self._handle_tree_left_click(node_id)
 
     # --- Character Management ---
     def show_manage_characters_view(self):

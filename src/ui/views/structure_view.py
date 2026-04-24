@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from typing import Callable, Iterable, Literal
+
+
+logger = logging.getLogger(__name__)
 
 
 class StructureView:
@@ -13,7 +17,7 @@ class StructureView:
         self.mode: Literal["admin", "province"] = "admin"
         self.current_province_owner_id: int | None = None
         self._admin_tree_state: dict[str, object] | None = None
-        self._double_click_callback: Callable[[int], None] | None = None
+        self._node_open_callback: Callable[[int], None] | None = None
 
     # --- Public API ---
     def capture_selection_and_expansion(self) -> dict:
@@ -148,12 +152,20 @@ class StructureView:
             except Exception:
                 pass
 
-    def bind_double_click(self, callback: Callable[[int], None]) -> None:
-        """Bind double-click events to the provided callback."""
+    def bind_left_click(self, callback: Callable[[int], None]) -> None:
+        """Bind left-click events to the provided callback."""
 
-        self._double_click_callback = callback
+        self._node_open_callback = callback
         if self._tree_exists():
-            self.tree.bind("<Double-1>", self._on_double_click)
+            self.tree.bind("<Button-1>", self._on_left_click)
+
+    def bind_double_click(self, callback: Callable[[int], None]) -> None:
+        """Deprecated wrapper for older double-click binding."""
+
+        logger.warning(
+            "WARNING: bind_double_click is deprecated; use bind_left_click instead."
+        )
+        self.bind_left_click(callback)
 
     # --- Internal rendering helpers ---
     def _render_current_view(self, restore_state: dict | None = None) -> None:
@@ -323,8 +335,8 @@ class StructureView:
         for child in subtree.get("children", []):
             self._insert_province_subtree(node_id_str, child)
 
-    # --- Double-click handling ---
-    def _on_double_click(self, _event):
+    # --- Left-click handling ---
+    def _on_left_click(self, _event):
         if not self._tree_exists() or not self.app.world_data:
             return
 
@@ -350,8 +362,16 @@ class StructureView:
             )
             return
 
-        if self._double_click_callback:
-            self._double_click_callback(node_id)
+        if self._node_open_callback:
+            self._node_open_callback(node_id)
+
+    def _deprecated_on_double_click(self, event):
+        """Deprecated wrapper for older double-click event handlers."""
+
+        logger.warning(
+            "WARNING: _on_double_click is deprecated; use _on_left_click instead."
+        )
+        return self._on_left_click(event)
 
     # --- State helpers ---
     def _tree_exists(self) -> bool:
@@ -458,4 +478,3 @@ class StructureView:
             return iid
         except tk.TclError:
             return ""
-
