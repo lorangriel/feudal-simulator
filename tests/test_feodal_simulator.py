@@ -1441,3 +1441,23 @@ def test_open_character_creator_for_node_spouse_inherits_surname_and_gender():
     assert new_char["gender"] == "Kvinna"
     assert new_char["name"].endswith("Test")
     assert context["inherit_surname"] is True
+
+
+def test_restore_tree_after_delete_focuses_parent_node():
+    sim = fs.FeodalSimulator.__new__(fs.FeodalSimulator)
+    calls = {"rebuild": 0, "restore": []}
+
+    class _StructureViewSpy:
+        def rebuild_full_tree(self):
+            calls["rebuild"] += 1
+
+        def restore_selection_and_expansion(self, state, **kwargs):
+            calls["restore"].append((state, kwargs))
+
+    sim.structure_view = _StructureViewSpy()
+
+    snapshot = {"open_items": {"1"}, "selection": ("3",)}
+    sim._restore_tree_after_delete(snapshot, parent_id=2)
+
+    assert calls["rebuild"] == 1
+    assert calls["restore"] == [(snapshot, {"focus_id": 2})]

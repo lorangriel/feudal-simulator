@@ -1872,9 +1872,10 @@ class FeodalSimulator:
                     f"Raderade nod '{display_name}' (ID: {node_id}) och {deleted_count_total-1} underliggande nod(er)."
                 )
 
-                # Refresh the entire tree efficiently
-                self.structure_view.rebuild_full_tree()
-                self.structure_view.restore_selection_and_expansion(state_snapshot)
+                # Refresh the entire tree efficiently and keep context near deletion.
+                self._restore_tree_after_delete(
+                    state_snapshot=state_snapshot, parent_id=parent_id
+                )
 
                 self.show_no_world_view()  # Clear the right panel
 
@@ -1885,6 +1886,16 @@ class FeodalSimulator:
             style="Danger.TButton",
         )
         return delete_button
+
+    def _restore_tree_after_delete(
+        self, state_snapshot: dict | None, parent_id: int | str | None
+    ) -> None:
+        """Rebuild tree and focus nearest remaining context after a delete."""
+
+        self.structure_view.rebuild_full_tree()
+        self.structure_view.restore_selection_and_expansion(
+            state_snapshot, focus_id=parent_id
+        )
 
     @staticmethod
     def _has_dagsverken_changed(node_data, new_value):
