@@ -66,6 +66,19 @@ class StructureView:
         focus_iid = str(focus_id) if focus_id is not None else None
         lineage = self._lineage(focus_iid)
 
+        if focus_iid is None:
+            active_selection = tuple(self.tree.selection())
+            if active_selection:
+                focus_iid = active_selection[0]
+                lineage = self._lineage(focus_iid)
+            else:
+                fallback_target, fallback_lineage = self._selection_fallback_target(
+                    selection
+                )
+                if fallback_target is not None:
+                    focus_iid = fallback_target
+                    lineage = fallback_lineage
+
         for ancestor in lineage:
             self._open_iid(ancestor)
         if focus_iid:
@@ -397,6 +410,16 @@ class StructureView:
                 self.tree.see(valid_selection[0])
         except tk.TclError:
             print("Warning: Could not fully restore tree selection (items might have changed).")
+
+    def _selection_fallback_target(
+        self, selection: Iterable[str]
+    ) -> tuple[str | None, list[str]]:
+        for selected_iid in selection:
+            lineage = self._lineage(selected_iid)
+            for ancestor in reversed(lineage):
+                if self.tree.exists(ancestor):
+                    return ancestor, lineage
+        return None, []
 
     def _lineage(self, node_id: str | None) -> list[str]:
         if node_id is None:
