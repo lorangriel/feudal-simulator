@@ -38,6 +38,19 @@ def test_load_worlds_from_file_error(tmp_path, monkeypatch):
     assert called
 
 
+def test_load_worlds_from_file_invalid_json_returns_empty(tmp_path, monkeypatch):
+    f = tmp_path / "bad.json"
+    f.write_text('{"broken": [1, }', encoding="utf-8")
+    monkeypatch.setattr(data_manager, "DEFAULT_WORLDS_FILE", str(f))
+    called = []
+    monkeypatch.setattr(data_manager.messagebox, "showerror", lambda *a, **k: called.append(True))
+
+    result = data_manager.load_worlds_from_file()
+
+    assert result == {}
+    assert not called
+
+
 def test_save_worlds_to_file_success(tmp_path, monkeypatch):
     f = tmp_path / "out.json"
     monkeypatch.setattr(data_manager, "DEFAULT_WORLDS_FILE", str(f))

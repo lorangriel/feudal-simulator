@@ -74,6 +74,15 @@ def test_save_worlds_file_creates_directories(tmp_path):
         assert json.load(saved_file) == data
 
 
+def test_load_worlds_file_returns_empty_dict_for_invalid_json(tmp_path):
+    file_path = tmp_path / "worlds.json"
+    file_path.write_text('{"nodes": [1, 2, }', encoding="utf-8")
+
+    loaded = WorldInterface.load_worlds_file(file_path)
+
+    assert loaded == {}
+
+
 def test_validate_world_data_basic():
     world = {
         "nodes": {
