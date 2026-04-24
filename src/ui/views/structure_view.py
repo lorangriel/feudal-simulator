@@ -349,11 +349,17 @@ class StructureView:
             self._insert_province_subtree(node_id_str, child)
 
     # --- Left-click handling ---
-    def _on_left_click(self, _event):
+    def _on_left_click(self, event):
         if not self._tree_exists() or not self.app.world_data:
             return
 
-        item_id_str = self.tree.focus()
+        item_id_str = ""
+        if event is not None and hasattr(event, "y") and hasattr(self.tree, "identify_row"):
+            item_id_str = self.tree.identify_row(event.y)
+
+        if not item_id_str:
+            item_id_str = self.tree.focus()
+
         if not item_id_str:
             return
 
@@ -367,6 +373,12 @@ class StructureView:
             node_id = int(item_id_str)
         except (TypeError, ValueError):
             return
+
+        try:
+            self.tree.selection_set(item_id_str)
+            self.tree.focus(item_id_str)
+        except Exception:
+            pass
 
         node_data = (self.app.world_data or {}).get("nodes", {}).get(item_id_str)
         if not node_data:
