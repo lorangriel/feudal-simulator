@@ -170,6 +170,84 @@ def test_domain_overview_handles_missing_optional_values(root, monkeypatch):
     assert "Saknas ännu" in _descendant_texts(presentation_frame)
 
 
+def test_management_overview_contains_read_only_sections(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+    monkeypatch.setattr(app, "_show_resource_editor", lambda parent, node, depth: None)
+
+    app.show_node_view(app.world_data["nodes"]["5"])
+
+    notebook = _find_notebook(app.details_panel.body)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    texts = _descendant_texts(presentation_frame)
+    assert {
+        "Sammanfattning",
+        "Förvaltare",
+        "Assistenter",
+        "Ansvarsområde",
+        "Resurser & lager",
+        "Arbete/DV",
+        "Inkomstutmaning",
+        "Kostnader",
+        "Modifierare",
+        "Resultat & logg",
+    }.issubset(texts)
+    assert not _descendants_of_type(
+        presentation_frame,
+        (tk.Entry, tk.Text, ttk.Button, ttk.Entry, ttk.Combobox, ttk.Spinbox),
+    )
+
+
+def test_management_overview_uses_existing_values_and_safe_fallbacks(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    node_data = app.world_data["nodes"]["5"]
+    node_data.update(
+        {
+            "res_type": "Lager",
+            "population": 12,
+            "storage_basic": 34,
+            "weather_effect": -2,
+        }
+    )
+    app.world_manager.set_world_data(app.world_data)
+    monkeypatch.setattr(app, "_show_resource_editor", lambda parent, node, depth: None)
+
+    app.show_node_view(node_data)
+
+    notebook = _find_notebook(app.details_panel.body)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    texts = _descendant_texts(presentation_frame)
+    assert {"Lager", "12", "34", "-2"}.issubset(texts)
+    assert {
+        "Förvaltarmodell är inte implementerad ännu.",
+        "Assistenter är inte implementerade ännu.",
+        "DV-sammanfattning saknar säker datakälla för denna nod.",
+        "Inkomstutmaningar är inte implementerade ännu.",
+        "Förvaltningskostnader är inte implementerade ännu.",
+        "Resultat- och förvaltningslogg är inte implementerad ännu.",
+    }.issubset(texts)
+
+
+@pytest.mark.parametrize("node_id", [1, 2, 3, 4])
+def test_management_overview_is_not_shown_below_depth_four(root, monkeypatch, node_id):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+    monkeypatch.setattr(
+        app, "_show_upper_level_node_editor", lambda parent, node, depth: None
+    )
+    monkeypatch.setattr(app, "_show_jarldome_editor", lambda parent, node: None)
+
+    app.show_node_view(app.world_data["nodes"][str(node_id)])
+
+    notebook = _find_notebook(app.details_panel.body)
+    assert "Förvaltning" not in [
+        notebook.tab(tab_id, "text") for tab_id in notebook.tabs()
+    ]
+
+
 @pytest.mark.parametrize("node_id", [1, 2, 3])
 def test_vassals_overview_contains_read_only_sections(root, monkeypatch, node_id):
     app = ui_app.create_app(root)
