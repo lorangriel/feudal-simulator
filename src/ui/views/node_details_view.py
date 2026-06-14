@@ -12,6 +12,12 @@ from utils import ScrollableFrame
 class NodeDetailsView:
     """Ansvarar för rendering och interaktion i detaljpanelen."""
 
+    _NOTEBOOK_TABS = {
+        "upper": "Vasaller & bidrag",
+        "domain": "Domänöversikt",
+        "management": "Förvaltning",
+    }
+
     def __init__(self, app, details_panel, status_service, event_bus):
         self.app = app
         self.details_panel = details_panel
@@ -277,6 +283,14 @@ class NodeDetailsView:
 
         self._deprecated_load_node(node_data)
 
+    @classmethod
+    def _notebook_tab_for_depth(cls, depth: int) -> str:
+        if depth <= 2:
+            return cls._NOTEBOOK_TABS["upper"]
+        if depth == 3:
+            return cls._NOTEBOOK_TABS["domain"]
+        return cls._NOTEBOOK_TABS["management"]
+
     def show_node_view(self, node_data):
         self.app.commit_pending_changes()
         self.clear()
@@ -315,7 +329,12 @@ class NodeDetailsView:
             title_frame, text=f" (ID: {node_id}, Djup: {depth})", font=("Arial", 10)
         ).pack(side=tk.LEFT, anchor="s", padx=5)
 
-        scroll_frame = self.create_details_scrollable_frame(view_frame)
+        notebook = ttk.Notebook(view_frame)
+        notebook.pack(fill="both", expand=True)
+        editor_tab = ttk.Frame(notebook)
+        notebook.add(editor_tab, text=self._notebook_tab_for_depth(depth))
+
+        scroll_frame = self.create_details_scrollable_frame(editor_tab)
         scroll_frame.pack(fill="both", expand=True)
         editor_content_frame = scroll_frame.content
 
