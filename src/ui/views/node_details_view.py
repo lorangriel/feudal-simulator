@@ -12,6 +12,8 @@ from utils import ScrollableFrame
 class NodeDetailsView:
     """Ansvarar för rendering och interaktion i detaljpanelen."""
 
+    _EDITOR_TAB = "Redigering"
+    _PRESENTATION_PLACEHOLDER = "Denna översikt är inte implementerad ännu."
     _NOTEBOOK_TABS = {
         "upper": "Vasaller & bidrag",
         "domain": "Domänöversikt",
@@ -332,7 +334,17 @@ class NodeDetailsView:
         notebook = ttk.Notebook(view_frame)
         notebook.pack(fill="both", expand=True)
         editor_tab = ttk.Frame(notebook)
-        notebook.add(editor_tab, text=self._notebook_tab_for_depth(depth))
+        notebook.add(editor_tab, text=self._EDITOR_TAB)
+        presentation_tab = ttk.Frame(notebook)
+        notebook.add(
+            presentation_tab,
+            text=self._notebook_tab_for_depth(depth),
+        )
+        ttk.Label(
+            presentation_tab,
+            text=self._PRESENTATION_PLACEHOLDER,
+            padding=10,
+        ).pack(anchor="nw")
 
         scroll_frame = self.create_details_scrollable_frame(editor_tab)
         scroll_frame.pack(fill="both", expand=True)
