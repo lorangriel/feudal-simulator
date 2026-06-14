@@ -75,7 +75,7 @@ def _is_descendant(widget, ancestor):
         (5, "Förvaltning", "resource"),
     ],
 )
-def test_node_depth_uses_notebook_tab_and_calls_editor_once(
+def test_node_depth_uses_editing_and_presentation_tabs_and_calls_editor_once(
     root, monkeypatch, node_id, expected_tab, expected_editor
 ):
     app = ui_app.create_app(root)
@@ -104,11 +104,34 @@ def test_node_depth_uses_notebook_tab_and_calls_editor_once(
     notebook = _find_notebook(app.details_panel.body)
     assert notebook is not None
     assert [notebook.tab(tab_id, "text") for tab_id in notebook.tabs()] == [
-        expected_tab
+        "Redigering",
+        expected_tab,
     ]
     assert [editor for editor, _parent in editor_calls] == [expected_editor]
     tab_frame = notebook.nametowidget(notebook.tabs()[0])
     assert _is_descendant(editor_calls[0][1], tab_frame)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    assert not _is_descendant(editor_calls[0][1], presentation_frame)
+
+
+def test_presentation_tab_contains_only_placeholder(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    monkeypatch.setattr(app, "_show_jarldome_editor", lambda parent, node: None)
+
+    app.show_node_view(app.world_data["nodes"]["4"])
+
+    notebook = _find_notebook(app.details_panel.body)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    presentation_widgets = presentation_frame.winfo_children()
+    assert len(presentation_widgets) == 1
+    assert isinstance(presentation_widgets[0], ttk.Label)
+    assert (
+        presentation_widgets[0].cget("text")
+        == NodeDetailsView._PRESENTATION_PLACEHOLDER
+    )
 
 
 def test_level_three_owner_dropdown_remains_outside_notebook(root):
