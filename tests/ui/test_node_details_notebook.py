@@ -170,6 +170,49 @@ def test_domain_overview_handles_missing_optional_values(root, monkeypatch):
     assert "Saknas ännu" in _descendant_texts(presentation_frame)
 
 
+@pytest.mark.parametrize("node_id", [1, 2, 3])
+def test_vassals_overview_contains_read_only_sections(root, monkeypatch, node_id):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+    monkeypatch.setattr(
+        app, "_show_upper_level_node_editor", lambda parent, node, depth: None
+    )
+
+    app.show_node_view(app.world_data["nodes"][str(node_id)])
+
+    notebook = _find_notebook(app.details_panel.body)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    texts = _descendant_texts(presentation_frame)
+    assert {
+        "Sammanfattning",
+        "Underliggande områden",
+        "Skatt",
+        "Soldater",
+        "Status & risk",
+        "Flaggor",
+        "Åtgärder",
+    }.issubset(texts)
+    assert not _descendants_of_type(
+        presentation_frame, (ttk.Entry, ttk.Combobox, ttk.Spinbox)
+    )
+
+
+def test_vassals_overview_handles_missing_optional_values(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+    monkeypatch.setattr(
+        app, "_show_upper_level_node_editor", lambda parent, node, depth: None
+    )
+
+    app.show_node_view(app.world_data["nodes"]["1"])
+
+    notebook = _find_notebook(app.details_panel.body)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    assert "Saknas ännu" in _descendant_texts(presentation_frame)
+
+
 def test_level_three_owner_dropdown_remains_outside_notebook(root):
     app = ui_app.create_app(root)
     app.world_data = _build_world()
