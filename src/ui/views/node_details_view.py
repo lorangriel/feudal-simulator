@@ -466,6 +466,101 @@ class NodeDetailsView:
             (("Status", "Åtgärder är inte implementerade ännu."),),
         )
 
+    def _show_management_overview(
+        self, parent: tk.Misc, node_data: dict, depth: int, display_name: str
+    ) -> None:
+        nodes = (self.app.world_data or {}).get("nodes", {})
+        children = [
+            nodes[str(child_id)]
+            for child_id in node_data.get("children", [])
+            if str(child_id) in nodes
+        ]
+        child_types = Counter(
+            child.get("res_type") or "Saknas ännu" for child in children
+        )
+
+        summary_rows = [
+            ("Namn", display_name),
+            ("Nivå", depth),
+            ("Resurstyp", node_data.get("res_type") or "Saknas ännu"),
+            ("Direkta undernoder", len(children)),
+        ]
+        if "population" in node_data:
+            summary_rows.append(("Befolkning", node_data["population"]))
+        self._add_overview_section(parent, "Sammanfattning", summary_rows)
+        self._add_overview_section(
+            parent,
+            "Förvaltare",
+            (("Status", "Förvaltarmodell är inte implementerad ännu."),),
+        )
+        self._add_overview_section(
+            parent,
+            "Assistenter",
+            (("Status", "Assistenter är inte implementerade ännu."),),
+        )
+
+        responsibility_rows = [("Direkta undernoder", len(children))]
+        responsibility_rows.extend(sorted(child_types.items()))
+        self._add_overview_section(parent, "Ansvarsområde", responsibility_rows)
+
+        storage_fields = (
+            ("BAS", "storage_basic"),
+            ("Lyx", "storage_luxury"),
+            ("Silver", "storage_silver"),
+            ("Timmer", "storage_timber"),
+            ("Kol", "storage_coal"),
+            ("Järnmalm", "storage_iron_ore"),
+            ("Järn", "storage_iron"),
+            ("Djurfoder", "storage_animal_feed"),
+            ("Skinn", "storage_skin"),
+        )
+        storage_rows = [
+            (label, node_data[field])
+            for label, field in storage_fields
+            if field in node_data
+        ]
+        self._add_overview_section(
+            parent,
+            "Resurser & lager",
+            storage_rows or [("Status", "Ingen säker datakälla")],
+        )
+        self._add_overview_section(
+            parent,
+            "Arbete/DV",
+            (
+                (
+                    "Status",
+                    "DV-sammanfattning saknar säker datakälla för denna nod.",
+                ),
+            ),
+        )
+        self._add_overview_section(
+            parent,
+            "Inkomstutmaning",
+            (("Status", "Inkomstutmaningar är inte implementerade ännu."),),
+        )
+        self._add_overview_section(
+            parent,
+            "Kostnader",
+            (("Status", "Förvaltningskostnader är inte implementerade ännu."),),
+        )
+        modifier_rows = (
+            [("Vädereffekt", node_data["weather_effect"])]
+            if "weather_effect" in node_data
+            else [("Status", "Modifierare är inte implementerade ännu.")]
+        )
+        self._add_overview_section(parent, "Modifierare", modifier_rows)
+        self._add_overview_section(
+            parent,
+            "Resultat & logg",
+            (
+                (
+                    "Status",
+                    "Resultat- och förvaltningslogg är inte implementerad ännu.",
+                ),
+            ),
+        )
+
     def show_node_view(self, node_data):
         self.app.commit_pending_changes()
         self.clear()
@@ -519,23 +614,21 @@ class NodeDetailsView:
         scroll_frame.pack(fill="both", expand=True)
         editor_content_frame = scroll_frame.content
         presentation_scroll = None
-        if 0 <= depth <= 3:
+        if depth >= 0:
             presentation_scroll = self.create_details_scrollable_frame(presentation_tab)
             presentation_scroll.pack(fill="both", expand=True)
             if depth <= 2:
                 self._show_vassals_overview(
                     presentation_scroll.content, node_data, depth, display_name
                 )
-            else:
+            elif depth == 3:
                 self._show_domain_overview(
                     presentation_scroll.content, node_data, depth, display_name
                 )
-        else:
-            ttk.Label(
-                presentation_tab,
-                text=self._PRESENTATION_PLACEHOLDER,
-                padding=10,
-            ).pack(anchor="nw")
+            else:
+                self._show_management_overview(
+                    presentation_scroll.content, node_data, depth, display_name
+                )
 
         def update_scroll_target(_event=None):
             selected_tab = notebook.select()
