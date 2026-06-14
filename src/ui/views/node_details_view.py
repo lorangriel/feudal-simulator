@@ -393,6 +393,79 @@ class NodeDetailsView:
             ),
         )
 
+    def _show_vassals_overview(
+        self, parent: tk.Misc, node_data: dict, depth: int, display_name: str
+    ) -> None:
+        node_id = node_data["node_id"]
+        nodes = (self.app.world_data or {}).get("nodes", {})
+        children = [
+            nodes[str(child_id)]
+            for child_id in node_data.get("children", [])
+            if str(child_id) in nodes
+        ]
+        child_depths = Counter(
+            self.app.get_depth_of_node(child["node_id"]) for child in children
+        )
+
+        summary_rows = [
+            ("Namn", display_name),
+            ("Nivå", depth),
+            ("Direkta undernoder", len(children)),
+        ]
+        summary_rows.extend(
+            (f"Direkta undernoder på nivå {child_depth}", count)
+            for child_depth, count in sorted(child_depths.items())
+        )
+        self._add_overview_section(parent, "Sammanfattning", summary_rows)
+
+        child_rows = []
+        for child in children:
+            child_depth = self.app.get_depth_of_node(child["node_id"])
+            child_name = self.app.get_display_name_for_node(child, child_depth)
+            child_type = child.get("res_type") or "Saknas ännu"
+            child_rows.append(
+                (
+                    child_name,
+                    (
+                        f"Nivå {child_depth}; direkta barn: "
+                        f"{len(child.get('children', []))}; typ: {child_type}"
+                    ),
+                )
+            )
+        self._add_overview_section(
+            parent,
+            "Underliggande områden",
+            child_rows or [("Områden", "Saknas ännu")],
+        )
+        self._add_overview_section(
+            parent,
+            "Skatt",
+            (("Status", "Ny skattefördelning är inte implementerad ännu."),),
+        )
+
+        soldiers = self.app.world_manager.aggregate_resources(node_id)["soldiers"]
+        soldier_rows = sorted(soldiers.items()) or [
+            ("Rapporterade soldater", "Saknas ännu")
+        ]
+        self._add_overview_section(parent, "Soldater", soldier_rows)
+
+        status_rows = [
+            ("Umbärande", self.app.world_manager.calculate_umbarande(node_id)),
+            ("Befolkning", node_data.get("population", "Saknas ännu")),
+            ("Vädereffekt", node_data.get("weather_effect", "Saknas ännu")),
+        ]
+        self._add_overview_section(parent, "Status & risk", status_rows)
+        self._add_overview_section(
+            parent,
+            "Flaggor",
+            (("Status", "Flaggor är inte implementerade ännu."),),
+        )
+        self._add_overview_section(
+            parent,
+            "Åtgärder",
+            (("Status", "Åtgärder är inte implementerade ännu."),),
+        )
+
     def show_node_view(self, node_data):
         self.app.commit_pending_changes()
         self.clear()
@@ -446,12 +519,17 @@ class NodeDetailsView:
         scroll_frame.pack(fill="both", expand=True)
         editor_content_frame = scroll_frame.content
         presentation_scroll = None
-        if depth == 3:
+        if 0 <= depth <= 3:
             presentation_scroll = self.create_details_scrollable_frame(presentation_tab)
             presentation_scroll.pack(fill="both", expand=True)
-            self._show_domain_overview(
-                presentation_scroll.content, node_data, depth, display_name
-            )
+            if depth <= 2:
+                self._show_vassals_overview(
+                    presentation_scroll.content, node_data, depth, display_name
+                )
+            else:
+                self._show_domain_overview(
+                    presentation_scroll.content, node_data, depth, display_name
+                )
         else:
             ttk.Label(
                 presentation_tab,
