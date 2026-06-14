@@ -1,6 +1,8 @@
 """Fristående vy för nod-detaljer och redigering."""
+
 from __future__ import annotations
 
+from collections import Counter
 import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -221,10 +223,9 @@ class NodeDetailsView:
 
         candidate_level, candidate_owner_id = choice
 
-        if (
-            candidate_level == str(node_data.get("owner_assigned_level", "none"))
-            and candidate_owner_id == node_data.get("owner_assigned_id")
-        ):
+        if candidate_level == str(
+            node_data.get("owner_assigned_level", "none")
+        ) and candidate_owner_id == node_data.get("owner_assigned_id"):
             self._ownership_last_selection = selection_label
             return
 
@@ -274,7 +275,9 @@ class NodeDetailsView:
 
     # --- Rendering entrypoints ---
     def _deprecated_load_node(self, node_data) -> None:
-        print("WARNING: NodeDetailsView.load_node() är deprecated; använd show_node_view().")
+        print(
+            "WARNING: NodeDetailsView.load_node() är deprecated; använd show_node_view()."
+        )
         if node_data is None:
             self.clear()
             return
@@ -293,15 +296,110 @@ class NodeDetailsView:
             return cls._NOTEBOOK_TABS["domain"]
         return cls._NOTEBOOK_TABS["management"]
 
+    @staticmethod
+    def _add_overview_section(parent: tk.Misc, title: str, rows) -> None:
+        section = ttk.LabelFrame(parent, text=title, padding=10)
+        section.pack(fill="x", padx=10, pady=(10, 0))
+        for label, value in rows:
+            row = ttk.Frame(section)
+            row.pack(fill="x", pady=2)
+            ttk.Label(row, text=f"{label}:", font=("Arial", 10, "bold")).pack(
+                side=tk.LEFT
+            )
+            ttk.Label(row, text=str(value), wraplength=520).pack(
+                side=tk.LEFT, padx=(6, 0)
+            )
+
+    def _show_domain_overview(
+        self, parent: tk.Misc, node_data: dict, depth: int, display_name: str
+    ) -> None:
+        node_id = node_data["node_id"]
+        nodes = (self.app.world_data or {}).get("nodes", {})
+        children = [
+            nodes[str(child_id)]
+            for child_id in node_data.get("children", [])
+            if str(child_id) in nodes
+        ]
+        child_types = Counter(
+            child.get("res_type") or "Saknas ännu" for child in children
+        )
+
+        owner_level = node_data.get("owner_assigned_level", "none")
+        owner_id = node_data.get("owner_assigned_id")
+        owner = (
+            "Ingen tilldelad"
+            if owner_level == "none" or owner_id is None
+            else f"Nivå {owner_level}, nod {owner_id}"
+        )
+        population = node_data.get("population", "Saknas ännu")
+
+        work_available = self.app.world_manager.calculate_work_available(node_id)
+        work_needed = self.app.world_manager.calculate_work_needed(node_id)
+        self._add_overview_section(
+            parent,
+            "Sammanfattning",
+            (
+                ("Namn", display_name),
+                ("Nivå", depth),
+                ("Direkta undernoder", len(children)),
+                ("Ägare", owner),
+                ("Befolkning", population),
+            ),
+        )
+        child_rows = [("Totalt", len(children))]
+        child_rows.extend(sorted(child_types.items()))
+        self._add_overview_section(parent, "Undernoder", child_rows)
+        self._add_overview_section(
+            parent,
+            "Arbete/DV",
+            (
+                ("Tillgängligt arbete/DV", work_available),
+                ("Arbetsbehov", work_needed),
+                ("Differens", work_available - work_needed),
+            ),
+        )
+        storage_fields = (
+            ("BAS", "storage_basic"),
+            ("Lyx", "storage_luxury"),
+            ("Silver", "storage_silver"),
+            ("Timmer", "storage_timber"),
+            ("Kol", "storage_coal"),
+            ("Järnmalm", "storage_iron_ore"),
+            ("Järn", "storage_iron"),
+            ("Djurfoder", "storage_animal_feed"),
+            ("Skinn", "storage_skin"),
+        )
+        self._add_overview_section(
+            parent,
+            "Lager",
+            (
+                (label, node_data.get(field, "Saknas ännu"))
+                for label, field in storage_fields
+            ),
+        )
+        soldiers = self.app.world_manager.aggregate_resources(node_id)["soldiers"]
+        soldier_rows = sorted(soldiers.items()) or [("Soldater", "Saknas ännu")]
+        self._add_overview_section(parent, "Soldater", soldier_rows)
+        weather_effect = node_data.get("weather_effect", "Saknas ännu")
+        self._add_overview_section(
+            parent,
+            "Umbärande",
+            (
+                (
+                    "Umbärande",
+                    self.app.world_manager.calculate_umbarande(node_id),
+                ),
+                ("Vädereffekt", weather_effect),
+            ),
+        )
+
     def show_node_view(self, node_data):
         self.app.commit_pending_changes()
         self.clear()
         self.app.personal_province_button = None
 
         if not isinstance(node_data, dict):
-            self.app.add_status_message(
-                f"Fel: Ogiltig noddata mottagen: {node_data}"
-            )
+            self.app.add_status_message(f"Fel: Ogiltig noddata mottagen: {node_data}")
             self.app.show_no_world_view()
             return
 
@@ -324,7 +422,10 @@ class NodeDetailsView:
         title_frame = ttk.Frame(view_frame)
         title_frame.pack(fill="x", pady=(8, 20))
         title_label = ttk.Label(
-            title_frame, text=f"{display_name}", font=("Arial", 18, "bold"), padding=(0, 4)
+            title_frame,
+            text=f"{display_name}",
+            font=("Arial", 18, "bold"),
+            padding=(0, 4),
         )
         title_label.pack(side=tk.LEFT)
         ttk.Label(
@@ -340,15 +441,35 @@ class NodeDetailsView:
             presentation_tab,
             text=self._notebook_tab_for_depth(depth),
         )
-        ttk.Label(
-            presentation_tab,
-            text=self._PRESENTATION_PLACEHOLDER,
-            padding=10,
-        ).pack(anchor="nw")
 
         scroll_frame = self.create_details_scrollable_frame(editor_tab)
         scroll_frame.pack(fill="both", expand=True)
         editor_content_frame = scroll_frame.content
+        presentation_scroll = None
+        if depth == 3:
+            presentation_scroll = self.create_details_scrollable_frame(presentation_tab)
+            presentation_scroll.pack(fill="both", expand=True)
+            self._show_domain_overview(
+                presentation_scroll.content, node_data, depth, display_name
+            )
+        else:
+            ttk.Label(
+                presentation_tab,
+                text=self._PRESENTATION_PLACEHOLDER,
+                padding=10,
+            ).pack(anchor="nw")
+
+        def update_scroll_target(_event=None):
+            selected_tab = notebook.select()
+            if presentation_scroll is not None and selected_tab == str(
+                presentation_tab
+            ):
+                self._set_details_scroll_target(presentation_scroll.canvas)
+            else:
+                self._set_details_scroll_target(scroll_frame.canvas)
+
+        notebook.bind("<<NotebookTabChanged>>", update_scroll_target, add="+")
+        update_scroll_target()
 
         if depth < 0:
             ttk.Label(
@@ -357,7 +478,9 @@ class NodeDetailsView:
                 foreground="red",
             ).pack(pady=10)
         elif depth < 3:
-            self.app._show_upper_level_node_editor(editor_content_frame, node_data, depth)
+            self.app._show_upper_level_node_editor(
+                editor_content_frame, node_data, depth
+            )
         elif depth == 3:
             self.app._show_jarldome_editor(editor_content_frame, node_data)
         else:

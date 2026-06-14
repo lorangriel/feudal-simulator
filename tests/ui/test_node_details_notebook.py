@@ -65,6 +65,24 @@ def _is_descendant(widget, ancestor):
     return False
 
 
+def _descendant_texts(widget):
+    texts = []
+    for child in widget.winfo_children():
+        if isinstance(child, (ttk.Label, ttk.LabelFrame)):
+            texts.append(child.cget("text"))
+        texts.extend(_descendant_texts(child))
+    return texts
+
+
+def _descendants_of_type(widget, widget_types):
+    matches = []
+    for child in widget.winfo_children():
+        if isinstance(child, widget_types):
+            matches.append(child)
+        matches.extend(_descendants_of_type(child, widget_types))
+    return matches
+
+
 @pytest.mark.parametrize(
     ("node_id", "expected_tab", "expected_editor"),
     [
@@ -114,7 +132,7 @@ def test_node_depth_uses_editing_and_presentation_tabs_and_calls_editor_once(
     assert not _is_descendant(editor_calls[0][1], presentation_frame)
 
 
-def test_presentation_tab_contains_only_placeholder(root, monkeypatch):
+def test_domain_overview_contains_read_only_sections(root, monkeypatch):
     app = ui_app.create_app(root)
     app.world_data = _build_world()
     app.world_manager.set_world_data(app.world_data)
@@ -125,13 +143,31 @@ def test_presentation_tab_contains_only_placeholder(root, monkeypatch):
 
     notebook = _find_notebook(app.details_panel.body)
     presentation_frame = notebook.nametowidget(notebook.tabs()[1])
-    presentation_widgets = presentation_frame.winfo_children()
-    assert len(presentation_widgets) == 1
-    assert isinstance(presentation_widgets[0], ttk.Label)
-    assert (
-        presentation_widgets[0].cget("text")
-        == NodeDetailsView._PRESENTATION_PLACEHOLDER
+    texts = _descendant_texts(presentation_frame)
+    assert {
+        "Sammanfattning",
+        "Undernoder",
+        "Arbete/DV",
+        "Lager",
+        "Soldater",
+        "Umbärande",
+    }.issubset(texts)
+    assert not _descendants_of_type(
+        presentation_frame, (ttk.Entry, ttk.Combobox, ttk.Spinbox)
     )
+
+
+def test_domain_overview_handles_missing_optional_values(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+    monkeypatch.setattr(app, "_show_jarldome_editor", lambda parent, node: None)
+
+    app.show_node_view(app.world_data["nodes"]["4"])
+
+    notebook = _find_notebook(app.details_panel.body)
+    presentation_frame = notebook.nametowidget(notebook.tabs()[1])
+    assert "Saknas ännu" in _descendant_texts(presentation_frame)
 
 
 def test_level_three_owner_dropdown_remains_outside_notebook(root):
