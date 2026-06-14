@@ -23,6 +23,7 @@ from personal_province import (
     build_personal_path,
     validate_assignment,
 )
+from rollup_policy import get_local_population_contribution
 from world_interface import WorldInterface
 
 
@@ -603,27 +604,7 @@ class WorldManager(WorldInterface):
             "buildings": {},
         }
 
-        # Node's own population (ignoring aggregated child totals)
-        try:
-            pop = (
-                int(node.get("free_peasants", 0) or 0)
-                + int(node.get("unfree_peasants", 0) or 0)
-                + int(node.get("thralls", 0) or 0)
-                + int(node.get("burghers", 0) or 0)
-            )
-        except (ValueError, TypeError):
-            pop = 0
-        if not pop:
-            base = node.get("_base_population")
-            try:
-                pop = (
-                    int(base)
-                    if base is not None
-                    else int(node.get("population", 0) or 0)
-                )
-            except (ValueError, TypeError):
-                pop = 0
-        totals["population"] += pop
+        totals["population"] += get_local_population_contribution(node)
 
         for entry in node.get("soldiers", []):
             t = entry.get("type")

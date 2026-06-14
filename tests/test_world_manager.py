@@ -181,9 +181,9 @@ def test_calculate_total_resources_recursive():
     manager = WorldManager(world)
     totals = manager.calculate_total_resources(1)
 
-    assert totals["population"] == 14
+    assert totals["population"] == 9
     assert totals["soldiers"]["Archer"] == 3
-    assert world["nodes"]["2"]["total_resources"]["population"] == 7
+    assert world["nodes"]["2"]["total_resources"]["population"] == 2
     assert world["nodes"]["4"]["total_resources"]["population"] == 2
 
 
@@ -195,7 +195,7 @@ def test_calculate_total_resources_cycle():
                 "node_id": 2,
                 "parent_id": 1,
                 "children": [1],  # cycle back to root
-                "population": 5,
+                "_base_population": 5,
             },
         },
         "characters": {},
@@ -235,6 +235,73 @@ def test_total_resources_uses_base_population():
     assert totals["population"] == 6
     assert world["nodes"]["1"]["total_resources"]["population"] == 6
     assert world["nodes"]["4"]["total_resources"]["population"] == 6
+
+
+def _population_world(direct_population=None, estate_population=None):
+    nodes = {
+        "1": {"node_id": 1, "parent_id": None, "children": []},
+    }
+    if direct_population is not None:
+        nodes["2"] = {
+            "node_id": 2,
+            "parent_id": 1,
+            "children": [],
+            "res_type": "Bosättning",
+            "free_peasants": direct_population,
+        }
+        nodes["1"]["children"].append(2)
+    if estate_population is not None:
+        nodes["3"] = {
+            "node_id": 3,
+            "parent_id": 1,
+            "children": [4],
+            "res_type": "Gods",
+            "population": estate_population,
+        }
+        nodes["4"] = {
+            "node_id": 4,
+            "parent_id": 3,
+            "children": [],
+            "res_type": "Bosättning",
+            "free_peasants": 6,
+        }
+        nodes["1"]["children"].append(3)
+    return {"nodes": nodes, "characters": {}}
+
+
+def test_population_rollup_counts_direct_village_once():
+    manager = WorldManager(_population_world(direct_population=6))
+
+    assert manager.calculate_total_resources(1)["population"] == 6
+
+
+def test_population_rollup_counts_village_under_estate_once():
+    manager = WorldManager(_population_world(estate_population=0))
+
+    assert manager.calculate_total_resources(1)["population"] == 6
+
+
+def test_population_rollup_ignores_estate_report_value():
+    manager = WorldManager(_population_world(estate_population=6))
+
+    assert manager.calculate_total_resources(1)["population"] == 6
+
+
+def test_population_rollup_counts_each_source_node_once():
+    manager = WorldManager(
+        _population_world(direct_population=4, estate_population=6)
+    )
+
+    assert manager.calculate_total_resources(1)["population"] == 10
+
+
+def test_population_rollup_counts_node_reached_by_both_links_once():
+    world = _population_world(direct_population=6)
+    world["nodes"]["1"]["children"] = []
+
+    manager = WorldManager(world)
+
+    assert manager.calculate_total_resources(1)["population"] == 6
 
 
 def test_count_descendants_simple_hierarchy():
