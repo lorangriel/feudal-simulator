@@ -12,6 +12,10 @@ from ui.storage_presentation import (
     build_reported_storage_overview,
 )
 from ui.strings import PANEL_NAMES, format_details_title
+from ui.world_relations_presentation import (
+    build_jarldom_relations_presentation,
+    build_title_relations_presentation,
+)
 from utils import ScrollableFrame
 
 
@@ -314,6 +318,56 @@ class NodeDetailsView:
                 side=tk.LEFT, padx=(6, 0)
             )
 
+    def _get_character_label(self, character_id: int) -> str:
+        characters = (self.app.world_data or {}).get("characters", {})
+        character = (
+            characters.get(str(character_id)) if isinstance(characters, dict) else None
+        )
+        if isinstance(character, dict):
+            name = str(character.get("name", "")).strip()
+            if name:
+                return name
+        return f"Karaktär {character_id}"
+
+    def _build_relations_presentation(self, node_id: int, depth: int) -> dict:
+        world_data = self.app.world_data or {}
+        if depth <= 2:
+            return build_title_relations_presentation(
+                world_data,
+                node_id,
+                get_node_label=self.app.get_display_name,
+            )
+        if depth == 3:
+            return build_jarldom_relations_presentation(
+                world_data,
+                node_id,
+                get_node_label=self.app.get_display_name,
+                get_character_label=self._get_character_label,
+            )
+        return {"title": "Relationer", "rows": (), "warnings": ()}
+
+    @classmethod
+    def _relation_rows_for_overview(
+        cls, presentation: dict
+    ) -> tuple[tuple[str, str], ...]:
+        rows = []
+        for row in presentation.get("rows", ()) or ():
+            if not isinstance(row, dict):
+                continue
+            rows.append((row.get("label", "Relation"), row.get("value", "")))
+        for warning in presentation.get("warnings", ()) or ():
+            if not isinstance(warning, dict):
+                continue
+            rows.append(("Varning", warning.get("label", "Okänt relationsproblem.")))
+        return tuple(rows)
+
+    def _add_relations_section(self, parent: tk.Misc, node_id: int, depth: int) -> None:
+        presentation = self._build_relations_presentation(node_id, depth)
+        rows = self._relation_rows_for_overview(presentation)
+        self._add_overview_section(
+            parent, presentation.get("title", "Relationer"), rows
+        )
+
     @staticmethod
     def _add_reported_storage_section(parent: tk.Misc, overview: dict) -> None:
         section = ttk.LabelFrame(parent, text=overview["title"], padding=10)
@@ -371,6 +425,7 @@ class NodeDetailsView:
                 ("Befolkning", population),
             ),
         )
+        self._add_relations_section(parent, node_id, depth)
         child_rows = [("Totalt", len(children))]
         child_rows.extend(sorted(child_types.items()))
         self._add_overview_section(parent, "Undernoder", child_rows)
@@ -428,6 +483,7 @@ class NodeDetailsView:
             for child_depth, count in sorted(child_depths.items())
         )
         self._add_overview_section(parent, "Sammanfattning", summary_rows)
+        self._add_relations_section(parent, node_id, depth)
 
         child_rows = []
         for child in children:
