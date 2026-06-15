@@ -23,7 +23,10 @@ from personal_province import (
     build_personal_path,
     validate_assignment,
 )
-from rollup_policy import get_local_population_contribution
+from rollup_policy import (
+    get_local_population_contribution,
+    get_local_work_needed_contribution,
+)
 from world_interface import WorldInterface
 
 
@@ -58,7 +61,9 @@ class WorldManager(WorldInterface):
     def set_event_bus(self, event_bus) -> None:
         self._event_bus = event_bus
 
-    def create_snapshot(self, reason: str = "", context: Dict[str, Any] | None = None) -> None:
+    def create_snapshot(
+        self, reason: str = "", context: Dict[str, Any] | None = None
+    ) -> None:
         """Store a lightweight copy of the world for undo/inspection."""
 
         snapshot = {
@@ -130,7 +135,9 @@ class WorldManager(WorldInterface):
             )
 
     def assign_personal_owner(
-        self, province_id: int | str, owner_anchor_id: Tuple[str, int | None] | str | None
+        self,
+        province_id: int | str,
+        owner_anchor_id: Tuple[str, int | None] | str | None,
     ) -> AssignResult:
         """Validate and assign a personal owner for ``province_id``.
 
@@ -402,10 +409,8 @@ class WorldManager(WorldInterface):
     ) -> int:
         """Sum required work days for ``node_id`` and its descendants.
 
-        For water resources (``Hav`` or ``Flod``), the required work is
-        determined by the number of fishing boats. Each boat requires
-        ``THRALL_WORK_DAYS`` work days. For all other resources, the value is
-        read directly from the node's ``work_needed`` field.
+        Local work is determined by the rollup policy before descendant needs
+        are added recursively.
         """
 
         nodes = self.world_data.get("nodes", {})
@@ -418,18 +423,8 @@ class WorldManager(WorldInterface):
         if not node:
             return 0
 
-        res_type = node.get("res_type")
-        if res_type in {"Hav", "Flod"}:
-            try:
-                boats = int(node.get("fishing_boats", 0) or 0)
-            except (ValueError, TypeError):
-                boats = 0
-            total = boats * THRALL_WORK_DAYS
-        else:
-            try:
-                total = int(node.get("work_needed", 0) or 0)
-            except (ValueError, TypeError):
-                total = 0
+        depth = self.get_depth_of_node(node_id)
+        total = get_local_work_needed_contribution(node, depth=depth)
 
         for child in node.get("children", []):
             try:
