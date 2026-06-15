@@ -288,9 +288,7 @@ def test_population_rollup_ignores_estate_report_value():
 
 
 def test_population_rollup_counts_each_source_node_once():
-    manager = WorldManager(
-        _population_world(direct_population=4, estate_population=6)
-    )
+    manager = WorldManager(_population_world(direct_population=4, estate_population=6))
 
     assert manager.calculate_total_resources(1)["population"] == 10
 
@@ -658,7 +656,74 @@ def test_calculate_work_needed_counts_fishing_boats():
 
     manager = WorldManager(world)
     total = manager.calculate_work_needed(1)
-    assert total == 50 + 3 * THRALL_WORK_DAYS
+    assert total == 3 * THRALL_WORK_DAYS
+
+
+def _work_needed_world(jarldom_work=0, child_needs=(10,)):
+    nodes = {
+        "1": {"node_id": 1, "parent_id": None, "children": [2]},
+        "2": {"node_id": 2, "parent_id": 1, "children": [3]},
+        "3": {"node_id": 3, "parent_id": 2, "children": [4]},
+        "4": {
+            "node_id": 4,
+            "parent_id": 3,
+            "children": list(range(5, 5 + len(child_needs))),
+            "work_needed": jarldom_work,
+        },
+    }
+    for node_id, work_needed in enumerate(child_needs, start=5):
+        nodes[str(node_id)] = {
+            "node_id": node_id,
+            "parent_id": 4,
+            "children": [],
+            "work_needed": work_needed,
+        }
+    return {"nodes": nodes, "characters": {}}
+
+
+def test_update_work_needed_does_not_recount_stored_jarldom_total():
+    world = _work_needed_world(child_needs=(10,))
+    manager = WorldManager(world)
+
+    assert manager.update_work_needed(4) == 10
+    assert manager.update_work_needed(4) == 10
+    assert world["nodes"]["4"]["work_needed"] == 10
+
+
+def test_calculate_work_needed_ignores_stored_jarldom_report_total():
+    manager = WorldManager(_work_needed_world(jarldom_work=100, child_needs=(10,)))
+
+    assert manager.calculate_work_needed(4) == 10
+
+
+def test_calculate_work_needed_sums_each_local_resource_once():
+    manager = WorldManager(_work_needed_world(child_needs=(10, 20)))
+
+    assert manager.calculate_work_needed(4) == 30
+
+
+def test_calculate_work_needed_keeps_water_fishing_boat_need():
+    world = _work_needed_world(child_needs=(999,))
+    world["nodes"]["5"].update({"res_type": "Flod", "fishing_boats": 2})
+    manager = WorldManager(world)
+
+    assert manager.calculate_work_needed(4) == 2 * THRALL_WORK_DAYS
+
+
+def test_calculate_work_needed_counts_duplicate_child_reference_once():
+    world = _work_needed_world(child_needs=(10,))
+    world["nodes"]["4"]["children"] = [5, 5]
+    manager = WorldManager(world)
+
+    assert manager.calculate_work_needed(4) == 10
+
+
+def test_calculate_work_needed_stops_at_cycles():
+    world = _work_needed_world(child_needs=(10,))
+    world["nodes"]["5"]["children"] = [4]
+    manager = WorldManager(world)
+
+    assert manager.calculate_work_needed(4) == 10
 
 
 def test_calculate_license_income_sums_descendants():

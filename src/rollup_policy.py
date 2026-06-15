@@ -2,6 +2,8 @@
 
 from typing import Any, Mapping
 
+from constants import THRALL_WORK_DAYS
+
 POPULATION_CATEGORIES = (
     "free_peasants",
     "unfree_peasants",
@@ -35,3 +37,25 @@ def get_local_population_contribution(node: Mapping[str, Any]) -> int:
         return 0
 
     return _non_negative_int(node.get("population"))
+
+
+def get_local_work_needed_contribution(
+    node: Mapping[str, Any], *, depth: int | None = None
+) -> int:
+    """Return only work need originating on this node."""
+    if node.get("res_type") in {"Hav", "Flod"}:
+        return _non_negative_int(node.get("fishing_boats")) * THRALL_WORK_DAYS
+
+    node_depth = depth
+    if node_depth is None:
+        node_depth = node.get("level", node.get("depth"))
+
+    try:
+        resolved_depth = int(node_depth)
+    except (TypeError, ValueError):
+        return 0
+
+    if resolved_depth <= 3:
+        return 0
+
+    return _non_negative_int(node.get("work_needed"))
