@@ -448,6 +448,11 @@ class NodeDetailsView:
             "Underliggande områden",
             child_rows or [("Områden", "Saknas ännu")],
         )
+        storage_overview = build_reported_storage_overview(
+            self.app.world_manager,
+            node_id,
+        )
+        self._add_reported_storage_section(parent, storage_overview)
         self._add_overview_section(
             parent,
             "Skatt",

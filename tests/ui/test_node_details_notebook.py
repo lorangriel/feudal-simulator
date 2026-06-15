@@ -98,6 +98,23 @@ def _show_management_overview(app, monkeypatch):
     return notebook.nametowidget(notebook.tabs()[1])
 
 
+def _show_vassals_overview(app, monkeypatch, node_id=1):
+    monkeypatch.setattr(
+        app, "_show_upper_level_node_editor", lambda parent, node, depth: None
+    )
+    app.show_node_view(app.world_data["nodes"][str(node_id)])
+    notebook = _find_notebook(app.details_panel.body)
+    return notebook.nametowidget(notebook.tabs()[1])
+
+
+def _find_reported_storage_section(presentation_frame):
+    return next(
+        section
+        for section in _descendants_of_type(presentation_frame, ttk.LabelFrame)
+        if section.cget("text") == "Rapporterat fysiskt lager"
+    )
+
+
 @pytest.mark.parametrize(
     ("node_id", "expected_tab", "expected_editor"),
     [
@@ -597,6 +614,7 @@ def test_vassals_overview_contains_read_only_sections(root, monkeypatch, node_id
     assert {
         "Sammanfattning",
         "Underliggande områden",
+        "Rapporterat fysiskt lager",
         "Skatt",
         "Soldater",
         "Status & risk",
@@ -606,6 +624,174 @@ def test_vassals_overview_contains_read_only_sections(root, monkeypatch, node_id
     assert not _descendants_of_type(
         presentation_frame, (ttk.Entry, ttk.Combobox, ttk.Spinbox)
     )
+
+
+def test_vassals_overview_shows_reported_physical_storage_section(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_vassals_overview(app, monkeypatch))
+
+    assert "Rapporterat fysiskt lager" in texts
+
+
+def test_vassals_overview_shows_storage_help_text(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_vassals_overview(app, monkeypatch))
+
+    assert "Summerat från Lager-noder i området; inte automatiskt disponibelt." in texts
+
+
+def test_vassals_overview_shows_all_reported_storage_rows(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_vassals_overview(app, monkeypatch))
+
+    assert {
+        "Basresurser (BAS):",
+        "Lyxresurser (LYX):",
+        "Silver:",
+        "Timmer:",
+        "Kol:",
+        "Järnmalm:",
+        "Järn:",
+        "Djurfoder:",
+        "Skinn:",
+    }.issubset(texts)
+
+
+def test_vassals_overview_shows_zero_storage_values_as_zero(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_vassals_overview(app, monkeypatch)
+    texts = _descendant_texts(_find_reported_storage_section(presentation_frame))
+
+    assert texts.count("0") == 9
+    assert "Saknas ännu" not in texts
+
+
+def test_vassals_overview_uses_reported_storage_helper(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+    calls = []
+
+    def build_overview(world_manager, node_id):
+        calls.append((world_manager, node_id))
+        return {
+            "title": "Rapporterat fysiskt lager",
+            "help_text": (
+                "Summerat från Lager-noder i området; " "inte automatiskt disponibelt."
+            ),
+            "rows": ({"label": "Hjälpervärde", "value": 73},),
+        }
+
+    monkeypatch.setattr(
+        node_details_view,
+        "build_reported_storage_overview",
+        build_overview,
+    )
+
+    texts = _descendant_texts(_show_vassals_overview(app, monkeypatch, node_id=2))
+
+    assert calls == [(app.world_manager, 2)]
+    assert {"Hjälpervärde:", "73"}.issubset(texts)
+
+
+def test_vassals_overview_does_not_mix_upper_node_legacy_storage_into_report(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["1"]["storage_basic"] = 100
+    app.world_data["nodes"]["5"].update({"res_type": "Lager", "storage_basic": 7})
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_vassals_overview(app, monkeypatch)
+    texts = _descendant_texts(_find_reported_storage_section(presentation_frame))
+
+    assert "7" in texts
+    assert "100" not in texts
+    assert "107" not in texts
+
+
+def test_vassals_overview_storage_report_is_read_only(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_vassals_overview(app, monkeypatch)
+    storage_section = _find_reported_storage_section(presentation_frame)
+
+    assert not _descendants_of_type(
+        storage_section,
+        (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox, ttk.Spinbox),
+    )
+
+
+def test_vassals_overview_storage_report_does_not_claim_tax_or_ownership(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_vassals_overview(app, monkeypatch)
+    storage_section = _find_reported_storage_section(presentation_frame)
+    storage_text = " ".join(_descendant_texts(storage_section)).lower()
+    forbidden = (
+        "ägt",
+        "skattebart",
+        "tribut",
+        "bidrag",
+        "konsumtion",
+        "förbrukning",
+        "tillgängligt",
+    )
+
+    assert not any(word in storage_text for word in forbidden)
+
+
+def test_vassals_overview_does_not_show_bare_lager_section_for_report(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_vassals_overview(app, monkeypatch)
+    section_titles = [
+        section.cget("text")
+        for section in _descendants_of_type(presentation_frame, ttk.LabelFrame)
+    ]
+
+    assert "Lager" not in section_titles
+
+
+@pytest.mark.parametrize("node_id", [1, 2, 3])
+def test_vassals_overview_storage_section_available_on_depths_zero_to_two(
+    root, monkeypatch, node_id
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(
+        _find_reported_storage_section(
+            _show_vassals_overview(app, monkeypatch, node_id=node_id)
+        )
+    )
+
+    assert "Rapporterat fysiskt lager" not in texts
+    assert "Basresurser (BAS):" in texts
 
 
 def test_vassals_overview_handles_missing_optional_values(root, monkeypatch):
