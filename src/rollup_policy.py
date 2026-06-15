@@ -2,7 +2,11 @@
 
 from typing import Any, Mapping
 
-from constants import THRALL_WORK_DAYS
+from constants import (
+    DAGSVERKEN_MULTIPLIERS,
+    DAY_LABORER_WORK_DAYS,
+    THRALL_WORK_DAYS,
+)
 
 POPULATION_CATEGORIES = (
     "free_peasants",
@@ -59,3 +63,21 @@ def get_local_work_needed_contribution(
         return 0
 
     return _non_negative_int(node.get("work_needed"))
+
+
+def get_local_work_available_contribution(
+    node: Mapping[str, Any],
+    *,
+    depth: int | None = None,
+) -> int:
+    """Return work capacity explicitly originating on this node."""
+    del depth
+    dagsverken = node.get("dagsverken", "normalt")
+    multiplier = DAGSVERKEN_MULTIPLIERS.get(
+        dagsverken, DAGSVERKEN_MULTIPLIERS["normalt"]
+    )
+    return (
+        _non_negative_int(node.get("thralls")) * THRALL_WORK_DAYS
+        + _non_negative_int(node.get("unfree_peasants")) * multiplier
+        + _non_negative_int(node.get("day_laborers_hired")) * DAY_LABORER_WORK_DAYS
+    )
