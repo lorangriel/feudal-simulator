@@ -1,3 +1,5 @@
+import copy
+import inspect
 import tkinter as tk
 from tkinter import ttk
 
@@ -822,3 +824,180 @@ def test_level_three_owner_dropdown_remains_outside_notebook(root):
     assert app.details_panel.ownership_frame.master is app.details_panel.body.master
     assert not _is_descendant(app.details_panel.ownership_frame, notebook)
     assert app.details_panel.ownership_combobox.instate(["readonly"])
+
+
+def _build_relations_world():
+    data = _build_world()
+    data["characters"] = {
+        "10": {"name": "Global ägare"},
+        "11": {"name": "Global härskare"},
+    }
+    data["nodes"]["2"]["children"] = [3, 4]
+    data["nodes"]["4"].update(
+        {
+            "parent_id": 2,
+            "children": [5],
+            "ruler_id": 11,
+            "owner_assigned_level": 2,
+            "owner_assigned_id": 2,
+            "personal_province_path": [2, 4],
+            "characters": [{"id": 10, "name": "Vilseledande lokal ägare"}],
+        }
+    )
+    data["title_seats"] = {"2": 4}
+    data["jarldom_owners"] = {"4": 10}
+    return data
+
+
+def _find_section(presentation_frame, title):
+    return next(
+        section
+        for section in _descendants_of_type(presentation_frame, ttk.LabelFrame)
+        if section.cget("text") == title
+    )
+
+
+def test_vassals_overview_renders_title_relations_in_existing_tab(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_relations_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_vassals_overview(app, monkeypatch, node_id=2)
+    texts = _descendant_texts(_find_section(presentation_frame, "Relationer"))
+
+    assert "Titelns säte:" in texts
+    assert any("ID 4" in text for text in texts)
+    assert "Vasaller & bidrag" in [
+        _find_notebook(app.details_panel.body).tab(tab_id, "text")
+        for tab_id in _find_notebook(app.details_panel.body).tabs()
+    ]
+
+
+def test_domain_overview_renders_jarldom_relations_in_existing_tab(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_relations_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_domain_overview(app, monkeypatch)
+    texts = _descendant_texts(_find_section(presentation_frame, "Relationer"))
+
+    assert {
+        "Jarldömets ägare:",
+        "Härskare:",
+        "Personlig provins / titelankare:",
+        "Säte för titel:",
+        "Global ägare (ID 10)",
+        "Global härskare (ID 11)",
+    }.issubset(texts)
+    assert any("ID 2" in text for text in texts)
+    assert "Domänöversikt" in [
+        _find_notebook(app.details_panel.body).tab(tab_id, "text")
+        for tab_id in _find_notebook(app.details_panel.body).tabs()
+    ]
+
+
+def test_relations_use_global_characters_not_ruler_or_anchor_as_owner(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_relations_world()
+    app.world_data["characters"]["2"] = {"name": "Fel ankarkaraktär"}
+    app.world_data["characters"]["11"] = {"name": "Fel ägare från härskare"}
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(
+        _find_section(_show_domain_overview(app, monkeypatch), "Relationer")
+    )
+    owner_index = texts.index("Jarldömets ägare:") + 1
+
+    assert texts[owner_index] == "Global ägare (ID 10)"
+    assert "Vilseledande lokal ägare (ID 10)" not in texts
+    assert "Fel ägare från härskare (ID 11)" not in texts[owner_index]
+    assert "Fel ankarkaraktär (ID 2)" not in texts[owner_index]
+
+
+def test_relations_missing_values_and_warnings_render_without_mutation(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["characters"] = {}
+    before = copy.deepcopy(app.world_data)
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(
+        _find_section(_show_domain_overview(app, monkeypatch), "Relationer")
+    )
+
+    assert {
+        "Ingen ägare angiven",
+        "Ingen härskare angiven",
+        "Lokal, inget titelankare",
+        "Inte säte för någon titel",
+        "Varning:",
+        "Jarldömet saknar angiven ägare.",
+    }.issubset(texts)
+    assert app.world_data == before
+
+
+def test_relation_rendering_uses_helper_and_does_not_call_setters(monkeypatch):
+    calls = []
+
+    def fake_title(world_data, node_id, **kwargs):
+        calls.append((world_data, node_id, sorted(kwargs)))
+        return {
+            "title": "Relationer",
+            "rows": ({"label": "Titelns säte", "value": "Hjälparnod"},),
+            "warnings": ({"label": "Hjälparvarning"},),
+        }
+
+    monkeypatch.setattr(
+        node_details_view, "build_title_relations_presentation", fake_title
+    )
+    monkeypatch.setattr(
+        (
+            node_details_view.world_relations
+            if hasattr(node_details_view, "world_relations")
+            else node_details_view
+        ),
+        "set_title_seat",
+        lambda *args, **kwargs: pytest.fail("setter must not be called"),
+        raising=False,
+    )
+    view = object.__new__(NodeDetailsView)
+    view.app = type(
+        "AppStub",
+        (),
+        {
+            "world_data": {"nodes": {}},
+            "get_display_name": lambda self, node_id: f"Nod {node_id}",
+        },
+    )()
+
+    presentation = view._build_relations_presentation(2, 2)
+    rows = NodeDetailsView._relation_rows_for_overview(presentation)
+
+    assert calls == [({"nodes": {}}, 2, ["get_node_label"])]
+    assert rows == (("Titelns säte", "Hjälparnod"), ("Varning", "Hjälparvarning"))
+
+
+def test_level_three_owner_dropdown_label_and_position_remain_unchanged(root):
+    app = ui_app.create_app(root)
+    app.world_data = _build_relations_world()
+    app.world_manager.set_world_data(app.world_data)
+
+    app.show_node_view(app.world_data["nodes"]["4"])
+
+    assert app.details_panel.ownership_label.cget("text") == "Ägande:"
+    assert app.details_panel.ownership_combobox.instate(["readonly"])
+
+
+def test_node_details_view_does_not_call_relation_setters_or_read_maps_directly():
+    source = inspect.getsource(node_details_view.NodeDetailsView)
+
+    assert "set_title_seat" not in source
+    assert "clear_title_seat" not in source
+    assert "set_jarldom_owner" not in source
+    assert "clear_jarldom_owner" not in source
+    assert 'world_data["title_seats"]' not in source
+    assert 'world_data["jarldom_owners"]' not in source
