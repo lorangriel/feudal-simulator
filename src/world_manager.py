@@ -11,10 +11,7 @@ from constants import (
     MAX_NEIGHBORS,
     NEIGHBOR_NONE_STR,
     BORDER_TYPES,
-    DAGSVERKEN_MULTIPLIERS,
     DAGSVERKEN_UMBARANDE,
-    THRALL_WORK_DAYS,
-    DAY_LABORER_WORK_DAYS,
     CRAFTSMAN_LICENSE_FEES,
 )
 from node import Node
@@ -25,6 +22,7 @@ from personal_province import (
 )
 from rollup_policy import (
     get_local_population_contribution,
+    get_local_work_available_contribution,
     get_local_work_needed_contribution,
 )
 from world_interface import WorldInterface
@@ -377,24 +375,10 @@ class WorldManager(WorldInterface):
         node = nodes.get(str(node_id))
         if not node:
             return 0
-        try:
-            thralls = int(node.get("thralls", 0) or 0)
-        except (ValueError, TypeError):
-            thralls = 0
-        try:
-            unfree = int(node.get("unfree_peasants", 0) or 0)
-        except (ValueError, TypeError):
-            unfree = 0
-        try:
-            day_laborers = int(node.get("day_laborers_hired", 0) or 0)
-        except (ValueError, TypeError):
-            day_laborers = 0
-        level = node.get("dagsverken", "normalt")
-        multiplier = DAGSVERKEN_MULTIPLIERS.get(level, 0)
-        total = (
-            thralls * THRALL_WORK_DAYS
-            + unfree * multiplier
-            + day_laborers * DAY_LABORER_WORK_DAYS
+        depth = self.get_depth_of_node(node_id)
+        total = get_local_work_available_contribution(
+            node,
+            depth=depth,
         )
         for child in node.get("children", []):
             try:
