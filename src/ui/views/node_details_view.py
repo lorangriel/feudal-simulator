@@ -7,6 +7,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from ui.storage_presentation import build_reported_storage_overview
 from ui.strings import PANEL_NAMES, format_details_title
 from utils import ScrollableFrame
 
@@ -310,6 +311,27 @@ class NodeDetailsView:
                 side=tk.LEFT, padx=(6, 0)
             )
 
+    @staticmethod
+    def _add_reported_storage_section(parent: tk.Misc, overview: dict) -> None:
+        section = ttk.LabelFrame(parent, text=overview["title"], padding=10)
+        section.pack(fill="x", padx=10, pady=(10, 0))
+        ttk.Label(
+            section,
+            text=overview["help_text"],
+            wraplength=520,
+        ).pack(fill="x", pady=(0, 6))
+        for storage_row in overview["rows"]:
+            row = ttk.Frame(section)
+            row.pack(fill="x", pady=2)
+            ttk.Label(
+                row,
+                text=f'{storage_row["label"]}:',
+                font=("Arial", 10, "bold"),
+            ).pack(side=tk.LEFT)
+            ttk.Label(row, text=str(storage_row["value"]), wraplength=520).pack(
+                side=tk.LEFT, padx=(6, 0)
+            )
+
     def _show_domain_overview(
         self, parent: tk.Misc, node_data: dict, depth: int, display_name: str
     ) -> None:
@@ -358,25 +380,11 @@ class NodeDetailsView:
                 ("Differens", work_available - work_needed),
             ),
         )
-        storage_fields = (
-            ("BAS", "storage_basic"),
-            ("Lyx", "storage_luxury"),
-            ("Silver", "storage_silver"),
-            ("Timmer", "storage_timber"),
-            ("Kol", "storage_coal"),
-            ("Järnmalm", "storage_iron_ore"),
-            ("Järn", "storage_iron"),
-            ("Djurfoder", "storage_animal_feed"),
-            ("Skinn", "storage_skin"),
+        storage_overview = build_reported_storage_overview(
+            self.app.world_manager,
+            node_id,
         )
-        self._add_overview_section(
-            parent,
-            "Lager",
-            (
-                (label, node_data.get(field, "Saknas ännu"))
-                for label, field in storage_fields
-            ),
-        )
+        self._add_reported_storage_section(parent, storage_overview)
         soldiers = self.app.world_manager.aggregate_resources(node_id)["soldiers"]
         soldier_rows = sorted(soldiers.items()) or [("Soldater", "Saknas ännu")]
         self._add_overview_section(parent, "Soldater", soldier_rows)
