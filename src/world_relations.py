@@ -1,4 +1,4 @@
-"""Read-only access to explicit title-seat and jarldom-owner relations."""
+"""Access to explicit title-seat and jarldom-owner relations."""
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Set
@@ -139,6 +139,228 @@ def _issue(
     message: str,
 ) -> RelationIssue:
     return RelationIssue(code, source_id, target_id, message)
+
+
+def _validate_title(
+    world_data: Any, raw_title_id: Any
+) -> tuple[Optional[int], List[RelationIssue]]:
+    title_id = _as_id(raw_title_id)
+    if title_id is None:
+        return None, [
+            _issue(
+                "invalid_title_id",
+                None,
+                None,
+                "Title id must be an integer or numeric string.",
+            )
+        ]
+    nodes = _nodes(world_data)
+    if title_id not in nodes:
+        return title_id, [
+            _issue(
+                "unknown_title_node",
+                title_id,
+                None,
+                "Title id does not identify an existing node.",
+            )
+        ]
+    if _node_depth(nodes, title_id) not in {0, 1, 2}:
+        return title_id, [
+            _issue(
+                "seat_source_not_title",
+                title_id,
+                None,
+                "Title-seat source is not a level 0-2 title.",
+            )
+        ]
+    return title_id, []
+
+
+def _validate_jarldom(
+    world_data: Any, raw_jarldom_id: Any
+) -> tuple[Optional[int], List[RelationIssue]]:
+    jarldom_id = _as_id(raw_jarldom_id)
+    if jarldom_id is None:
+        return None, [
+            _issue(
+                "invalid_jarldom_id",
+                None,
+                None,
+                "Jarldom id must be an integer or numeric string.",
+            )
+        ]
+    nodes = _nodes(world_data)
+    if jarldom_id not in nodes:
+        return jarldom_id, [
+            _issue(
+                "unknown_owner_jarldom",
+                jarldom_id,
+                None,
+                "Jarldom id does not identify an existing node.",
+            )
+        ]
+    if _node_depth(nodes, jarldom_id) != 3:
+        return jarldom_id, [
+            _issue(
+                "owner_key_not_jarldom",
+                jarldom_id,
+                None,
+                "Owner source is not a level 3 jarldom.",
+            )
+        ]
+    return jarldom_id, []
+
+
+def set_title_seat(
+    world_data: Any, title_id: Any, jarldom_id: Any
+) -> List[RelationIssue]:
+    """Set a title's seat jarldom if valid. Return issues; mutate only on success."""
+    normalized_title_id, issues = _validate_title(world_data, title_id)
+    normalized_seat_id = _as_id(jarldom_id)
+    if normalized_seat_id is None:
+        issues.append(
+            _issue(
+                "invalid_seat_id",
+                normalized_title_id,
+                None,
+                "Seat id must be an integer or numeric string.",
+            )
+        )
+    else:
+        nodes = _nodes(world_data)
+        if normalized_seat_id not in nodes:
+            issues.append(
+                _issue(
+                    "unknown_seat_node",
+                    normalized_title_id,
+                    normalized_seat_id,
+                    "Seat id does not identify an existing node.",
+                )
+            )
+        elif _node_depth(nodes, normalized_seat_id) != 3:
+            issues.append(
+                _issue(
+                    "seat_not_jarldom",
+                    normalized_title_id,
+                    normalized_seat_id,
+                    "Configured seat is not a level 3 jarldom.",
+                )
+            )
+        elif normalized_title_id is not None and not _is_descendant(
+            nodes, normalized_seat_id, normalized_title_id
+        ):
+            issues.append(
+                _issue(
+                    "seat_outside_title_subtree",
+                    normalized_title_id,
+                    normalized_seat_id,
+                    "Configured seat is outside the title subtree.",
+                )
+            )
+
+    for raw_other_title_id, raw_seat_id in _mapping(world_data, "title_seats").items():
+        other_title_id = _as_id(raw_other_title_id)
+        if (
+            normalized_seat_id is not None
+            and _as_id(raw_seat_id) == normalized_seat_id
+            and other_title_id != normalized_title_id
+        ):
+            issues.append(
+                _issue(
+                    "duplicate_title_seat",
+                    normalized_title_id,
+                    normalized_seat_id,
+                    "Jarldom is already configured as another title's seat.",
+                )
+            )
+            break
+
+    if issues:
+        return issues
+
+    updated_seats = {
+        key: value
+        for key, value in _mapping(world_data, "title_seats").items()
+        if _as_id(key) != normalized_title_id
+    }
+    updated_seats[str(normalized_title_id)] = str(normalized_seat_id)
+    world_data["title_seats"] = updated_seats
+    return []
+
+
+def clear_title_seat(world_data: Any, title_id: Any) -> List[RelationIssue]:
+    """Clear a title's configured seat. Return issues; mutate only on success."""
+    normalized_title_id, issues = _validate_title(world_data, title_id)
+    if issues:
+        return issues
+
+    seats = _mapping(world_data, "title_seats")
+    if not any(_as_id(key) == normalized_title_id for key in seats):
+        return []
+    world_data["title_seats"] = {
+        key: value for key, value in seats.items() if _as_id(key) != normalized_title_id
+    }
+    return []
+
+
+def set_jarldom_owner(
+    world_data: Any, jarldom_id: Any, character_id: Any
+) -> List[RelationIssue]:
+    """Set a jarldom's owner character if valid. Return issues; mutate only on success."""
+    normalized_jarldom_id, issues = _validate_jarldom(world_data, jarldom_id)
+    normalized_character_id = _as_id(character_id)
+    if normalized_character_id is None:
+        issues.append(
+            _issue(
+                "invalid_character_id",
+                normalized_jarldom_id,
+                None,
+                "Character id must be an integer or numeric string.",
+            )
+        )
+    else:
+        character_ids = {
+            candidate_id
+            for raw_id in _mapping(world_data, "characters")
+            if (candidate_id := _as_id(raw_id)) is not None
+        }
+        if normalized_character_id not in character_ids:
+            issues.append(
+                _issue(
+                    "unknown_owner_character",
+                    normalized_jarldom_id,
+                    normalized_character_id,
+                    "Owner target is not in the global character registry.",
+                )
+            )
+    if issues:
+        return issues
+
+    updated_owners = {
+        key: value
+        for key, value in _mapping(world_data, "jarldom_owners").items()
+        if _as_id(key) != normalized_jarldom_id
+    }
+    updated_owners[str(normalized_jarldom_id)] = str(normalized_character_id)
+    world_data["jarldom_owners"] = updated_owners
+    return []
+
+
+def clear_jarldom_owner(world_data: Any, jarldom_id: Any) -> List[RelationIssue]:
+    """Clear a jarldom's configured owner. Return issues; mutate only on success."""
+    normalized_jarldom_id, issues = _validate_jarldom(world_data, jarldom_id)
+    if issues:
+        return issues
+
+    owners = _mapping(world_data, "jarldom_owners")
+    if not any(_as_id(key) == normalized_jarldom_id for key in owners):
+        return []
+    world_data["jarldom_owners"] = {
+        key: value
+        for key, value in owners.items()
+        if _as_id(key) != normalized_jarldom_id
+    }
+    return []
 
 
 def validate_world_relations(
