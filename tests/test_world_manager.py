@@ -1,3 +1,5 @@
+import copy
+
 from src.world_manager import WorldManager
 from src.constants import (
     MAX_NEIGHBORS,
@@ -560,7 +562,7 @@ def test_calculate_work_available_includes_day_laborers():
     assert total == DAY_LABORER_WORK_DAYS * 2
 
 
-def test_calculate_work_available_ignores_stored_work_available():
+def test_calculate_work_available_still_ignores_stored_report_total():
     world = {
         "nodes": {
             "1": {
@@ -568,6 +570,7 @@ def test_calculate_work_available_ignores_stored_work_available():
                 "parent_id": None,
                 "children": [],
                 "work_available": 999,
+                "work_needed": 999,
             }
         },
         "characters": {},
@@ -615,7 +618,7 @@ def test_calculate_work_available_stops_at_cycles():
     assert WorldManager(world).calculate_work_available(1) == 2 * THRALL_WORK_DAYS
 
 
-def test_calculate_work_available_counts_root_local_people():
+def test_calculate_work_available_keeps_explicit_people_on_upper_level():
     world = {
         "nodes": {
             "1": {
@@ -674,7 +677,7 @@ def test_calculate_work_available_treats_same_village_equally_under_estate():
     assert estate_total == direct_total
 
 
-def test_calculate_work_available_ignores_available_day_laborers():
+def test_calculate_work_available_still_ignores_available_day_laborers():
     world = {
         "nodes": {
             "1": {
@@ -711,6 +714,130 @@ def test_calculate_work_available_documents_duplicate_person_model_risk():
 
     # Current traversal counts both explicit values; their provenance is unresolved.
     assert WorldManager(world).calculate_work_available(1) == 2 * THRALL_WORK_DAYS
+
+
+def _work_world(nodes):
+    return {"nodes": {str(node["node_id"]): node for node in nodes}, "characters": {}}
+
+
+def test_calculate_work_available_counts_depth_three_local_thralls():
+    nodes = [
+        {
+            "node_id": i,
+            "parent_id": i - 1 if i > 1 else None,
+            "children": [i + 1] if i < 4 else [],
+        }
+        for i in range(1, 5)
+    ]
+    nodes[3]["thralls"] = 2
+
+    assert (
+        WorldManager(_work_world(nodes)).calculate_work_available(4)
+        == 2 * THRALL_WORK_DAYS
+    )
+
+
+def test_calculate_work_available_counts_depth_three_local_unfree_peasants():
+    node = {
+        "node_id": 1,
+        "parent_id": None,
+        "children": [],
+        "unfree_peasants": 2,
+        "dagsverken": "många",
+    }
+    manager = WorldManager(_work_world([node]))
+    manager.get_depth_of_node = lambda _node_id: 3
+
+    assert manager.calculate_work_available(1) == 2 * DAGSVERKEN_MULTIPLIERS["många"]
+
+
+def test_calculate_work_available_counts_depth_three_hired_day_laborers_with_children():
+    parent = {"node_id": 1, "parent_id": None, "children": [2], "day_laborers_hired": 2}
+    child = {"node_id": 2, "parent_id": 1, "children": [], "thralls": 1}
+
+    assert (
+        WorldManager(_work_world([parent, child])).calculate_work_available(1)
+        == 2 * DAY_LABORER_WORK_DAYS + THRALL_WORK_DAYS
+    )
+
+
+def test_calculate_work_available_counts_estate_local_people_and_child_people():
+    estate = {
+        "node_id": 1,
+        "parent_id": None,
+        "children": [2],
+        "res_type": "Gods",
+        "thralls": 1,
+    }
+    child = {"node_id": 2, "parent_id": 1, "children": [], "unfree_peasants": 2}
+    expected = THRALL_WORK_DAYS + 2 * DAGSVERKEN_MULTIPLIERS["normalt"]
+
+    assert (
+        WorldManager(_work_world([estate, child])).calculate_work_available(1)
+        == expected
+    )
+
+
+def test_calculate_work_available_uses_each_nodes_own_dagsverken():
+    parent = {
+        "node_id": 1,
+        "parent_id": None,
+        "children": [2],
+        "unfree_peasants": 1,
+        "dagsverken": "få",
+    }
+    child = {
+        "node_id": 2,
+        "parent_id": 1,
+        "children": [],
+        "unfree_peasants": 1,
+        "dagsverken": "många",
+    }
+    expected = DAGSVERKEN_MULTIPLIERS["få"] + DAGSVERKEN_MULTIPLIERS["många"]
+
+    assert (
+        WorldManager(_work_world([parent, child])).calculate_work_available(1)
+        == expected
+    )
+
+
+def test_calculate_work_available_uses_normal_for_invalid_dagsverken():
+    node = {
+        "node_id": 1,
+        "parent_id": None,
+        "children": [],
+        "unfree_peasants": 2,
+        "dagsverken": "invalid",
+    }
+
+    assert (
+        WorldManager(_work_world([node])).calculate_work_available(1)
+        == 2 * DAGSVERKEN_MULTIPLIERS["normalt"]
+    )
+
+
+def test_calculate_work_available_clamps_negative_local_people():
+    node = {
+        "node_id": 1,
+        "parent_id": None,
+        "children": [],
+        "thralls": -1,
+        "unfree_peasants": -2,
+        "day_laborers_hired": -3,
+    }
+
+    assert WorldManager(_work_world([node])).calculate_work_available(1) == 0
+
+
+def test_calculate_work_available_does_not_mutate_nodes():
+    world = _work_world(
+        [{"node_id": 1, "parent_id": None, "children": [], "thralls": 1}]
+    )
+    original = copy.deepcopy(world)
+
+    WorldManager(world).calculate_work_available(1)
+
+    assert world == original
 
 
 def test_calculate_umbarande_excludes_other_jarldoms():
