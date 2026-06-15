@@ -4,7 +4,10 @@ import inspect
 
 import pytest
 
-from src.ui.storage_presentation import build_reported_storage_overview
+from src.ui.storage_presentation import (
+    build_local_storage_overview,
+    build_reported_storage_overview,
+)
 
 KEYS = (
     "storage_basic",
@@ -129,3 +132,82 @@ def test_reported_storage_overview_handles_missing_keys_as_zero():
 def test_reported_storage_overview_values_are_integers():
     overview, _ = build_overview({key: index for index, key in enumerate(KEYS)})
     assert all(isinstance(row["value"], int) for row in overview["rows"])
+
+
+def test_local_storage_overview_returns_title_and_help_text_for_lager_node():
+    overview = build_local_storage_overview({"res_type": "Lager"})
+    assert overview["title"] == "Lokalt lagersaldo"
+    assert overview["help_text"] == "Källa: Registrerade värden på denna Lager-nod."
+
+
+@pytest.mark.parametrize("res_type", ["Gods", "Bosättning", "Jarldöme", None])
+def test_local_storage_overview_returns_none_for_non_lager_node(res_type):
+    assert (
+        build_local_storage_overview({"res_type": res_type, "storage_basic": 100})
+        is None
+    )
+
+
+def test_local_storage_overview_returns_all_nine_rows_in_policy_order():
+    overview = build_local_storage_overview({"res_type": "Lager"})
+    assert tuple(row["key"] for row in overview["rows"]) == KEYS
+
+
+def test_local_storage_overview_uses_consistent_swedish_labels():
+    overview = build_local_storage_overview({"res_type": "Lager"})
+    assert tuple(row["label"] for row in overview["rows"]) == LABELS
+
+
+def test_local_storage_overview_preserves_zero_values():
+    overview = build_local_storage_overview(
+        {"res_type": "Lager", **dict.fromkeys(KEYS, 0)}
+    )
+    assert all(row["value"] == 0 for row in overview["rows"])
+    assert all(type(row["value"]) is int for row in overview["rows"])
+
+
+def test_local_storage_overview_does_not_use_missing_text():
+    overview = build_local_storage_overview({"res_type": "Lager"})
+    assert "Saknas ännu" not in repr(overview)
+
+
+def test_local_storage_overview_uses_policy_for_invalid_and_negative_values():
+    overview = build_local_storage_overview(
+        {
+            "res_type": "Lager",
+            "storage_basic": -4,
+            "storage_luxury": "ogiltigt",
+        }
+    )
+    values = {row["key"]: row["value"] for row in overview["rows"]}
+    assert values["storage_basic"] == 0
+    assert values["storage_luxury"] == 0
+
+
+def test_local_storage_overview_does_not_mutate_node_data():
+    node_data = {
+        "res_type": "Lager",
+        "storage_basic": 7,
+        "metadata": {"source": "local"},
+    }
+    expected = {
+        "res_type": "Lager",
+        "storage_basic": 7,
+        "metadata": {"source": "local"},
+    }
+    build_local_storage_overview(node_data)
+    assert node_data == expected
+
+
+def test_local_storage_overview_does_not_claim_availability_or_tax():
+    overview = build_local_storage_overview({"res_type": "Lager"})
+    text = repr(overview).lower()
+    forbidden = (
+        "disponibelt",
+        "tillgängligt",
+        "ägt",
+        "skattebart",
+        "konsumtion",
+        "förbrukning",
+    )
+    assert not any(word in text for word in forbidden)
