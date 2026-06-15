@@ -9,6 +9,169 @@ from src.constants import (
     DAGSVERKEN_UMBARANDE,
     DAY_LABORER_WORK_DAYS,
 )
+from src.rollup_policy import STORAGE_RESOURCE_KEYS
+
+
+def _storage_node(node_id, parent_id=None, children=None, res_type=None, **values):
+    return {
+        "node_id": node_id,
+        "parent_id": parent_id,
+        "children": children or [],
+        "res_type": res_type,
+        **values,
+    }
+
+
+def _storage_manager(*nodes):
+    return WorldManager(
+        {"nodes": {str(node["node_id"]): node for node in nodes}, "characters": {}}
+    )
+
+
+def test_get_storage_report_returns_all_storage_keys():
+    report = _storage_manager().get_storage_report(999)
+
+    assert set(report) == set(STORAGE_RESOURCE_KEYS)
+    assert all(value == 0 for value in report.values())
+
+
+def test_get_storage_report_counts_direct_lager_child():
+    manager = _storage_manager(
+        _storage_node(1, children=[2], res_type="Jarldöme"),
+        _storage_node(2, 1, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_counts_nested_lager_under_estate():
+    manager = _storage_manager(
+        _storage_node(1, children=[2], res_type="Jarldöme"),
+        _storage_node(2, 1, [3], "Gods"),
+        _storage_node(3, 2, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_counts_multiple_lager_nodes():
+    manager = _storage_manager(
+        _storage_node(1, children=[2, 3]),
+        _storage_node(2, 1, res_type="Lager", storage_basic=7),
+        _storage_node(3, 1, res_type="Lager", storage_basic=5),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 12
+
+
+def test_get_storage_report_supports_all_storage_keys():
+    values = {key: index for index, key in enumerate(STORAGE_RESOURCE_KEYS, 1)}
+    manager = _storage_manager(_storage_node(1, res_type="Lager", **values))
+
+    assert manager.get_storage_report(1) == values
+
+
+def test_get_storage_report_ignores_jarldom_storage_fields():
+    manager = _storage_manager(
+        _storage_node(1, children=[2], res_type="Jarldöme", storage_basic=100),
+        _storage_node(2, 1, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_ignores_estate_storage_fields():
+    manager = _storage_manager(
+        _storage_node(1, children=[2]),
+        _storage_node(2, 1, [3], "Gods", storage_basic=100),
+        _storage_node(3, 2, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_ignores_settlement_storage_fields():
+    manager = _storage_manager(
+        _storage_node(1, children=[2]),
+        _storage_node(2, 1, [3], "By", storage_basic=100),
+        _storage_node(3, 2, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_counts_start_node_if_it_is_lager():
+    manager = _storage_manager(_storage_node(1, res_type="Lager", storage_basic=7))
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_handles_missing_node():
+    report = _storage_manager().get_storage_report("missing")
+
+    assert report == {key: 0 for key in STORAGE_RESOURCE_KEYS}
+
+
+def test_get_storage_report_handles_invalid_child_ids():
+    manager = _storage_manager(_storage_node(1, children=["invalid"]))
+
+    assert manager.get_storage_report(1) == {key: 0 for key in STORAGE_RESOURCE_KEYS}
+
+
+def test_get_storage_report_counts_duplicate_child_reference_once():
+    manager = _storage_manager(
+        _storage_node(1, children=[2, 2]),
+        _storage_node(2, 1, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_stops_at_cycles():
+    manager = _storage_manager(
+        _storage_node(1, 2, [2], "Lager", storage_basic=3),
+        _storage_node(2, 1, [1], "Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 10
+
+
+def test_get_storage_report_includes_parent_id_child():
+    manager = _storage_manager(
+        _storage_node(1),
+        _storage_node(2, 1, res_type="Lager", storage_basic=7),
+    )
+
+    assert manager.get_storage_report(1)["storage_basic"] == 7
+
+
+def test_get_storage_report_does_not_mutate_world_data():
+    manager = _storage_manager(
+        _storage_node(1, children=[2]),
+        _storage_node(2, 1, res_type="Lager", storage_basic=7),
+    )
+    original = copy.deepcopy(manager.world_data)
+
+    manager.get_storage_report(1)
+
+    assert manager.world_data == original
+
+
+def test_get_storage_report_does_not_write_total_resources():
+    manager = _storage_manager(_storage_node(1))
+
+    manager.get_storage_report(1)
+
+    assert "total_resources" not in manager.world_data["nodes"]["1"]
+
+
+def test_get_storage_report_does_not_write_storage_fields():
+    manager = _storage_manager(_storage_node(1, res_type="Lager"))
+    original = copy.deepcopy(manager.world_data["nodes"]["1"])
+
+    manager.get_storage_report(1)
+
+    assert manager.world_data["nodes"]["1"] == original
 
 
 def test_attempt_link_neighbors_directional():
