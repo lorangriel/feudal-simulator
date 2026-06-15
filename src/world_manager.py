@@ -21,7 +21,9 @@ from personal_province import (
     validate_assignment,
 )
 from rollup_policy import (
+    STORAGE_RESOURCE_KEYS,
     get_local_population_contribution,
+    get_local_storage_contribution,
     get_local_work_available_contribution,
     get_local_work_needed_contribution,
 )
@@ -623,6 +625,57 @@ class WorldManager(WorldInterface):
                     add_count(totals[key], res, amt)
 
         node["total_resources"] = copy.deepcopy(totals)
+        return totals
+
+    def get_storage_report(self, node_id) -> dict[str, int]:
+        """Return reported physical storage totals for the rooted subtree."""
+        totals = {resource_key: 0 for resource_key in STORAGE_RESOURCE_KEYS}
+        nodes = self.world_data.get("nodes", {})
+
+        try:
+            root_id = int(node_id)
+        except (TypeError, ValueError):
+            return totals
+
+        parent_lookup: Dict[int, List[int]] = {}
+        for child_id_raw, child_data in nodes.items():
+            try:
+                child_id = int(child_id_raw)
+            except (TypeError, ValueError):
+                continue
+            parent_id = child_data.get("parent_id")
+            try:
+                parent_id = int(parent_id)
+            except (TypeError, ValueError):
+                continue
+            parent_lookup.setdefault(parent_id, []).append(child_id)
+
+        visited: set[int] = set()
+        pending = [root_id]
+        while pending:
+            current_id = pending.pop()
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            node = nodes.get(str(current_id))
+            if not node:
+                continue
+
+            depth = self.get_depth_of_node(current_id)
+            for resource_key in STORAGE_RESOURCE_KEYS:
+                totals[resource_key] += get_local_storage_contribution(
+                    node, resource_key, depth=depth
+                )
+
+            child_ids = list(node.get("children", []))
+            child_ids.extend(parent_lookup.get(current_id, []))
+            for child_id in child_ids:
+                try:
+                    pending.append(int(child_id))
+                except (TypeError, ValueError):
+                    continue
+
         return totals
 
     # -------------------------------------------
