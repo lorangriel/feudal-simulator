@@ -560,6 +560,159 @@ def test_calculate_work_available_includes_day_laborers():
     assert total == DAY_LABORER_WORK_DAYS * 2
 
 
+def test_calculate_work_available_ignores_stored_work_available():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "work_available": 999,
+            }
+        },
+        "characters": {},
+    }
+
+    assert WorldManager(world).calculate_work_available(1) == 0
+
+
+def test_calculate_work_available_counts_duplicate_child_reference_once():
+    world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2, 2]},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "thralls": 1,
+            },
+        },
+        "characters": {},
+    }
+
+    assert WorldManager(world).calculate_work_available(1) == THRALL_WORK_DAYS
+
+
+def test_calculate_work_available_stops_at_cycles():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2],
+                "thralls": 1,
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [1],
+                "thralls": 1,
+            },
+        },
+        "characters": {},
+    }
+
+    assert WorldManager(world).calculate_work_available(1) == 2 * THRALL_WORK_DAYS
+
+
+def test_calculate_work_available_counts_root_local_people():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "thralls": 1,
+                "unfree_peasants": 2,
+                "dagsverken": "normalt",
+            }
+        },
+        "characters": {},
+    }
+
+    expected = THRALL_WORK_DAYS + 2 * DAGSVERKEN_MULTIPLIERS["normalt"]
+    assert WorldManager(world).calculate_work_available(1) == expected
+
+
+def test_calculate_work_available_treats_same_village_equally_under_estate():
+    direct_world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "thralls": 1,
+                "unfree_peasants": 2,
+            },
+        },
+        "characters": {},
+    }
+    estate_world = {
+        "nodes": {
+            "1": {"node_id": 1, "parent_id": None, "children": [2]},
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [3],
+                "res_type": "Gods",
+            },
+            "3": {
+                "node_id": 3,
+                "parent_id": 2,
+                "children": [],
+                "thralls": 1,
+                "unfree_peasants": 2,
+            },
+        },
+        "characters": {},
+    }
+
+    direct_total = WorldManager(direct_world).calculate_work_available(1)
+    estate_total = WorldManager(estate_world).calculate_work_available(1)
+
+    assert estate_total == direct_total
+
+
+def test_calculate_work_available_ignores_available_day_laborers():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [],
+                "day_laborers_available": 10,
+            }
+        },
+        "characters": {},
+    }
+
+    assert WorldManager(world).calculate_work_available(1) == 0
+
+
+def test_calculate_work_available_documents_duplicate_person_model_risk():
+    world = {
+        "nodes": {
+            "1": {
+                "node_id": 1,
+                "parent_id": None,
+                "children": [2],
+                "thralls": 1,
+            },
+            "2": {
+                "node_id": 2,
+                "parent_id": 1,
+                "children": [],
+                "thralls": 1,
+            },
+        },
+        "characters": {},
+    }
+
+    # Current traversal counts both explicit values; their provenance is unresolved.
+    assert WorldManager(world).calculate_work_available(1) == 2 * THRALL_WORK_DAYS
+
+
 def test_calculate_umbarande_excludes_other_jarldoms():
     world = {
         "nodes": {
