@@ -7,7 +7,10 @@ import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from ui.storage_presentation import build_reported_storage_overview
+from ui.storage_presentation import (
+    build_local_storage_overview,
+    build_reported_storage_overview,
+)
 from ui.strings import PANEL_NAMES, format_details_title
 from utils import ScrollableFrame
 
@@ -511,27 +514,15 @@ class NodeDetailsView:
         responsibility_rows.extend(sorted(child_types.items()))
         self._add_overview_section(parent, "Ansvarsområde", responsibility_rows)
 
-        storage_fields = (
-            ("BAS", "storage_basic"),
-            ("Lyx", "storage_luxury"),
-            ("Silver", "storage_silver"),
-            ("Timmer", "storage_timber"),
-            ("Kol", "storage_coal"),
-            ("Järnmalm", "storage_iron_ore"),
-            ("Järn", "storage_iron"),
-            ("Djurfoder", "storage_animal_feed"),
-            ("Skinn", "storage_skin"),
-        )
-        storage_rows = [
-            (label, node_data[field])
-            for label, field in storage_fields
-            if field in node_data
-        ]
-        self._add_overview_section(
-            parent,
-            "Resurser & lager",
-            storage_rows or [("Status", "Ingen säker datakälla")],
-        )
+        local_storage = build_local_storage_overview(node_data)
+        if local_storage is not None:
+            self._add_reported_storage_section(parent, local_storage)
+        else:
+            self._add_overview_section(
+                parent,
+                "Resurser & lager",
+                (("Status", "Ingen säker lagerdatakälla för denna nod."),),
+            )
         self._add_overview_section(
             parent,
             "Arbete/DV",

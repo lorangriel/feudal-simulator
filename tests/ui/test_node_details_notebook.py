@@ -91,6 +91,13 @@ def _show_domain_overview(app, monkeypatch):
     return notebook.nametowidget(notebook.tabs()[1])
 
 
+def _show_management_overview(app, monkeypatch):
+    monkeypatch.setattr(app, "_show_resource_editor", lambda parent, node, depth: None)
+    app.show_node_view(app.world_data["nodes"]["5"])
+    notebook = _find_notebook(app.details_panel.body)
+    return notebook.nametowidget(notebook.tabs()[1])
+
+
 @pytest.mark.parametrize(
     ("node_id", "expected_tab", "expected_editor"),
     [
@@ -348,7 +355,7 @@ def test_management_overview_contains_read_only_sections(root, monkeypatch):
         "Förvaltare",
         "Assistenter",
         "Ansvarsområde",
-        "Resurser & lager",
+        "Lokalt lagersaldo",
         "Arbete/DV",
         "Inkomstutmaning",
         "Kostnader",
@@ -390,6 +397,169 @@ def test_management_overview_uses_existing_values_and_safe_fallbacks(root, monke
         "Förvaltningskostnader är inte implementerade ännu.",
         "Resultat- och förvaltningslogg är inte implementerad ännu.",
     }.issubset(texts)
+
+
+def test_management_overview_lager_node_shows_local_storage_balance(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Lager"
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_management_overview(app, monkeypatch))
+
+    assert "Lokalt lagersaldo" in texts
+
+
+def test_management_overview_lager_node_shows_local_storage_help_text(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Lager"
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_management_overview(app, monkeypatch))
+
+    assert "Källa: Registrerade värden på denna Lager-nod." in texts
+
+
+def test_management_overview_lager_node_shows_all_storage_rows(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Lager"
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_management_overview(app, monkeypatch))
+
+    assert {
+        "Basresurser (BAS):",
+        "Lyxresurser (LYX):",
+        "Silver:",
+        "Timmer:",
+        "Kol:",
+        "Järnmalm:",
+        "Järn:",
+        "Djurfoder:",
+        "Skinn:",
+    }.issubset(texts)
+
+
+def test_management_overview_lager_node_shows_zero_values_as_zero(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Lager"
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_management_overview(app, monkeypatch)
+    storage_section = next(
+        section
+        for section in _descendants_of_type(presentation_frame, ttk.LabelFrame)
+        if section.cget("text") == "Lokalt lagersaldo"
+    )
+    texts = _descendant_texts(storage_section)
+
+    assert texts.count("0") == 9
+    assert "Saknas ännu" not in texts
+
+
+def test_management_overview_non_lager_node_does_not_show_storage_as_safe_lager(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"].update({"res_type": "Gods", "storage_basic": 100})
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_management_overview(app, monkeypatch))
+
+    assert "Lokalt lagersaldo" not in texts
+    assert "100" not in texts
+
+
+def test_management_overview_non_lager_node_shows_safe_storage_fallback(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Gods"
+    app.world_manager.set_world_data(app.world_data)
+
+    texts = _descendant_texts(_show_management_overview(app, monkeypatch))
+
+    assert "Ingen säker lagerdatakälla för denna nod." in texts
+
+
+def test_management_overview_local_storage_is_read_only(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Lager"
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_management_overview(app, monkeypatch)
+    storage_section = next(
+        section
+        for section in _descendants_of_type(presentation_frame, ttk.LabelFrame)
+        if section.cget("text") == "Lokalt lagersaldo"
+    )
+
+    assert not _descendants_of_type(
+        storage_section,
+        (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox, ttk.Spinbox),
+    )
+
+
+def test_management_overview_does_not_claim_storage_availability_or_tax(
+    root, monkeypatch
+):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    app.world_data["nodes"]["5"]["res_type"] = "Lager"
+    app.world_manager.set_world_data(app.world_data)
+
+    presentation_frame = _show_management_overview(app, monkeypatch)
+    storage_section = next(
+        section
+        for section in _descendants_of_type(presentation_frame, ttk.LabelFrame)
+        if section.cget("text") == "Lokalt lagersaldo"
+    )
+    storage_text = " ".join(_descendant_texts(storage_section)).lower()
+    forbidden = (
+        "disponibelt",
+        "tillgängligt",
+        "ägt",
+        "skattebart",
+        "konsumtion",
+        "förbrukning",
+    )
+
+    assert not any(word in storage_text for word in forbidden)
+
+
+def test_management_overview_uses_local_storage_presentation_helper(root, monkeypatch):
+    app = ui_app.create_app(root)
+    app.world_data = _build_world()
+    node_data = app.world_data["nodes"]["5"]
+    app.world_manager.set_world_data(app.world_data)
+    calls = []
+
+    def build_overview(received_node_data):
+        calls.append(received_node_data)
+        return {
+            "title": "Lokalt lagersaldo",
+            "help_text": "Källa: Registrerade värden på denna Lager-nod.",
+            "rows": ({"label": "Hjälpervärde", "value": 73},),
+        }
+
+    monkeypatch.setattr(
+        node_details_view,
+        "build_local_storage_overview",
+        build_overview,
+    )
+
+    texts = _descendant_texts(_show_management_overview(app, monkeypatch))
+
+    assert calls == [node_data]
+    assert {"Hjälpervärde:", "73"}.issubset(texts)
 
 
 @pytest.mark.parametrize("node_id", [1, 2, 3, 4])
