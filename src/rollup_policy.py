@@ -15,6 +15,20 @@ POPULATION_CATEGORIES = (
     "burghers",
 )
 
+STORAGE_RESOURCE_KEYS = (
+    "storage_basic",
+    "storage_luxury",
+    "storage_silver",
+    "storage_timber",
+    "storage_coal",
+    "storage_iron_ore",
+    "storage_iron",
+    "storage_animal_feed",
+    "storage_skin",
+)
+
+PHYSICAL_STORAGE_NODE_TYPES = frozenset({"Lager"})
+
 
 def _non_negative_int(value: Any) -> int:
     try:
@@ -41,6 +55,21 @@ def get_local_population_contribution(node: Mapping[str, Any]) -> int:
         return 0
 
     return _non_negative_int(node.get("population"))
+
+
+def get_local_storage_contribution(
+    node: Mapping[str, Any],
+    resource_key: str,
+    *,
+    depth: int | None = None,
+) -> int:
+    """Return local physical storage contribution for one storage resource key."""
+    del depth
+    if resource_key not in STORAGE_RESOURCE_KEYS:
+        return 0
+    if node.get("res_type") not in PHYSICAL_STORAGE_NODE_TYPES:
+        return 0
+    return _non_negative_int(node.get(resource_key))
 
 
 def get_local_work_needed_contribution(

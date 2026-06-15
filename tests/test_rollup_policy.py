@@ -1,12 +1,17 @@
 import copy
 
+import pytest
+
 from src.constants import (
     DAGSVERKEN_MULTIPLIERS,
     DAY_LABORER_WORK_DAYS,
     THRALL_WORK_DAYS,
 )
 from src.rollup_policy import (
+    PHYSICAL_STORAGE_NODE_TYPES,
+    STORAGE_RESOURCE_KEYS,
     get_local_population_contribution,
+    get_local_storage_contribution,
     get_local_work_available_contribution,
     get_local_work_needed_contribution,
 )
@@ -58,6 +63,113 @@ def test_low_level_reported_population_is_not_a_local_contribution():
     node = {"level": 3, "population": 6}
 
     assert get_local_population_contribution(node) == 0
+
+
+def test_local_storage_contribution_counts_lager_value():
+    node = {"res_type": "Lager", "storage_basic": 7}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 7
+
+
+def test_local_storage_contribution_ignores_jarldom_storage_value():
+    node = {"res_type": "Jarldöme", "storage_basic": 7}
+
+    assert get_local_storage_contribution(node, "storage_basic", depth=3) == 0
+
+
+def test_local_storage_contribution_ignores_estate_storage_value():
+    node = {"res_type": "Gods", "storage_basic": 7}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 0
+
+
+def test_local_storage_contribution_ignores_settlement_storage_value():
+    node = {"res_type": "Bosättning", "storage_basic": 7}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 0
+
+
+def test_local_storage_contribution_ignores_upper_level_storage_value():
+    node = {"res_type": "Rike", "storage_basic": 7}
+
+    assert get_local_storage_contribution(node, "storage_basic", depth=0) == 0
+
+
+@pytest.mark.parametrize("resource_key", STORAGE_RESOURCE_KEYS)
+def test_local_storage_contribution_supports_all_storage_keys(resource_key):
+    node = {"res_type": "Lager", resource_key: 5}
+
+    assert get_local_storage_contribution(node, resource_key) == 5
+
+
+def test_local_storage_contribution_handles_missing_value():
+    assert get_local_storage_contribution({"res_type": "Lager"}, "storage_basic") == 0
+
+
+def test_local_storage_contribution_handles_none_value():
+    node = {"res_type": "Lager", "storage_basic": None}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 0
+
+
+def test_local_storage_contribution_handles_invalid_value():
+    node = {"res_type": "Lager", "storage_basic": "invalid"}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 0
+
+
+def test_local_storage_contribution_accepts_numeric_string():
+    node = {"res_type": "Lager", "storage_basic": "7"}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 7
+
+
+def test_local_storage_contribution_clamps_negative_value():
+    node = {"res_type": "Lager", "storage_basic": -7}
+
+    assert get_local_storage_contribution(node, "storage_basic") == 0
+
+
+def test_local_storage_contribution_ignores_unknown_resource_key():
+    node = {"res_type": "Lager", "storage_unknown": 7}
+
+    assert get_local_storage_contribution(node, "storage_unknown") == 0
+
+
+def test_local_storage_contribution_requires_lager_res_type():
+    assert get_local_storage_contribution({"storage_basic": 7}, "storage_basic") == 0
+
+
+def test_local_storage_contribution_does_not_mutate_node():
+    node = {
+        "res_type": "Lager",
+        "storage_basic": 7,
+        "children": [{"storage_basic": 99}],
+        "parent_id": 1,
+    }
+    original = copy.deepcopy(node)
+
+    get_local_storage_contribution(node, "storage_basic", depth=2)
+
+    assert node == original
+
+
+def test_storage_resource_keys_contains_expected_keys():
+    assert STORAGE_RESOURCE_KEYS == (
+        "storage_basic",
+        "storage_luxury",
+        "storage_silver",
+        "storage_timber",
+        "storage_coal",
+        "storage_iron_ore",
+        "storage_iron",
+        "storage_animal_feed",
+        "storage_skin",
+    )
+
+
+def test_physical_storage_node_types_only_lager():
+    assert PHYSICAL_STORAGE_NODE_TYPES == frozenset({"Lager"})
 
 
 def test_local_work_needed_contribution_uses_resource_need():
