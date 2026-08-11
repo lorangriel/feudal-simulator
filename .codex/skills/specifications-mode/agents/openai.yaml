@@ -1,0 +1,4 @@
+interface:
+  display_name: "Specifications Mode"
+  short_description: "Work safely in documentation-only specification mode."
+  default_prompt: "Arbeta med specifikationer i spec-läge."
