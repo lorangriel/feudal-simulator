@@ -23,3 +23,17 @@ Notes
 - Install dependencies with `pip install -r requirements.txt` before running tests.
 - Run the test suite from the repository root with `pytest` (e.g., `pytest --cov`).
 
+Skills
+------
+
+- Use the repository skill in `.codex/skills/specifications-mode/` for product
+  and domain specification work. Read its `SKILL.md` before creating or
+  updating specifications.
+
+Specifications
+--------------
+
+- Living specifications are under `specs/`; begin with `specs/README.md` and
+  use `specs/status/SPECSTATUS.md` for the current specification status.
+- `README.vision` is retired and retained only as reference material. Do not
+  update it as a living specification; transfer confirmed changes to `specs/`.
