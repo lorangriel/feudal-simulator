@@ -10,6 +10,8 @@ men skiljer bekräftade nulägeskrav från framtida idéer.
 - `architecture/system-overview.md`: systemgränser och huvudkomponenter.
 - `plans/product-plan.md`: prioriterade specifikations- och införandeåtgärder.
 - `status/SPECSTATUS.md`: aktuell repostatus, öppna frågor och levande dokument.
+- `status/outstanding-questions.md`: prioriterade kvarstående
+  specifikationsfrågor från kod- och dokumentanalys.
 - `decisions/`: framtida spårbara produkt- och arkitekturbeslut.
 - `evidence/source-inventory.md`: underlag och härledning från tidigare material.
 - `schemas/`: framtida databärande kontrakt; inga befintliga scheman ändras här.

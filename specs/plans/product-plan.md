@@ -24,6 +24,11 @@ nya produktionsändringar planeras.
    - Beskrivning: definiera inkonsistens, regenerering, retention och grenar.
    - Blocker: produktbeslut saknas.
    - Kopplad specifikation: `../domains/simulation.md`.
+3. [OPEN] REL-001 Besluta relationsbegrepp och UI-ansvar
+   - Beskrivning: skilj personlig provinsägare från jarldömesägare och avgör
+     om explicita titel-/ägarrelationer ska förbli skrivskyddade i UI.
+   - Blocker: produktbeslut saknas; admin-läge ingår inte i ändringsytan.
+   - Kopplad specifikation: `../status/outstanding-questions.md`.
 
 ### P1 - Avgränsa domäner
 

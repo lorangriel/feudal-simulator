@@ -17,6 +17,10 @@ primära klienten; ett enklare HTTP-gränssnitt visar samma typ av data.
 - **Snapshot**: en beständig kopia av världstillståndet vid en tidpunkt.
 - **Planeringsår**: valt år vars förändringar ännu inte har låsts genom
   genomförande.
+- **Titelrelation**: uttrycklig koppling från en titel på nivå 0–2 till ett
+  jarldöme på nivå 3 som fungerar som titelns säte.
+- **Jarldömesägare**: uttrycklig koppling från ett jarldöme på nivå 3 till en
+  person i världens globala personregister.
 
 ## Bekräftade nulägesregler
 
@@ -24,12 +28,25 @@ primära klienten; ett enklare HTTP-gränssnitt visar samma typ av data.
 2. Noder kan ha grannar, och väder kan ge säsongsberoende mekaniska effekter.
 3. Det användarstyrda tidsflödet arbetar med hela år: genomförda år låses som
    snapshots, medan planering får ske utan att äldre snapshots tas bort.
-4. Tidsmotorn kan samtidigt representera årstider och använder deterministisk
-   slump för reproducerbara väderutfall och snapshots.
+4. Den aktiva Tk-körvägen använder `src/time/time_engine.py`: väder låses per
+   helt år och genereras reproducerbart från året, med ett utfall per årstid.
+   Den äldre säsongsbaserade motorn i `src/time_engine.py` är inte inkopplad i
+   Tk-klienten.
 5. Administrativ väg och personlig provinsväg har skilda ansvar; provinsvägen
    styr skatt enligt den befintliga Modell B-beskrivningen.
 6. Tk-klienten erbjuder struktur-, status- och detaljpaneler. HTTP-servern är
    ett separat, enklare presentationsgränssnitt.
+7. Provinsläget visar ägarens ankare och bygger därefter hela trädet från
+   `get_province_subtree(owner_id)` med rekursiv insert. En explicit ägare på
+   en undernod bryter nedärvningen från en överordnad ägare; adminträdet har en
+   separat renderingsväg och återställs när läget lämnas.
+8. Sammanräkningar använder lokala bidrag för att undvika dubbelräkning:
+   fysisk lagring kommer endast från `Lager`-noder, medan befolkning och arbete
+   räknas enligt respektive lokala policy.
+9. Titel–säte och jarldöme–ägare är separata, explicita relationer. Ett säte
+   måste vara ett jarldöme i titelns administrativa delträd och får inte delas
+   av flera titlar. En jarldömesägare måste finnas i personregistret; ingen av
+   relationerna härleds automatiskt från den andra eller från provinsägandet.
 
 ## Framtida inriktning från referensmaterialet
 
@@ -46,7 +63,8 @@ Dessa punkter är kandidater, inte bekräftade implementationskrav.
 - Nulägesregler prioriterar observerad dokumentation och implementerade
   komponenter framför äldre visionstext.
 - Skillnaden mellan årsbaserat användarflöde och säsongsbaserad intern motor
-  behöver ett uttryckligt produktbeslut innan vidare tidsutveckling planeras.
+  består i praktiken av två motorimplementationer och behöver ett uttryckligt
+  produktbeslut innan vidare tidsutveckling planeras.
 
 ## Öppna frågor
 
@@ -55,6 +73,8 @@ Dessa punkter är kandidater, inte bekräftade implementationskrav.
 - [ ] Vilka delar av den pensionerade ekonomivisionen är prioriterade krav?
 - [ ] Ska historiska ändringar regenerera en enda framtid eller skapa grenar?
 - [ ] Vilka händelser och relationer måste ingå i första kompletta simuleringen?
+- [ ] Ska de explicita titel- och ägarrelationerna förbli endast läsbara i UI,
+  eller ska ett framtida icke-adminflöde få redigera dem?
 
 ## Kvalitetskontroll
 
@@ -69,6 +89,9 @@ Senast kontrollerad: 2026-08-11
 
 - Begreppet "fullständig historik" saknar ännu beslut om lagringsnivå,
   retention och eventuell förgrening.
+- "Ägare" kan avse både personlig provinstilldelning och den separata
+  relationen mellan person och jarldöme; specifikation och UI måste namnge
+  vilken relation som avses.
 
 ### Otydliga beskrivningar
 
@@ -80,4 +103,4 @@ Senast kontrollerad: 2026-08-11
 
 ## Historik
 
-- Ändringar kommer att sparas i `simulation.Changelog.md`.
+- Ändringshistorik finns i `simulation.Changelog.md`.
