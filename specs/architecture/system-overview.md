@@ -12,8 +12,15 @@ server, datakontrakt, `world_manager` eller admin-läge.
   och kartvyer.
 - Domänmoduler hanterar noder, resurser, befolkning, personliga provinser,
   väder och relationer.
-- `src/time_engine.py` ansvarar för tidspositioner, deterministisk slump,
-  snapshots och beständig tidslinjedata.
+- `src/time/time_engine.py` är Tk-klientens aktiva årsbaserade tidsmotor och
+  `src/time/weather_lock.py` låser deterministiskt väder per år. Den separata
+  `src/time_engine.py` implementerar en äldre säsongsbaserad och beständig
+  tidslinje men importeras inte av Tk-körvägen.
+- `src/rollup_policy.py` avgränsar vilka lokala värden som får bidra till
+  rekursiva rapporter; `WorldManager` utför traverseringen.
+- `src/world_relations.py` är en domänadapter för validering samt atomära läs-
+  och skrivoperationer för titel–säte och jarldöme–ägare. Detaljvyn använder
+  en separat presentationsadapter och visar relationerna skrivskyddat.
 - `src/http_server.py` erbjuder en minimal HTML-presentation vid sidan av
   Tk-klienten.
 - `src2/` är ett separat experiment i C++/SDL2 och ingår inte i den primära
@@ -24,7 +31,9 @@ server, datakontrakt, `world_manager` eller admin-läge.
 Världsdata läses in i domänobjekt och presenteras av klienterna. UI-kommandon
 ändrar planering eller driver tidsmotorn, som skapar snapshots och händelser.
 Personlig provinslogik kompletterar den administrativa nodhierarkin för
-ägande- och skatteflöden.
+ägande- och skatteflöden. Provinsvyn hämtar sitt träd via
+`get_province_subtree(owner_id)` och renderar svaret rekursivt under ett
+ägarankare; adminvyn byggs och återställs separat.
 
 ## Kvalitetsattribut och constraints
 
@@ -34,6 +43,10 @@ Personlig provinslogik kompletterar den administrativa nodhierarkin för
   hoppas över i headless-miljö.
 - Admin-läge och den administrativa hierarkin får inte påverkas oavsiktligt av
   provinslägets presentationsväg.
+- Rapportvärden ska räknas från lokala bidrag så att redan aggregerade värden
+  inte dubbelräknas vid rekursiv traversering.
+- Relationer ska valideras utan mutation; skrivoperationer får mutera först
+  när hela den begärda relationen är giltig.
 
 ## Kopplade beslut och underlag
 
@@ -43,4 +56,4 @@ Personlig provinslogik kompletterar den administrativa nodhierarkin för
 
 ## Historik
 
-- Ändringar kommer att sparas i `system-overview.Changelog.md`.
+- Ändringshistorik finns i `system-overview.Changelog.md`.
