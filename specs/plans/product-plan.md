@@ -8,7 +8,7 @@ nya produktionsändringar planeras.
 ## Statusöversikt
 
 - Total status: `BLOCKED`
-- Senast uppdaterad: 2026-08-11
+- Senast uppdaterad: 2026-08-12
 - Blocker: öppna produktfrågor i `../domains/simulation.md`.
 
 ## Prioritetsgrupper
@@ -48,6 +48,14 @@ nya produktionsändringar planeras.
      tester.
    - Blocker: P0 och relevanta P1-punkter måste vara lösta.
    - Kopplad specifikation: `../domains/simulation.md`.
+2. [DEFERRED] WEB-001 Besluta om faktisk webbfrontend
+   - Beskrivning: besluta funktionsomfattning, arkitektur, kontrakt och
+     acceptanskriterier för en webbklient som efterliknar relevant
+     Tk-funktionalitet.
+   - Blocker: webbspåret är uttryckligen ett senare beslut. Den experimentella
+     HTTP-listenern är inte en aktiv frontend eller förvald grund.
+   - Kopplad specifikation: `../architecture/system-overview.md` och
+     `../decisions/2026-08-12-client-boundaries.md`.
 
 ## Historik
 

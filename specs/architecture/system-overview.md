@@ -3,7 +3,8 @@
 ## Syfte och omfattning
 
 Dokumentet beskriver nuvarande huvudgränser utan att föreskriva ändringar i
-server, datakontrakt, `world_manager` eller admin-läge.
+datakontrakt, `world_manager` eller admin-läge. Den primära lösningen är
+Python-/Tk-applikationen.
 
 ## Systemgränser och komponenter
 
@@ -21,10 +22,13 @@ server, datakontrakt, `world_manager` eller admin-läge.
 - `src/world_relations.py` är en domänadapter för validering samt atomära läs-
   och skrivoperationer för titel–säte och jarldöme–ägare. Detaljvyn använder
   en separat presentationsadapter och visar relationerna skrivskyddat.
-- `src/http_server.py` erbjuder en minimal HTML-presentation vid sidan av
-  Tk-klienten.
-- `src2/` är ett separat experiment i C++/SDL2 och ingår inte i den primära
-  Python-applikationens körväg.
+- `src/http_server.py` är en bevarad experimentell HTTP-presentation. Den är
+  inte längre i bruk och ingår inte i den primära lösningens körväg.
+- `src2/` är ett bevarat experiment i C++/SDL2. Det är inte i bruk och ingår
+  inte i den primära Python-lösningen.
+- En framtida faktisk webbfrontend är en möjlig separat klient, men dess
+  omfattning, teknik och gränssnitt är ännu inte beslutade. Den befintliga
+  HTTP-listenern ska inte betraktas som dess grund eller som aktiv frontend.
 
 ## Gränssnitt och dataflöden
 
@@ -47,10 +51,12 @@ Personlig provinslogik kompletterar den administrativa nodhierarkin för
   inte dubbelräknas vid rekursiv traversering.
 - Relationer ska valideras utan mutation; skrivoperationer får mutera först
   när hela den begärda relationen är giltig.
+- Experimenten i `src/http_server.py` och `src2/` får inte behandlas som
+  produktionsberoenden eller begränsa utformningen av en framtida webbklient.
 
 ## Kopplade beslut och underlag
 
-- Beslut: inga formella beslutsposter ännu.
+- Beslut: `../decisions/2026-08-12-client-boundaries.md`.
 - Underlag: `../evidence/source-inventory.md`.
 - Domänregler: `../domains/simulation.md`.
 

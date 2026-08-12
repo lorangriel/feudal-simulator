@@ -23,6 +23,12 @@ strukturerade specifikationsuppsättningen.
 - `src/rollup_policy.py`, `src/world_relations.py` och deras tester (lästa
   2026-08-11): bekräftar lokala bidragspolicyer samt explicita, validerade
   titel–säte- och jarldöme–ägare-relationer.
+- `src/http_server.py` och `tests/test_http_server.py` (granskade 2026-08-12):
+  visar en fristående minimal WSGI-listener. Produktbeslutet klassar den som
+  ett bevarat experiment som inte längre används, oavsett att tester finns.
+- `src2/Main.cpp` och `src2/Makefile` (granskade 2026-08-12): visar ett separat
+  SDL2-experiment. Produktbeslutet placerar all C++-kod utanför den primära
+  Python-lösningen och markerar den som inte i bruk.
 - `src/node.py`, `src/world_manager.py`, `src/constants.py`,
   `src/population_utils.py`, `src/noble_staff.py`, `src/weather.py` och
   `src/events.py` (lästa 2026-08-12): underlag för domänindelningen och
@@ -32,6 +38,8 @@ strukturerade specifikationsuppsättningen.
 ## Tolkning och begränsningar
 
 Inventeringen är en riktad kodanalys, inte en fullständig rad-för-rad-revision.
+Att kod eller tester finns kvar är inte i sig bevis för att komponenten är i
+bruk; aktuell produktstatus styrs av länkade beslut.
 Visionens framtidsidéer har inte automatiskt gjorts till krav. Nya beslut ska
 spåras i `specs/decisions/` i stället för att skrivas tillbaka till visionen.
 
@@ -40,6 +48,7 @@ spåras i `specs/decisions/` i stället för att skrivas tillbaka till visionen.
 - Krav: `../domains/simulation.md`.
 - Arkitektur: `../architecture/system-overview.md`.
 - Plan: `../plans/product-plan.md`.
+- Beslut: `../decisions/2026-08-12-client-boundaries.md`.
 
 ## Historik
 

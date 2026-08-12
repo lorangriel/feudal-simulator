@@ -24,6 +24,13 @@
 - Prioritering och avgränsning av ekonomi, händelser och relationer.
 - UI-ansvar och terminologi för explicita titel-/ägarrelationer jämfört med
   personlig provinstilldelning.
+- Senare avgränsning och arkitektur för en faktisk webbfrontend.
+
+## Fastställda klientgränser
+
+- Python/Tk är huvudlösningen och den enda klienten i bruk.
+- Befintlig HTTP-listener och C++/SDL2-kod är bevarade experiment utanför
+  huvudlösningen; se `../decisions/2026-08-12-client-boundaries.md`.
 
 ## MCP-stöd
 
