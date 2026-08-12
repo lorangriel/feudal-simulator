@@ -43,12 +43,19 @@ nya produktionsändringar planeras.
 
 ### P2 - Implementation
 
-1. [DEFERRED] IMPL-001 Skapa kodnära genomförandeplan
+1. [DEFERRED] UI-001 Inför applikationsgränsen vertikalt
+   - Beskrivning: välj ett avgränsat användningsfall, definiera fråga eller
+     kommando med snapshot/fel, lägg headless kontrakts- och
+     applikationstester och gör Tk-flödet till en tunn adapter.
+   - Blocker: första flöde och Python-kontraktsform ska beslutas; repot är i
+     `SPEC` och produktionskod får inte ändras.
+   - Kopplad specifikation: `../architecture/ui-boundary.md`.
+2. [DEFERRED] IMPL-001 Skapa kodnära genomförandeplan
    - Beskrivning: bryt ned endast beslutade krav i små ändringar och fokuserade
      tester.
    - Blocker: P0 och relevanta P1-punkter måste vara lösta.
    - Kopplad specifikation: `../domains/simulation.md`.
-2. [DEFERRED] WEB-001 Besluta om faktisk webbfrontend
+3. [DEFERRED] WEB-001 Besluta om faktisk webbfrontend
    - Beskrivning: besluta funktionsomfattning, arkitektur, kontrakt och
      acceptanskriterier för en webbklient som efterliknar relevant
      Tk-funktionalitet.
