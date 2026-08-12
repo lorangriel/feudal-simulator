@@ -3,11 +3,14 @@
 - Sticky specmapp: `specs/`
 - Repostatus: `SPEC`
 - Uppstartsnivå: `STRUCTURED`
-- Senast uppdaterad: 2026-08-11
+- Senast uppdaterad: 2026-08-12
 
 ## Levande dokument
 
-- `specs/domains/simulation.md`: domänregler, utkast med öppna frågor.
+- `specs/domains/README.md`: domänkarta med fem identifierade domäner.
+- `specs/domains/simulation.md`: gemensamma domänregler och öppna frågor.
+- `specs/domains/*.md`: fördjupningar av världsstruktur, ägande och auktoritet,
+  befolkning och ekonomi, tid/väder/händelser samt personer och hushåll.
 - `specs/architecture/system-overview.md`: arkitekturöversikt, första utgåva.
 - `specs/evidence/source-inventory.md`: källunderlag, första utgåva.
 - `specs/plans/product-plan.md`: implementationsplan, blockerad av öppna frågor.
