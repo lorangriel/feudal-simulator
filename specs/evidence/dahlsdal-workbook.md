@@ -35,6 +35,211 @@ Materialet innehåller också arbetskopior och testblad. Dessa visar att flera
 alternativa beräkningar har provats och ska därför inte automatiskt betraktas
 som slutliga eller inbördes förenliga.
 
+## Historiska balansberäkningar
+
+Arbetsboken innehåller 8 031 formelceller. Antalet beskriver den bevarade
+filens tekniska omfattning, inte 8 031 unika eller giltiga regler: stora delar
+har kopierats mellan års-, prognos- och testblad. Formlerna är lokala inom
+respektive blad; inventeringen identifierade inga formler med direkta
+referenser till andra kalkylblad. Varje årsvariant fungerar därför i praktiken
+som en egen version av modellen snarare än som ett tunt lager ovanpå en
+gemensam beräkningskärna.
+
+### Vad som balanseras
+
+- **Resursekonomi:** inkomster, utgifter och lager i BAS, LYX och silver samt
+  timmer, kol, malm, järn, skinn, djurfoder och andra fysiska resurser.
+- **Arbete och kapacitet:** tillgängliga och förbrukade dagsverken för bönder,
+  trälar, daglönare, hantverkare och specialister, ofta jämförda med ett
+  beräknat behov eller kvarvarande utrymme.
+- **Mark och försörjning:** areal, markkvalitet, odling, träda, bete, skog,
+  jakt och fiske kopplas till produktion, djurfoder, befolkning och
+  omvandlingskostnader.
+- **Hushåll och befolkning:** levnadsstandard, utspisning, skatt, bostad,
+  tjänstefolk, befolkningsförändring och umbäranden används som kostnader,
+  gränser eller modifierare.
+- **Djur och specialnäringar:** hjordstorlek, vinterflock, bete, foder,
+  skötsel och avkastning kombineras för boskap och hästar; biodling och
+  fiskdammar har egna investerings-, underhålls-, kvalitets- och
+  utfallsmodeller.
+- **Handel, byggande och militär:** priser, handelsvolym, tullar, transporter,
+  material, byggtid, underhåll, soldatlöner och utrustning belastar samma
+  resurs- och arbetsbudgetar.
+
+### Beräkningsmönster
+
+Modellen består huvudsakligen av cellreferenser och vanlig aritmetik. Bland
+funktionsanropen finns framför allt summeringar, men också kvadratrötter,
+villkor och avrundning uppåt eller nedåt. De återkommande mönstren är:
+
+1. en basmängd, exempelvis personer, tunnland, djur eller produktionsenheter,
+2. en kvalitets-, väder-, kontroll- eller storleksfaktor,
+3. ett resurs- eller dagsverksbehov,
+4. ett utfall i produktion, kostnad, lagerförändring eller kvarvarande
+   kapacitet, och
+5. ibland ett värde som förs vidare manuellt till nästa årsblad.
+
+Arbetsboken provar dessutom trösklar, skalsteg och procentuella bonusar eller
+avdrag. Exempel i materialet omfattar kvalitetsnivåer, kontrollutfall,
+hjordstorlekar, handelsvägar, biodlingsstorlekar och olika nivåer av
+dagsverksuttag. Dessa tal är dokumenterade experimentvärden, inte verifierade
+balanskonstanter.
+
+### Tillförlitlighet och pågående omarbetning
+
+Beräkningarna blandar indata, antaganden, kommentarer, tillfälliga
+kontrolltal, formler och simulerade utfall. Kopiorna inför år 4 och de
+särskilda testbladen innehåller alternativa varianter, så den senast placerade
+eller mest detaljerade formeln kan inte antas vara slutgiltig. Inventeringen
+har inte kontrollerat enheter, dimensionsriktighet, cirkelreferenser,
+felvärden, dolda beroenden, sannolikhetsfördelningar eller om manuellt
+överförda värden är konsekventa mellan år.
+
+Balansområdet genomgår nu en omfattande omarbetning offline tillsammans med
+världsdata, entitetsdata och regler inför en total omstart. Arbetsbokens
+formler och resultat ska därför behandlas som historiska exempel på vad som
+har undersökts, inte som en baslinje att kalibrera, migrera eller bygga vidare
+på. Den offlinebaserade omarbetningen dokumenteras inte här innan den har
+förts in i repot genom en separat, uttrycklig process.
+
+## Idéer och visioner i arbetsboken
+
+Statusmarkeringarna nedan beskriver endast om en igenkännbar motsvarighet
+finns i kodbasen i dag:
+
+- **[PRESENT]**: idéns grundform finns i kodbasen. Markeringen innebär inte att
+  arbetsbokens regler, värden eller formler har implementerats.
+- **[NOT IMPLEMENTED]**: någon motsvarande funktion har inte identifierats i
+  kodbasen. Delvis närliggande datatyper eller UI-fält räcker inte för denna
+  markering.
+
+Inventeringen samlar idéerna tematiskt och avduplicerar upprepningar mellan
+års-, prognos-, test- och kopieblad. Den är ett register över historiskt
+material, inte en kravlista eller en bedömning av vad vi bör bygga.
+
+### Värld, mark och förvaltning
+
+- **[PRESENT]** Hierarkiska förläningar med gods, bosättningar, vildmark,
+  jaktmark, mark, vatten och underliggande områden.
+- **[PRESENT]** Grannrelationer och olika slags gränser eller förbindelser,
+  bland annat vägar, vildmark, berg och vattendrag.
+- **[PRESENT]** Indelning av mark i skog, röjd mark, odling, träda, bete och
+  jaktmark samt kvalitetsvärden för odling, jakt och fiske.
+- **[NOT IMPLEMENTED]** Arbetsbokens arealomvandlingar och investeringar:
+  röjning av vildmark, avverkning, nyodling, diken, bevattningsdammar,
+  fiskdammar, vingårdar, olivlundar och deras underhåll.
+- **[NOT IMPLEMENTED]** En skalbestämd rutkarta om 256 × 256 rutor med
+  tunnland per ruta.
+- **[NOT IMPLEMENTED]** Förvaltares kontrollslag, kapacitetsgränser,
+  lärlingar, färdigheter och svårighetsökning när en näring eller areal blir
+  större.
+
+### Befolkning, hushåll och samhälle
+
+- **[PRESENT]** Befolkningsgrupperna fria och ofria bönder, trälar,
+  daglönare och borgare samt personer knutna till världens entiteter.
+- **[PRESENT]** Personliga provins- och ägarrelationer samt listor över
+  hantverkare, soldater och andra roller.
+- **[PRESENT]** Adliga levnadsnivåer, bostadskrav, familje-/hushållsmedlemmar
+  och behov av namngivna hushållsroller.
+- **[NOT IMPLEMENTED]** Full hushållsekonomi med åldersgrupper, utspisning,
+  beskattningsunderlag, engångskostnad för möbler, BAS-/LYX-underhåll och
+  besparingar.
+- **[NOT IMPLEMENTED]** Befolkningstillväxt, inflyttning, nybyggare och
+  hantverkarflytt som resultat av umbäranden eller övertag.
+- **[NOT IMPLEMENTED]** Böndernas lojalitet, tro, heder och uppror samt hur
+  väder, kyrka, skatt, avrad och dagsverken påverkar dem.
+- **[NOT IMPLEMENTED]** Rykte, tjänster/favours, allianser, fester,
+  storslagna jakter och levnadsstandardens skydd mot sjukdom.
+
+### Tid, väder och historik
+
+- **[PRESENT]** Årsvis framskrivning med planeringsläge och låsta snapshots,
+  vilket motsvarar arbetsbokens idé om separata årsunderlag på en övergripande
+  nivå.
+- **[PRESENT]** Vår-, sommar-, höst- och vinterväder med effekter på
+  produktion och umbäranden.
+- **[NOT IMPLEMENTED]** En sammanhållen simulering som räknar om samtliga
+  ekonomiska och demografiska årsresultat från arbetsboken.
+- **[NOT IMPLEMENTED]** Arbetsbokens särskilda katastrofer och motgångar,
+  exempelvis farsot, pest, kättare, rövarband, monsterräder, nomader och
+  uppviglare, med efterverkningar mellan år.
+
+### Arbete, produktion och lager
+
+- **[PRESENT]** Dagsverksnivåer, tillgängligt och behövligt arbete samt
+  umbärande som lagrade egenskaper och grundläggande beräkningar.
+- **[PRESENT]** Lager för silver, BAS, LYX, timmer, kol, järnmalm, järn,
+  djurfoder och skinn.
+- **[PRESENT]** Grundtyper för odling, djurhållning, jakt, fiske,
+  hantverkare, byggnader, soldater och båtar.
+- **[NOT IMPLEMENTED]** Arbetsbokens sammanlänkade produktionskedjor och
+  balansformler för skörd, träda, foder, jakt, fiske, timmer, träkol,
+  järnmalm, järn, stål, vapen, skinn och garvning.
+- **[NOT IMPLEMENTED]** Kvalitets- och kontrollslag som ger förlust,
+  normalutfall, bonusproduktion, LYX-andel eller framtida
+  kvalitetsförändringar.
+- **[NOT IMPLEMENTED]** Licensavgifter som en körd ekonomisk process; yrken
+  och avgiftsvärden finns, men arbetsbokens intäktsflöde simuleras inte.
+
+### Djur, jakt, fiske och specialnäringar
+
+- **[PRESENT]** Registrering av djur och hästtyper, hjordmarkering,
+  betesareal, jägare, jaktkvalitet, jaktlagstiftning, fiskekvalitet och antal
+  fiskebåtar.
+- **[NOT IMPLEMENTED]** Hjordstorlekar, vinterflockar, fortplantning,
+  dubbleringstid, slakt, mjölk, ull, skinn, foderåtgång och väderberoende
+  avkastning för kor, får/getter och grisar.
+- **[NOT IMPLEMENTED]** Hästavel, stuteristorlekar, fölålder, rid- och
+  stridsträning samt skötsel-, foder- och betesbehov per hästtyp.
+- **[NOT IMPLEMENTED]** Jaktlagens bemanning, arealkrav, kostnad och avkastning
+  samt skogsbetets negativa effekt på jakt.
+- **[NOT IMPLEMENTED]** Fiskdammssystem med anläggning, foder, förvaltning,
+  kvalitetsutveckling, sjukdom och årsutfall.
+- **[NOT IMPLEMENTED]** Biodling i tre storlekar med investerings- och
+  skötselbehov, pollineringsbonus, BAS/LYX-produktion, avläggare och
+  katastrofutfall.
+
+### Handel, skatt och transporter
+
+- **[NOT IMPLEMENTED]** Lokala och provinsiella marknader, mat- och
+  råvarupriser, import/export samt handelsvolym i BAS, LYX och silver.
+- **[NOT IMPLEMENTED]** Handelsvägar via liten/stor väg, flod, kust och hav,
+  med skilda multiplikatorer, tullar och kontrollslag.
+- **[NOT IMPLEMENTED]** Handelsmäns färdigheter, vakter, handelsavtal,
+  handelsstäder, aktiv handel och förlorad eller kvarvarande handelsvolym.
+- **[NOT IMPLEMENTED]** Båtbygge och fartygsmodeller med mått, djupgående,
+  besättning, lastdryghet, hytter, stall, byggtid, arbete och material.
+- **[NOT IMPLEMENTED]** Skatt, avrad, kungaskatt, tull, skulder och lån som
+  sammanhängande ekonomiska flöden. Kodbasen har fördelningsandelar och
+  lagringsfält men inte arbetsbokens modell.
+
+### Byggnader, borg och militär
+
+- **[PRESENT]** Registrering av bland annat trähus, stenhus, borgkärna,
+  kvarnar, bageri, smedja och garveri.
+- **[PRESENT]** Registrering av flera soldattyper, officerare, riddare och
+  sjömän.
+- **[NOT IMPLEMENTED]** Byggprojekt med material, dagsverken, silverkostnad,
+  byggtid och underhåll för hus, vägar, kvarnar, verkstäder, torn, murar,
+  vallgrav och borgkärna.
+- **[NOT IMPLEMENTED]** Borgens rumsliga plan, våningar, rum, bemanning och
+  härledning av sten- eller byggnadsvolym.
+- **[NOT IMPLEMENTED]** Militär rekrytering, lön, utrustning, färdigheter,
+  tjänstgöringstid och administrativa bemanningskrav för gods, trälar och
+  daglönare.
+
+### Avgränsning mot våra levande specifikationer
+
+Denna katalog och arbetsboken är endast historisk evidens. **Varken
+[PRESENT]- eller [NOT IMPLEMENTED]-poster får användas för att skapa, ändra,
+prioritera eller tolka våra nuvarande specifikationer.** [NOT IMPLEMENTED]
+uttrycker inte ett planerat behov, och [PRESENT] bekräftar endast en grov
+funktionsmotsvarighet. Arbetsbokens världs- och entitetsdata, regler,
+balansformler, simuleringar och årsutfall är inaktuella inför den planerade
+omstarten och har inte validerats. Eventuella framtida krav måste tas fram och
+beslutas oberoende av detta underlag.
+
 ## Kalkylblad
 
 | Blad | Omfång | Icke-tomma celler | Formler | Innehåll i korthet |
