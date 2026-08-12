@@ -9,6 +9,8 @@ men skiljer bekräftade nulägeskrav från framtida idéer.
 - `domains/README.md`: karta över identifierade verksamhetsdomäner.
 - `domains/simulation.md`: gemensam verksamhetsbeskrivning, begrepp och regler.
 - `architecture/system-overview.md`: systemgränser och huvudkomponenter.
+- `architecture/ui-boundary.md`: UI som adapter samt kontrakt för rena,
+  testbara dataflöden till och från presentationen.
 - `plans/product-plan.md`: prioriterade specifikations- och införandeåtgärder.
 - `status/SPECSTATUS.md`: aktuell repostatus, öppna frågor och levande dokument.
 - `status/outstanding-questions.md`: prioriterade kvarstående
@@ -34,4 +36,4 @@ men skiljer bekräftade nulägeskrav från framtida idéer.
 
 ## Historik
 
-- Ändringar kommer att sparas i `README.Changelog.md`.
+- Ändringshistorik finns i `README.Changelog.md`.

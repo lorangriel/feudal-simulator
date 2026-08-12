@@ -18,11 +18,14 @@
 
 ## P2 – avsiktligt senare beslut
 
-1. Vilken del av Tk-applikationens funktionalitet ska en framtida faktisk
+1. Vilket avgränsat Tk-användningsfall ska migreras först bakom
+   applikationsporten, och ska det första in-process-kontraktet uttryckas med
+   frysta dataklasser, protokoll eller annan enkel Python-form?
+2. Vilken del av Tk-applikationens funktionalitet ska en framtida faktisk
    webbfrontend efterlikna, och vilka arkitektur- och teknikval ska då gälla?
    Den befintliga experimentella HTTP-listenern är inte i bruk och utgör
    inget beslutat utgångsläge.
 
 ## Historik
 
-- Ändringar kommer att sparas i `outstanding-questions.Changelog.md`.
+- Ändringshistorik finns i `outstanding-questions.Changelog.md`.

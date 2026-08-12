@@ -9,6 +9,8 @@ alternativ, konsekvenser och länkat underlag. Öppna val finns i
 - `2026-08-12-client-boundaries.md`: Python/Tk är huvudlösningen; C++/SDL2 och
   HTTP-listenern är experimentella och inte i bruk, medan en faktisk
   webbfrontend avgränsas genom ett senare beslut.
+- `2026-08-12-ui-as-adapter.md`: UI är en utbytbar presentationsadapter till
+  en teknikneutral, headless-testbar applikationsgräns.
 
 ## Historik
 

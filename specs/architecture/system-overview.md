@@ -11,6 +11,10 @@ Python-/Tk-applikationen.
 - `src/Feudal.py` startar Tk-applikationen.
 - UI- och presentationsmoduler under `src/` visar struktur, status, detaljer
   och kartvyer.
+- UI:t är målarkitekturellt en utbytbar presentationsadapter, inte en
+  verksamhetsdomän. Teknikneutrala frågor och kommandon ska passera den
+  applikationsgräns som beskrivs i `ui-boundary.md`; dagens direkta kopplingar
+  till managers och muterbar världsdata ska migreras stegvis.
 - Domänmoduler hanterar noder, resurser, befolkning, personliga provinser,
   väder och relationer.
 - `src/time/time_engine.py` är Tk-klientens aktiva årsbaserade tidsmotor och
@@ -45,6 +49,8 @@ Personlig provinslogik kompletterar den administrativa nodhierarkin för
 - Tidigare snapshots ska vara oföränderliga ur användarflödets perspektiv.
 - Domänlogik ska kunna testas utan ett grafiskt fönster; UI-test ska kunna
   hoppas över i headless-miljö.
+- Applikationsanvändningsfall ska kunna testas headless och får inte exponera
+  Tk-typer, widgethändelser, domänobjekt eller levande muterbara samlingar.
 - Admin-läge och den administrativa hierarkin får inte påverkas oavsiktligt av
   provinslägets presentationsväg.
 - Rapportvärden ska räknas från lokala bidrag så att redan aggregerade värden
@@ -57,6 +63,8 @@ Personlig provinslogik kompletterar den administrativa nodhierarkin för
 ## Kopplade beslut och underlag
 
 - Beslut: `../decisions/2026-08-12-client-boundaries.md`.
+- Beslut: `../decisions/2026-08-12-ui-as-adapter.md`.
+- UI-gräns: `ui-boundary.md`.
 - Underlag: `../evidence/source-inventory.md`.
 - Domänregler: `../domains/simulation.md`.
 

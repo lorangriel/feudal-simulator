@@ -12,6 +12,8 @@
 - `specs/domains/*.md`: fördjupningar av världsstruktur, ägande och auktoritet,
   befolkning och ekonomi, tid/väder/händelser samt personer och hushåll.
 - `specs/architecture/system-overview.md`: arkitekturöversikt, första utgåva.
+- `specs/architecture/ui-boundary.md`: beslutad målgräns mellan utbytbar UI-
+  adapter, applikationsanvändningsfall och domän.
 - `specs/evidence/source-inventory.md`: källunderlag, första utgåva.
 - `specs/plans/product-plan.md`: implementationsplan, blockerad av öppna frågor.
 - `specs/status/outstanding-questions.md`: prioriterade kvarstående
@@ -25,12 +27,16 @@
 - UI-ansvar och terminologi för explicita titel-/ägarrelationer jämfört med
   personlig provinstilldelning.
 - Senare avgränsning och arkitektur för en faktisk webbfrontend.
+- Första användningsfall och exakt Python-kontraktsform för UI-migreringen.
 
 ## Fastställda klientgränser
 
 - Python/Tk är huvudlösningen och den enda klienten i bruk.
 - Befintlig HTTP-listener och C++/SDL2-kod är bevarade experiment utanför
   huvudlösningen; se `../decisions/2026-08-12-client-boundaries.md`.
+- UI är en presentationsadapter, inte en verksamhetsdomän. Tk ska stegvis
+  flyttas bakom en teknikneutral och headless-testbar applikationsport; se
+  `../decisions/2026-08-12-ui-as-adapter.md`.
 
 ## MCP-stöd
 
