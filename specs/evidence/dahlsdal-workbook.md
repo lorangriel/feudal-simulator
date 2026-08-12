@@ -35,6 +35,73 @@ Materialet innehåller också arbetskopior och testblad. Dessa visar att flera
 alternativa beräkningar har provats och ska därför inte automatiskt betraktas
 som slutliga eller inbördes förenliga.
 
+## Historiska balansberäkningar
+
+Arbetsboken innehåller 8 031 formelceller. Antalet beskriver den bevarade
+filens tekniska omfattning, inte 8 031 unika eller giltiga regler: stora delar
+har kopierats mellan års-, prognos- och testblad. Formlerna är lokala inom
+respektive blad; inventeringen identifierade inga formler med direkta
+referenser till andra kalkylblad. Varje årsvariant fungerar därför i praktiken
+som en egen version av modellen snarare än som ett tunt lager ovanpå en
+gemensam beräkningskärna.
+
+### Vad som balanseras
+
+- **Resursekonomi:** inkomster, utgifter och lager i BAS, LYX och silver samt
+  timmer, kol, malm, järn, skinn, djurfoder och andra fysiska resurser.
+- **Arbete och kapacitet:** tillgängliga och förbrukade dagsverken för bönder,
+  trälar, daglönare, hantverkare och specialister, ofta jämförda med ett
+  beräknat behov eller kvarvarande utrymme.
+- **Mark och försörjning:** areal, markkvalitet, odling, träda, bete, skog,
+  jakt och fiske kopplas till produktion, djurfoder, befolkning och
+  omvandlingskostnader.
+- **Hushåll och befolkning:** levnadsstandard, utspisning, skatt, bostad,
+  tjänstefolk, befolkningsförändring och umbäranden används som kostnader,
+  gränser eller modifierare.
+- **Djur och specialnäringar:** hjordstorlek, vinterflock, bete, foder,
+  skötsel och avkastning kombineras för boskap och hästar; biodling och
+  fiskdammar har egna investerings-, underhålls-, kvalitets- och
+  utfallsmodeller.
+- **Handel, byggande och militär:** priser, handelsvolym, tullar, transporter,
+  material, byggtid, underhåll, soldatlöner och utrustning belastar samma
+  resurs- och arbetsbudgetar.
+
+### Beräkningsmönster
+
+Modellen består huvudsakligen av cellreferenser och vanlig aritmetik. Bland
+funktionsanropen finns framför allt summeringar, men också kvadratrötter,
+villkor och avrundning uppåt eller nedåt. De återkommande mönstren är:
+
+1. en basmängd, exempelvis personer, tunnland, djur eller produktionsenheter,
+2. en kvalitets-, väder-, kontroll- eller storleksfaktor,
+3. ett resurs- eller dagsverksbehov,
+4. ett utfall i produktion, kostnad, lagerförändring eller kvarvarande
+   kapacitet, och
+5. ibland ett värde som förs vidare manuellt till nästa årsblad.
+
+Arbetsboken provar dessutom trösklar, skalsteg och procentuella bonusar eller
+avdrag. Exempel i materialet omfattar kvalitetsnivåer, kontrollutfall,
+hjordstorlekar, handelsvägar, biodlingsstorlekar och olika nivåer av
+dagsverksuttag. Dessa tal är dokumenterade experimentvärden, inte verifierade
+balanskonstanter.
+
+### Tillförlitlighet och pågående omarbetning
+
+Beräkningarna blandar indata, antaganden, kommentarer, tillfälliga
+kontrolltal, formler och simulerade utfall. Kopiorna inför år 4 och de
+särskilda testbladen innehåller alternativa varianter, så den senast placerade
+eller mest detaljerade formeln kan inte antas vara slutgiltig. Inventeringen
+har inte kontrollerat enheter, dimensionsriktighet, cirkelreferenser,
+felvärden, dolda beroenden, sannolikhetsfördelningar eller om manuellt
+överförda värden är konsekventa mellan år.
+
+Balansområdet genomgår nu en omfattande omarbetning offline tillsammans med
+världsdata, entitetsdata och regler inför en total omstart. Arbetsbokens
+formler och resultat ska därför behandlas som historiska exempel på vad som
+har undersökts, inte som en baslinje att kalibrera, migrera eller bygga vidare
+på. Den offlinebaserade omarbetningen dokumenteras inte här innan den har
+förts in i repot genom en separat, uttrycklig process.
+
 ## Idéer och visioner i arbetsboken
 
 Statusmarkeringarna nedan beskriver endast om en igenkännbar motsvarighet
