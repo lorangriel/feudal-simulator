@@ -6,6 +6,18 @@ Simulatorn ska beskriva en feodal värld där hierarkiska förläningar och dera
 lokala resurser kan granskas och förändras över tid. Tk-gränssnittet är den
 primära klienten; ett enklare HTTP-gränssnitt visar samma typ av data.
 
+## Identifierade domäner
+
+Simulatorns verksamhetsområde är uppdelat i fem samverkande domäner:
+
+- [Världsstruktur](world-structure.md)
+- [Ägande och auktoritet](ownership-and-authority.md)
+- [Befolkning och ekonomi](population-and-economy.md)
+- [Tid, väder och händelser](time-weather-and-events.md)
+- [Personer och hushåll](people-and-households.md)
+
+Domänkartan och avgränsningen finns i [domänkatalogens README](README.md).
+
 ## Begrepp
 
 - **Nod**: en förläning eller lokal resurs med identitet, egenskaper och
@@ -78,7 +90,7 @@ Dessa punkter är kandidater, inte bekräftade implementationskrav.
 
 ## Kvalitetskontroll
 
-Senast kontrollerad: 2026-08-11
+Senast kontrollerad: 2026-08-12
 
 ### Motsägelser
 

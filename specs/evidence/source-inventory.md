@@ -23,6 +23,11 @@ strukturerade specifikationsuppsättningen.
 - `src/rollup_policy.py`, `src/world_relations.py` och deras tester (lästa
   2026-08-11): bekräftar lokala bidragspolicyer samt explicita, validerade
   titel–säte- och jarldöme–ägare-relationer.
+- `src/node.py`, `src/world_manager.py`, `src/constants.py`,
+  `src/population_utils.py`, `src/noble_staff.py`, `src/weather.py` och
+  `src/events.py` (lästa 2026-08-12): underlag för domänindelningen och
+  nulägesregler om struktur, grannar, befolkning, arbete, lager, hushåll,
+  väder och händelser.
 
 ## Tolkning och begränsningar
 
