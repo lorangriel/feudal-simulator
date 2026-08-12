@@ -29,6 +29,11 @@ strukturerade specifikationsuppsättningen.
 - `src2/Main.cpp` och `src2/Makefile` (granskade 2026-08-12): visar ett separat
   SDL2-experiment. Produktbeslutet placerar all C++-kod utanför den primära
   Python-lösningen och markerar den som inte i bruk.
+- `src/node.py`, `src/world_manager.py`, `src/constants.py`,
+  `src/population_utils.py`, `src/noble_staff.py`, `src/weather.py` och
+  `src/events.py` (lästa 2026-08-12): underlag för domänindelningen och
+  nulägesregler om struktur, grannar, befolkning, arbete, lager, hushåll,
+  väder och händelser.
 
 ## Tolkning och begränsningar
 

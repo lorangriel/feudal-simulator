@@ -6,7 +6,8 @@ men skiljer bekräftade nulägeskrav från framtida idéer.
 
 ## Dokument
 
-- `domains/simulation.md`: verksamhetsbeskrivning, begrepp och regler.
+- `domains/README.md`: karta över identifierade verksamhetsdomäner.
+- `domains/simulation.md`: gemensam verksamhetsbeskrivning, begrepp och regler.
 - `architecture/system-overview.md`: systemgränser och huvudkomponenter.
 - `plans/product-plan.md`: prioriterade specifikations- och införandeåtgärder.
 - `status/SPECSTATUS.md`: aktuell repostatus, öppna frågor och levande dokument.
