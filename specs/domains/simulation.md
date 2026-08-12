@@ -3,8 +3,8 @@
 ## Syfte
 
 Simulatorn ska beskriva en feodal värld där hierarkiska förläningar och deras
-lokala resurser kan granskas och förändras över tid. Tk-gränssnittet är den
-primära klienten; ett enklare HTTP-gränssnitt visar samma typ av data.
+lokala resurser kan granskas och förändras över tid. Tk-gränssnittet i Python
+är den primära och enda klienten i bruk.
 
 ## Begrepp
 
@@ -34,8 +34,9 @@ primära klienten; ett enklare HTTP-gränssnitt visar samma typ av data.
    Tk-klienten.
 5. Administrativ väg och personlig provinsväg har skilda ansvar; provinsvägen
    styr skatt enligt den befintliga Modell B-beskrivningen.
-6. Tk-klienten erbjuder struktur-, status- och detaljpaneler. HTTP-servern är
-   ett separat, enklare presentationsgränssnitt.
+6. Tk-klienten erbjuder struktur-, status- och detaljpaneler. Den befintliga
+   HTTP-listenern är ett äldre experiment som inte längre används. Även
+   C++/SDL2-koden är experimentell, inte i bruk och utanför huvudlösningen.
 7. Provinsläget visar ägarens ankare och bygger därefter hela trädet från
    `get_province_subtree(owner_id)` med rekursiv insert. En explicit ägare på
    en undernod bryter nedärvningen från en överordnad ägare; adminträdet har en
@@ -55,6 +56,9 @@ primära klienten; ett enklare HTTP-gränssnitt visar samma typ av data.
 - Händelser på flera geografiska och hierarkiska nivåer.
 - Förgrening eller regenerering av framtiden efter ändringar bakåt i tiden.
 - Kart-, tidslinje- och förändringsvisualisering.
+- En faktisk webbfrontend som efterliknar relevant funktionalitet i
+  applikationen. Omfattning, teknik och prioritet beslutas senare; den
+  befintliga HTTP-listenern är inte den beslutade webbfrontenden.
 
 Dessa punkter är kandidater, inte bekräftade implementationskrav.
 
@@ -75,10 +79,12 @@ Dessa punkter är kandidater, inte bekräftade implementationskrav.
 - [ ] Vilka händelser och relationer måste ingå i första kompletta simuleringen?
 - [ ] Ska de explicita titel- och ägarrelationerna förbli endast läsbara i UI,
   eller ska ett framtida icke-adminflöde få redigera dem?
+- [ ] Vilken funktionalitet, arkitektur och prioritet ska en framtida faktisk
+  webbfrontend få när webbspåret tas upp för beslut?
 
 ## Kvalitetskontroll
 
-Senast kontrollerad: 2026-08-11
+Senast kontrollerad: 2026-08-12
 
 ### Motsägelser
 
@@ -96,6 +102,8 @@ Senast kontrollerad: 2026-08-11
 ### Otydliga beskrivningar
 
 - Omfattningen av handel, politik, krig och allianser är inte specificerad.
+- "Efterlikna applikationens funktionalitet" saknar ännu beslutad
+  funktionsmängd och acceptanskriterier för en framtida webbfrontend.
 
 ### Glapp i resonemang
 

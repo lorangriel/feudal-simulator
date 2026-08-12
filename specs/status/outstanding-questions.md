@@ -16,6 +16,13 @@
 3. Hur ska termen "ägare" namnges i krav och UI så att personlig
    provinstilldelning inte sammanblandas med jarldömets personrelation?
 
+## P2 – avsiktligt senare beslut
+
+1. Vilken del av Tk-applikationens funktionalitet ska en framtida faktisk
+   webbfrontend efterlikna, och vilka arkitektur- och teknikval ska då gälla?
+   Den befintliga experimentella HTTP-listenern är inte i bruk och utgör
+   inget beslutat utgångsläge.
+
 ## Historik
 
 - Ändringar kommer att sparas i `outstanding-questions.Changelog.md`.

@@ -1,9 +1,15 @@
 # Beslut
 
-Här sparas framtida beslutsposter med datum, status, valt alternativ, kontext,
-alternativ, konsekvenser och länkat underlag. Inga produktbeslut har antagits i
-den första konverteringen; öppna val finns i `../domains/simulation.md`.
+Här sparas beslutsposter med datum, status, valt alternativ, kontext,
+alternativ, konsekvenser och länkat underlag. Öppna val finns i
+`../domains/simulation.md`.
+
+## Beslutsposter
+
+- `2026-08-12-client-boundaries.md`: Python/Tk är huvudlösningen; C++/SDL2 och
+  HTTP-listenern är experimentella och inte i bruk, medan en faktisk
+  webbfrontend avgränsas genom ett senare beslut.
 
 ## Historik
 
-- Ändringar kommer att sparas i `README.Changelog.md`.
+- Ändringshistorik finns i `README.Changelog.md`.
